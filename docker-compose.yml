@@ -1,0 +1,35 @@
+services:
+  api:
+    build:
+      context: .
+      target: api
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: production
+      API_PORT: 3001
+      WEB_ORIGIN: http://localhost:3000
+      DATABASE_PATH: /data/cogentrex.sqlite
+      JWT_SECRET: ${JWT_SECRET}
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY}
+      DEFAULT_PROVIDER_NAME: ${DEFAULT_PROVIDER_NAME:-Cogentrex Default}
+      DEFAULT_PROVIDER_BASE_URL: ${DEFAULT_PROVIDER_BASE_URL}
+      DEFAULT_PROVIDER_MODEL: ${DEFAULT_PROVIDER_MODEL}
+    volumes:
+      - cogentrex-data:/data
+
+  web:
+    build:
+      context: .
+      target: web
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:3001
+    depends_on:
+      - api
+
+volumes:
+  cogentrex-data:

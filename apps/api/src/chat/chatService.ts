@@ -1,0 +1,213 @@
+import type { StreamEvent } from '@cogentrex/shared';
+import { notFound } from '../http/errors.js';
+import { createId } from '../utils/id.js';
+import { nowIso } from '../utils/time.js';
+import type { ProviderService } from '../providers/providerService.js';
+import type { ProviderUsageRepository } from '../providers/providerUsageRepository.js';
+import type { MetricsRepository } from '../observability/metricsRepository.js';
+import type { ConversationRepository } from './conversationRepository.js';
+import type { LanguageModelClient } from './languageModel.js';
+import { toModelMessages } from './languageModel.js';
+import type { AppLogger } from '../observability/logger.js';
+import { hashForLog } from '../observability/logger.js';
+import type { ArtifactService } from '../artifacts/artifactService.js';
+
+export type StreamSink = (event: StreamEvent) => void;
+
+export class ChatService {
+  constructor(
+    private readonly conversations: ConversationRepository,
+    private readonly providers: ProviderService,
+    private readonly llm: LanguageModelClient,
+    private readonly usage: ProviderUsageRepository,
+    private readonly metrics: MetricsRepository,
+    private readonly logger: AppLogger,
+    private readonly artifacts?: ArtifactService,
+  ) {}
+
+  listConversations(userId: string, projectId?: string | null) {
+    return this.conversations.list(userId, projectId);
+  }
+
+  listMessages(userId: string, conversationId: string) {
+    const conversation = this.conversations.findForUser(userId, conversationId);
+    if (!conversation) throw notFound('Conversation not found');
+    return this.conversations.listMessages(conversationId);
+  }
+
+  renameConversation(userId: string, conversationId: string, title: string) {
+    const conversation = this.conversations.findForUser(userId, conversationId);
+    if (!conversation) throw notFound('Conversation not found');
+    this.conversations.updateTitle(userId, conversationId, title, nowIso());
+  }
+
+  setPinned(userId: string, conversationId: string, pinned: boolean) {
+    const conversation = this.conversations.findForUser(userId, conversationId);
+    if (!conversation) throw notFound('Conversation not found');
+    this.conversations.setPinned(userId, conversationId, pinned);
+  }
+
+  deleteConversation(userId: string, conversationId: string) {
+    const conversation = this.conversations.findForUser(userId, conversationId);
+    if (!conversation) throw notFound('Conversation not found');
+    this.conversations.delete(userId, conversationId);
+  }
+
+  deleteAllConversations(userId: string): void {
+    this.conversations.deleteAll(userId);
+  }
+
+  setConversationProject(userId: string, conversationId: string, projectId: string | null): void {
+    const conversation = this.conversations.findForUser(userId, conversationId);
+    if (!conversation) throw notFound('Conversation not found');
+    this.conversations.setProject(userId, conversationId, projectId);
+  }
+
+  async streamChat(input: {
+    userId: string;
+    content: string;
+    conversationId?: string;
+    providerId?: string;
+    emit: StreamSink;
+  }): Promise<{ conversationId: string; content: string }> {
+    const startedAt = performance.now();
+    const now = nowIso();
+    const conversation = input.conversationId
+      ? this.conversations.findForUser(input.userId, input.conversationId)
+      : this.conversations.create({
+          id: createId('cnv'),
+          userId: input.userId,
+          title: input.content.slice(0, 80),
+          mode: 'CHAT',
+          now,
+        });
+
+    if (!conversation) throw notFound('Conversation not found');
+    this.logger.info({
+      userId: input.userId,
+      conversationId: conversation.id,
+      providerId: input.providerId,
+      promptHash: hashForLog(input.content),
+      promptLength: input.content.length,
+    }, 'chat_stream_started');
+    const userMessage = this.conversations.addMessage({
+      id: createId('msg'),
+      conversationId: conversation.id,
+      role: 'user',
+      content: input.content,
+      now,
+    });
+    const assistantMessageId = createId('msg');
+    input.emit({ type: 'start', conversationId: conversation.id, messageId: assistantMessageId, mode: 'CHAT' });
+
+    const provider = this.providers.resolveForMode(input.userId, 'CHAT', input.providerId);
+    const history = this.conversations.listMessages(conversation.id);
+    this.logger.debug({ conversationId: conversation.id, providerId: provider.id, model: provider.model, historyMessages: history.length }, 'chat_model_stream_opening');
+    let content = '';
+    const streamStarted = performance.now();
+    let firstTokenAt: number | null = null;
+    try {
+      for await (const delta of this.llm.streamChat(provider, toModelMessages(history))) {
+        if (!firstTokenAt) firstTokenAt = performance.now();
+        content += delta;
+        input.emit({ type: 'delta', content: delta });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Provider stream failed';
+      this.logger.error({
+        conversationId: conversation.id,
+        providerId: provider.id,
+        model: provider.model,
+        baseUrl: provider.baseUrl,
+        errorMessage: message,
+      }, 'chat_stream_provider_error');
+      throw error;
+    }
+    const streamEnded = performance.now();
+    const ttftMs = firstTokenAt ? Math.round(firstTokenAt - streamStarted) : undefined;
+    const durationMs = Math.round(streamEnded - streamStarted);
+    const estimatedTokens = Math.round(content.length / 4);
+    const tps = durationMs > 0 ? Math.round((estimatedTokens / durationMs) * 1000 * 10) / 10 : undefined;
+
+    this.conversations.addMessage({
+      id: assistantMessageId,
+      conversationId: conversation.id,
+      role: 'assistant',
+      content,
+      now: nowIso(),
+    });
+
+    // Auto-generate a concise title after the first exchange in a new conversation
+    let generatedTitle: string | undefined;
+    if (!input.conversationId) {
+      try {
+        const titleMessages = [
+          {
+            role: 'system' as const,
+            content: 'Generate a very short, concise title (3-5 words) for this conversation based on the user\'s first message and the assistant\'s response. Return ONLY the title text, no quotes, no explanation, no markdown.',
+          },
+          {
+            role: 'user' as const,
+            content: `User: ${input.content}\n\nAssistant: ${content.slice(0, 500)}`,
+          },
+        ];
+        const rawTitle = await this.llm.complete(provider, titleMessages);
+        generatedTitle = rawTitle.trim().replace(/["']+/g, '').slice(0, 50);
+        if (generatedTitle.length > 3) {
+          this.conversations.updateTitle(input.userId, conversation.id, generatedTitle, nowIso());
+          this.logger.info({ userId: input.userId, conversationId: conversation.id, title: generatedTitle }, 'conversation_title_generated');
+        }
+      } catch (titleError) {
+        const message = titleError instanceof Error ? titleError.message : 'Title generation failed';
+        this.logger.warn({ userId: input.userId, conversationId: conversation.id, errorMessage: message }, 'title_generation_failed');
+        // Non-critical: keep the original sliced prompt as title
+      }
+    }
+
+    // Extract and persist artifacts before emitting done
+    if (this.artifacts) {
+      try {
+        const tagged = this.artifacts.extractTaggedArtifacts(content);
+        const heuristic = this.artifacts.extractHeuristicArtifacts(content);
+        const allArtifacts = [...tagged, ...heuristic];
+        for (const detected of allArtifacts) {
+          await this.artifacts.persistArtifact(input.userId, conversation.id, assistantMessageId, detected, input.emit);
+        }
+      } catch (artifactError) {
+        const message = artifactError instanceof Error ? artifactError.message : 'Artifact extraction failed';
+        this.logger.warn({ userId: input.userId, conversationId: conversation.id, errorMessage: message }, 'artifact_extraction_failed');
+      }
+    }
+
+    input.emit({ type: 'done', content, ...(generatedTitle ? { title: generatedTitle } : {}) });
+    const tokenCount = Math.round(content.length / 4);
+    this.usage.record(input.userId, provider.id, tokenCount);
+
+    this.metrics.record({
+      userId: input.userId,
+      conversationId: conversation.id,
+      messageId: assistantMessageId,
+      providerId: provider.id,
+      model: provider.model,
+      mode: 'CHAT',
+      step: 'chat_stream',
+      durationMs,
+      completionTokens: estimatedTokens,
+      totalTokens: estimatedTokens,
+      ttftMs,
+      tps,
+    });
+
+    this.logger.info({
+      userId: input.userId,
+      conversationId: conversation.id,
+      providerId: provider.id,
+      responseLength: content.length,
+      durationMs,
+      ttftMs,
+      tps,
+      durationMsTotal: Math.round(performance.now() - startedAt),
+    }, 'chat_stream_finished');
+    return { conversationId: conversation.id, content };
+  }
+}

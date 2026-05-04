@@ -1,0 +1,48 @@
+name: Deploy to DEV
+
+on:
+  push:
+    branches: [dev]
+
+env:
+  REGISTRY_LOGIN_SERVER: ${{ secrets.REGISTRY_LOGIN_SERVER }}
+  IMAGE_PREFIX: ${{ secrets.REGISTRY_LOGIN_SERVER }}/cogentrex
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: ACR Login
+        run: |
+          echo ${{ secrets.ACR_PASSWORD }} | docker login ${{ secrets.REGISTRY_LOGIN_SERVER }} -u ${{ secrets.ACR_USERNAME }} --password-stdin
+
+      - name: Build and push API
+        run: |
+          docker build --target api -t $IMAGE_PREFIX-api:dev .
+          docker push $IMAGE_PREFIX-api:dev
+
+      - name: Build and push Web
+        run: |
+          docker build --target web -t $IMAGE_PREFIX-web:dev .
+          docker push $IMAGE_PREFIX-web:dev
+
+      - name: Deploy API to Container Apps
+        run: |
+          az containerapp update \
+            --name ca-cogentrex-api-dev \
+            --resource-group rg-cogentrex-dev \
+            --image $IMAGE_PREFIX-api:dev
+
+      - name: Deploy Web to Container Apps
+        run: |
+          az containerapp update \
+            --name ca-cogentrex-web-dev \
+            --resource-group rg-cogentrex-dev \
+            --image $IMAGE_PREFIX-web:dev

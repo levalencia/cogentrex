@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: #0b0f19;
+  color: #e7eefc;
+}
+
+button, input, textarea, select {
+  font: inherit;
+}
+
+::selection {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+::-moz-selection {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+* {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Keep non-selectable elements unselectable */
+.select-none, .select-none * {
+  -webkit-user-select: none;
+  user-select: none;
+}
