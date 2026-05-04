@@ -15,41 +15,47 @@ export function chatRoutes(auth: AuthService, chat: ChatService, research: Resea
   const router = Router();
   router.use(requireAuth(auth));
 
-  router.get('/conversations', (req, res) => {
-    const user = currentUser(req);
-    const projectId = req.query.projectId as string | undefined;
-    const parsedProjectId = projectId === 'null' ? null : projectId;
-    res.json({ conversations: chat.listConversations(user.id, parsedProjectId) });
-  });
-
-  router.get('/conversations/:id/messages', (req, res, next) => {
+  router.get('/conversations', async (req, res, next) => {
     try {
       const user = currentUser(req);
-      res.json({ messages: chat.listMessages(user.id, req.params.id) });
+      const projectId = req.query.projectId as string | undefined;
+      const parsedProjectId = projectId === 'null' ? null : projectId;
+      const conversations = await chat.listConversations(user.id, parsedProjectId);
+      res.json({ conversations });
     } catch (error) {
       next(error);
     }
   });
 
-  router.get('/conversations/:id/metrics', (req, res, next) => {
+  router.get('/conversations/:id/messages', async (req, res, next) => {
     try {
       const user = currentUser(req);
-      const data = metrics.listForConversation(user.id, req.params.id);
+      const messages = await chat.listMessages(user.id, req.params.id);
+      res.json({ messages });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get('/conversations/:id/metrics', async (req, res, next) => {
+    try {
+      const user = currentUser(req);
+      const data = await metrics.listForConversation(user.id, req.params.id);
       res.json({ metrics: data });
     } catch (error) {
       next(error);
     }
   });
 
-  router.patch('/conversations/:id', (req, res, next) => {
+  router.patch('/conversations/:id', async (req, res, next) => {
     try {
       const user = currentUser(req);
       const { title, isPinned } = req.body as { title?: string; isPinned?: boolean };
       if (typeof title === 'string') {
-        chat.renameConversation(user.id, req.params.id, title);
+        await chat.renameConversation(user.id, req.params.id, title);
       }
       if (typeof isPinned === 'boolean') {
-        chat.setPinned(user.id, req.params.id, isPinned);
+        await chat.setPinned(user.id, req.params.id, isPinned);
       }
       res.status(204).end();
     } catch (error) {
@@ -57,31 +63,31 @@ export function chatRoutes(auth: AuthService, chat: ChatService, research: Resea
     }
   });
 
-  router.patch('/conversations/:id/project', (req, res, next) => {
+  router.patch('/conversations/:id/project', async (req, res, next) => {
     try {
       const user = currentUser(req);
       const { projectId } = req.body as { projectId?: string | null };
-      chat.setConversationProject(user.id, req.params.id, projectId ?? null);
+      await chat.setConversationProject(user.id, req.params.id, projectId ?? null);
       res.status(204).end();
     } catch (error) {
       next(error);
     }
   });
 
-  router.delete('/conversations/:id', (req, res, next) => {
+  router.delete('/conversations/:id', async (req, res, next) => {
     try {
       const user = currentUser(req);
-      chat.deleteConversation(user.id, req.params.id);
+      await chat.deleteConversation(user.id, req.params.id);
       res.status(204).end();
     } catch (error) {
       next(error);
     }
   });
 
-  router.delete('/conversations', (req, res, next) => {
+  router.delete('/conversations', async (req, res, next) => {
     try {
       const user = currentUser(req);
-      chat.deleteAllConversations(user.id);
+      await chat.deleteAllConversations(user.id);
       res.status(204).end();
     } catch (error) {
       next(error);
@@ -110,10 +116,10 @@ export function chatRoutes(auth: AuthService, chat: ChatService, research: Resea
     }
   });
 
-  router.get('/research/:jobId', (req, res, next) => {
+  router.get('/research/:jobId', async (req, res, next) => {
     try {
       const user = currentUser(req);
-      const job = research.getJob(user.id, req.params.jobId);
+      const job = await research.getJob(user.id, req.params.jobId);
       if (!job) return res.status(404).json({ error: { message: 'Job not found' } });
       res.json({ job });
     } catch (error) {
@@ -123,7 +129,7 @@ export function chatRoutes(auth: AuthService, chat: ChatService, research: Resea
 
   router.get('/research/:jobId/stream', async (req, res) => {
     const user = currentUser(req);
-    const job = research.getJob(user.id, req.params.jobId);
+    const job = await research.getJob(user.id, req.params.jobId);
     if (!job) {
       res.status(404).json({ error: { message: 'Job not found' } });
       return;
@@ -135,7 +141,7 @@ export function chatRoutes(auth: AuthService, chat: ChatService, research: Resea
         res.end();
       }
     };
-    const sub = research.subscribe(user.id, req.params.jobId, emit);
+    const sub = await research.subscribe(user.id, req.params.jobId, emit);
     req.on('close', () => sub.unsubscribe());
   });
 

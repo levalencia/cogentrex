@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import type { DbAdapter } from '../db/adapter.js';
 import { createId } from '../utils/id.js';
 import { nowIso } from '../utils/time.js';
 
@@ -62,9 +62,9 @@ function mapMetric(row: MetricRow): RequestMetric {
 }
 
 export class MetricsRepository {
-  constructor(private readonly db: Database.Database) {}
+  constructor(private readonly db: DbAdapter) {}
 
-  record(metric: Omit<RequestMetric, 'id' | 'createdAt'>): RequestMetric {
+  async record(metric: Omit<RequestMetric, 'id' | 'createdAt'>): Promise<RequestMetric>{
     const id = createId('mtr');
     const createdAt = nowIso();
     const record: RequestMetric = {
@@ -116,15 +116,15 @@ export class MetricsRepository {
     return record;
   }
 
-  listForConversation(userId: string, conversationId: string): RequestMetric[] {
-    const rows = this.db.prepare(
+  async listForConversation(userId: string, conversationId: string): Promise<RequestMetric[]>{
+    const rows = await this.db.prepare(
       `SELECT * FROM request_metrics WHERE user_id = ? AND conversation_id = ? ORDER BY created_at ASC`,
     ).all(userId, conversationId) as MetricRow[];
     return rows.map(mapMetric);
   }
 
-  listForUser(userId: string, limit = 100): RequestMetric[] {
-    const rows = this.db.prepare(
+  async listForUser(userId: string, limit = 100): Promise<RequestMetric[]>{
+    const rows = await this.db.prepare(
       `SELECT * FROM request_metrics WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`,
     ).all(userId, limit) as MetricRow[];
     return rows.map(mapMetric);

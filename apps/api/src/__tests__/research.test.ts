@@ -14,7 +14,7 @@ function parseSse(text: string) {
 
 describe('deep research API', () => {
   it('streams reasoning, sources, answer deltas, and final citations', async () => {
-    const { agent, database } = makeTestApp();
+    const { agent, database } = await makeTestApp();
     await registerAndLogin(agent);
     await createProvider(agent);
 
@@ -62,7 +62,7 @@ describe('deep research API', () => {
         description: 'LinkedIn profile',
       }],
     ]);
-    const { agent, database } = makeTestApp({}, {
+    const { agent, database } = await makeTestApp({}, {
       search: new FakeWebSearchClient([], scraped),
     });
     await registerAndLogin(agent);

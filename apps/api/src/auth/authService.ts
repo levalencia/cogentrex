@@ -22,14 +22,14 @@ export class AuthService {
   ) {}
 
   async register(input: RegisterInput): Promise<{ user: PublicUser; token: string }> {
-    const existing = this.users.findByEmail(input.email);
+    const existing = await this.users.findByEmail(input.email);
     if (existing) {
       this.logger.warn({ emailHash: hashForLog(input.email) }, 'auth_register_duplicate');
       throw conflict('Email is already registered');
     }
 
     const passwordHash = await bcrypt.hash(input.password, 12);
-    const user = this.users.create({
+    const user = await this.users.create({
       id: createId('usr'),
       email: input.email,
       passwordHash,
@@ -42,7 +42,7 @@ export class AuthService {
   }
 
   async login(input: LoginInput): Promise<{ user: PublicUser; token: string }> {
-    const user = this.users.findByEmail(input.email);
+    const user = await this.users.findByEmail(input.email);
     if (!user) {
       this.logger.warn({ emailHash: hashForLog(input.email) }, 'auth_login_unknown_email');
       throw unauthorized('Invalid email or password');
@@ -63,8 +63,8 @@ export class AuthService {
     return payload;
   }
 
-  findPublicUser(id: string): PublicUser | null {
-    const user = this.users.findById(id);
+  async findPublicUser(id: string): Promise<PublicUser | null> {
+    const user = await this.users.findById(id);
     return user ? toPublicUser(user) : null;
   }
 

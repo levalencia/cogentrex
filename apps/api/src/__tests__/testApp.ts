@@ -6,13 +6,14 @@ import { FakeWebSearchClient } from '../tools/searchClient.js';
 import type { AppEnv } from '../config/env.js';
 import { silentLogger } from '../observability/logger.js';
 
-export function makeTestApp(overrides: Partial<AppEnv> = {}, deps: { search?: import('../tools/searchClient.js').WebSearchClient } = {}) {
+export async function makeTestApp(overrides: Partial<AppEnv> = {}, deps: { search?: import('../tools/searchClient.js').WebSearchClient } = {}) {
   const database = new AppDatabase(':memory:');
+  await database.init();
   const env: AppEnv = {
     NODE_ENV: 'test',
     API_PORT: 0,
     WEB_ORIGIN: 'http://localhost:3000',
-    DATABASE_PATH: ':memory:',
+    DATABASE_URL: ':memory:',
     JWT_SECRET: 'test-jwt-secret-with-enough-length',
     APP_ENCRYPTION_KEY: 'test-encryption-secret-with-enough-length',
     FIRECRAWL_API_KEY: undefined,
@@ -22,7 +23,7 @@ export function makeTestApp(overrides: Partial<AppEnv> = {}, deps: { search?: im
     LOG_LEVEL: 'silent',
     ...overrides,
   };
-  const created = createApp(env, {
+  const created = await createApp(env, {
     database,
     llm: new FakeLanguageModelClient('Research answer with citation [1].'),
     logger: silentLogger,

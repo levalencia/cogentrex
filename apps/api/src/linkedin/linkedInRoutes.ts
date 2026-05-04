@@ -112,7 +112,7 @@ export function linkedInRoutes(auth: AuthService, linkedIn: LinkedInPostService,
       const vis = visibility ?? 'PUBLIC';
       let postId: string;
       if (imageArtifactId && typeof imageArtifactId === 'string') {
-        const artifact = media.findById(user.id, imageArtifactId);
+        const artifact = await media.findById(user.id, imageArtifactId);
         if (!artifact?.localPath) {
           res.status(400).json({ error: { code: 'IMAGE_NOT_FOUND', message: 'Image artifact not found' } });
           return;
@@ -122,7 +122,7 @@ export function linkedInRoutes(auth: AuthService, linkedIn: LinkedInPostService,
         postId = await linkedIn.postText(user.id, content, vis);
       }
       // Log the immediate post for dashboard tracking
-      scheduledPosts.logPosted(user.id, 'linkedin', content, imageArtifactId ?? null);
+      await scheduledPosts.logPosted(user.id, 'linkedin', content, imageArtifactId ?? null);
       res.json({ postId, posted: true });
     } catch (error) {
       next(error);

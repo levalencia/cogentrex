@@ -13,35 +13,46 @@ export function providerRoutes(auth: AuthService, providers: ProviderService): R
     res.json({ catalog: providerCatalog });
   });
 
-  router.get('/', (req, res) => {
-    const user = currentUser(req);
-    res.json({ providers: providers.list(user.id) });
+  router.get('/', async (req, res, next) => {
+    try {
+      const user = currentUser(req);
+      const list = await providers.list(user.id);
+      res.json({ providers: list });
+    } catch (error) {
+      next(error);
+    }
   });
 
-  router.post('/', (req, res, next) => {
+  router.post('/', async (req, res, next) => {
     try {
       const user = currentUser(req);
       const input = createProviderSchema.parse(req.body);
-      res.status(201).json({ provider: providers.create(user.id, input) });
+      const provider = await providers.create(user.id, input);
+      res.status(201).json({ provider });
     } catch (error) {
       next(error);
     }
   });
 
-  router.patch('/:id', (req, res, next) => {
+  router.patch('/:id', async (req, res, next) => {
     try {
       const user = currentUser(req);
       const input = updateProviderSchema.parse(req.body);
-      res.json({ provider: providers.update(user.id, req.params.id, input) });
+      const provider = await providers.update(user.id, req.params.id, input);
+      res.json({ provider });
     } catch (error) {
       next(error);
     }
   });
 
-  router.delete('/:id', (req, res) => {
-    const user = currentUser(req);
-    providers.delete(user.id, req.params.id);
-    res.status(204).end();
+  router.delete('/:id', async (req, res, next) => {
+    try {
+      const user = currentUser(req);
+      await providers.delete(user.id, req.params.id);
+      res.status(204).end();
+    } catch (error) {
+      next(error);
+    }
   });
 
   router.post('/:id/test', async (req, res, next) => {

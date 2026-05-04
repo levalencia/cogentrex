@@ -56,37 +56,38 @@ export interface AppDependencies {
   logger?: AppLogger;
 }
 
-export function createApp(env: AppEnv, deps: AppDependencies = {}) {
+export async function createApp(env: AppEnv, deps: AppDependencies = {}) {
   const app = express();
-  const database = deps.database ?? new AppDatabase(env.DATABASE_PATH);
+  const database = deps.database ?? new AppDatabase(env.DATABASE_URL);
+  await database.init();
   const logger = deps.logger ?? createLogger(env.LOG_LEVEL);
-  const authRepository = new AuthRepository(database.connection);
+  const authRepository = new AuthRepository(database.adapter);
   const authService = new AuthService(authRepository, env.JWT_SECRET, logger.child({ component: 'AuthService' }));
   const encryption = new EncryptionService(env.APP_ENCRYPTION_KEY);
-  const providerRepository = new ProviderRepository(database.connection);
+  const providerRepository = new ProviderRepository(database.adapter);
   const providerService = new ProviderService(providerRepository, encryption, logger.child({ component: 'ProviderService' }));
-  const conversationRepository = new ConversationRepository(database.connection);
+  const conversationRepository = new ConversationRepository(database.adapter);
   const llm = deps.llm ?? new OpenAICompatibleClient();
   const search = deps.search ?? (env.FIRECRAWL_API_KEY ? new FirecrawlSearchClient(env.FIRECRAWL_API_KEY) : new FakeWebSearchClient());
-  const metricsRepository = new MetricsRepository(database.connection);
+  const metricsRepository = new MetricsRepository(database.adapter);
 
-  const artifactRepository = new ArtifactRepository(database.connection);
+  const artifactRepository = new ArtifactRepository(database.adapter);
   const artifactService = new ArtifactService(artifactRepository, logger.child({ component: 'ArtifactService' }));
 
-  const chatService = new ChatService(conversationRepository, providerService, llm, new ProviderUsageRepository(database.connection), metricsRepository, logger.child({ component: 'ChatService' }), artifactService);
-  const researchJobRepository = new ResearchJobRepository(database.connection);
+  const chatService = new ChatService(conversationRepository, providerService, llm, new ProviderUsageRepository(database.adapter), metricsRepository, logger.child({ component: 'ChatService' }), artifactService);
+  const researchJobRepository = new ResearchJobRepository(database.adapter);
   const channelRegistry = new ChannelRegistry();
   channelRegistry.register(new WebChannelClient(search));
   channelRegistry.register(new RedditChannelClient());
   channelRegistry.register(new RssChannelClient());
   channelRegistry.register(new YouTubeChannelClient());
-  const researchService = new ResearchService(conversationRepository, providerService, llm, search, channelRegistry, researchJobRepository, new ProviderUsageRepository(database.connection), metricsRepository, logger.child({ component: 'ResearchService' }));
+  const researchService = new ResearchService(conversationRepository, providerService, llm, search, channelRegistry, researchJobRepository, new ProviderUsageRepository(database.adapter), metricsRepository, logger.child({ component: 'ResearchService' }));
 
-  const mediaRepository = new MediaRepository(database.connection);
+  const mediaRepository = new MediaRepository(database.adapter);
   const apiBaseUrl = `http://localhost:${env.API_PORT}`;
   const mediaService = new MediaService(conversationRepository, providerService, mediaRepository, llm, logger.child({ component: 'MediaService' }), apiBaseUrl);
 
-  const socialConfigRepository = new SocialConfigRepository(database.connection);
+  const socialConfigRepository = new SocialConfigRepository(database.adapter);
   const mediaDir = env.MEDIA_DIR ?? resolve(process.cwd(), 'data', 'media');
   const socialWritingService = new SocialWritingService(
     conversationRepository,
@@ -95,15 +96,15 @@ export function createApp(env: AppEnv, deps: AppDependencies = {}) {
     channelRegistry,
     search,
     socialConfigRepository,
-    new ProviderUsageRepository(database.connection),
+    new ProviderUsageRepository(database.adapter),
     metricsRepository,
     logger.child({ component: 'SocialWritingService' }),
     mediaDir,
   );
 
-  const projectRepository = new ProjectRepository(database.connection);
+  const projectRepository = new ProjectRepository(database.adapter);
 
-  const linkedInTokenRepository = new LinkedInTokenRepository(database.connection);
+  const linkedInTokenRepository = new LinkedInTokenRepository(database.adapter);
   const linkedInPostService = env.LINKEDIN_CLIENT_ID && env.LINKEDIN_CLIENT_SECRET
     ? new LinkedInPostService(
         linkedInTokenRepository,
@@ -117,7 +118,7 @@ export function createApp(env: AppEnv, deps: AppDependencies = {}) {
       )
     : null;
 
-  const scheduledPostRepository = new ScheduledPostRepository(database.connection);
+  const scheduledPostRepository = new ScheduledPostRepository(database.adapter);
   const scheduledPostService = new ScheduledPostService(
     scheduledPostRepository,
     linkedInPostService!,
@@ -156,6 +157,6 @@ export function createApp(env: AppEnv, deps: AppDependencies = {}) {
   app.use('/api/scheduled-posts', scheduledPostRoutes(authService, scheduledPostService));
   app.use(errorMiddleware(logger));
 
-  logger.info({ databasePath: env.DATABASE_PATH, firecrawlConfigured: Boolean(env.FIRECRAWL_API_KEY) }, 'app_initialized');
+  logger.info({ databaseUrl: env.DATABASE_URL, firecrawlConfigured: Boolean(env.FIRECRAWL_API_KEY) }, 'app_initialized');
   return { app, database, services: { authService, providerService, chatService, researchService } };
 }

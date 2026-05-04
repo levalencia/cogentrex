@@ -25,42 +25,42 @@ export class ChatService {
     private readonly artifacts?: ArtifactService,
   ) {}
 
-  listConversations(userId: string, projectId?: string | null) {
-    return this.conversations.list(userId, projectId);
+  async listConversations(userId: string, projectId?: string | null) {
+    return await this.conversations.list(userId, projectId);
   }
 
-  listMessages(userId: string, conversationId: string) {
-    const conversation = this.conversations.findForUser(userId, conversationId);
+  async listMessages(userId: string, conversationId: string) {
+    const conversation = await this.conversations.findForUser(userId, conversationId);
     if (!conversation) throw notFound('Conversation not found');
-    return this.conversations.listMessages(conversationId);
+    return await this.conversations.listMessages(conversationId);
   }
 
-  renameConversation(userId: string, conversationId: string, title: string) {
-    const conversation = this.conversations.findForUser(userId, conversationId);
+  async renameConversation(userId: string, conversationId: string, title: string) {
+    const conversation = await this.conversations.findForUser(userId, conversationId);
     if (!conversation) throw notFound('Conversation not found');
-    this.conversations.updateTitle(userId, conversationId, title, nowIso());
+    await this.conversations.updateTitle(userId, conversationId, title, nowIso());
   }
 
-  setPinned(userId: string, conversationId: string, pinned: boolean) {
-    const conversation = this.conversations.findForUser(userId, conversationId);
+  async setPinned(userId: string, conversationId: string, pinned: boolean) {
+    const conversation = await this.conversations.findForUser(userId, conversationId);
     if (!conversation) throw notFound('Conversation not found');
-    this.conversations.setPinned(userId, conversationId, pinned);
+    await this.conversations.setPinned(userId, conversationId, pinned);
   }
 
-  deleteConversation(userId: string, conversationId: string) {
-    const conversation = this.conversations.findForUser(userId, conversationId);
+  async deleteConversation(userId: string, conversationId: string) {
+    const conversation = await this.conversations.findForUser(userId, conversationId);
     if (!conversation) throw notFound('Conversation not found');
-    this.conversations.delete(userId, conversationId);
+    await this.conversations.delete(userId, conversationId);
   }
 
-  deleteAllConversations(userId: string): void {
-    this.conversations.deleteAll(userId);
+  async deleteAllConversations(userId: string): Promise<void> {
+    await this.conversations.deleteAll(userId);
   }
 
-  setConversationProject(userId: string, conversationId: string, projectId: string | null): void {
-    const conversation = this.conversations.findForUser(userId, conversationId);
+  async setConversationProject(userId: string, conversationId: string, projectId: string | null): Promise<void> {
+    const conversation = await this.conversations.findForUser(userId, conversationId);
     if (!conversation) throw notFound('Conversation not found');
-    this.conversations.setProject(userId, conversationId, projectId);
+    await this.conversations.setProject(userId, conversationId, projectId);
   }
 
   async streamChat(input: {
@@ -73,8 +73,8 @@ export class ChatService {
     const startedAt = performance.now();
     const now = nowIso();
     const conversation = input.conversationId
-      ? this.conversations.findForUser(input.userId, input.conversationId)
-      : this.conversations.create({
+      ? await this.conversations.findForUser(input.userId, input.conversationId)
+      : await this.conversations.create({
           id: createId('cnv'),
           userId: input.userId,
           title: input.content.slice(0, 80),
@@ -90,7 +90,7 @@ export class ChatService {
       promptHash: hashForLog(input.content),
       promptLength: input.content.length,
     }, 'chat_stream_started');
-    const userMessage = this.conversations.addMessage({
+    const userMessage = await this.conversations.addMessage({
       id: createId('msg'),
       conversationId: conversation.id,
       role: 'user',
@@ -100,8 +100,8 @@ export class ChatService {
     const assistantMessageId = createId('msg');
     input.emit({ type: 'start', conversationId: conversation.id, messageId: assistantMessageId, mode: 'CHAT' });
 
-    const provider = this.providers.resolveForMode(input.userId, 'CHAT', input.providerId);
-    const history = this.conversations.listMessages(conversation.id);
+    const provider = await this.providers.resolveForMode(input.userId, 'CHAT', input.providerId);
+    const history = await this.conversations.listMessages(conversation.id);
     this.logger.debug({ conversationId: conversation.id, providerId: provider.id, model: provider.model, historyMessages: history.length }, 'chat_model_stream_opening');
     let content = '';
     const streamStarted = performance.now();
@@ -129,7 +129,7 @@ export class ChatService {
     const estimatedTokens = Math.round(content.length / 4);
     const tps = durationMs > 0 ? Math.round((estimatedTokens / durationMs) * 1000 * 10) / 10 : undefined;
 
-    this.conversations.addMessage({
+    await this.conversations.addMessage({
       id: assistantMessageId,
       conversationId: conversation.id,
       role: 'assistant',
@@ -154,7 +154,7 @@ export class ChatService {
         const rawTitle = await this.llm.complete(provider, titleMessages);
         generatedTitle = rawTitle.trim().replace(/["']+/g, '').slice(0, 50);
         if (generatedTitle.length > 3) {
-          this.conversations.updateTitle(input.userId, conversation.id, generatedTitle, nowIso());
+          await this.conversations.updateTitle(input.userId, conversation.id, generatedTitle, nowIso());
           this.logger.info({ userId: input.userId, conversationId: conversation.id, title: generatedTitle }, 'conversation_title_generated');
         }
       } catch (titleError) {
@@ -167,11 +167,11 @@ export class ChatService {
     // Extract and persist artifacts before emitting done
     if (this.artifacts) {
       try {
-        const tagged = this.artifacts.extractTaggedArtifacts(content);
-        const heuristic = this.artifacts.extractHeuristicArtifacts(content);
+        const tagged = await this.artifacts.extractTaggedArtifacts(content);
+        const heuristic = await this.artifacts.extractHeuristicArtifacts(content);
         const allArtifacts = [...tagged, ...heuristic];
         for (const detected of allArtifacts) {
-          await this.artifacts.persistArtifact(input.userId, conversation.id, assistantMessageId, detected, input.emit);
+          await await this.artifacts.persistArtifact(input.userId, conversation.id, assistantMessageId, detected, input.emit);
         }
       } catch (artifactError) {
         const message = artifactError instanceof Error ? artifactError.message : 'Artifact extraction failed';
@@ -181,9 +181,9 @@ export class ChatService {
 
     input.emit({ type: 'done', content, ...(generatedTitle ? { title: generatedTitle } : {}) });
     const tokenCount = Math.round(content.length / 4);
-    this.usage.record(input.userId, provider.id, tokenCount);
+    await this.usage.record(input.userId, provider.id, tokenCount);
 
-    this.metrics.record({
+    await this.metrics.record({
       userId: input.userId,
       conversationId: conversation.id,
       messageId: assistantMessageId,

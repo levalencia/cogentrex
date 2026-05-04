@@ -9,17 +9,17 @@ export function projectRoutes(auth: AuthService, projects: ProjectRepository): R
   const router = Router();
   router.use(requireAuth(auth));
 
-  router.get('/', (req, res, next) => {
+  router.get('/', async (req, res, next) => {
     try {
       const user = currentUser(req);
-      const list = projects.listForUser(user.id);
+      const list = await projects.listForUser(user.id);
       res.json({ projects: list });
     } catch (error) {
       next(error);
     }
   });
 
-  router.post('/', (req, res, next) => {
+  router.post('/', async (req, res, next) => {
     try {
       const user = currentUser(req);
       const { name } = req.body as { name?: string };
@@ -28,7 +28,7 @@ export function projectRoutes(auth: AuthService, projects: ProjectRepository): R
         return;
       }
       const now = nowIso();
-      const project = projects.create({
+      const project = await projects.create({
         id: createId('prj'),
         userId: user.id,
         name: name.trim(),
@@ -41,7 +41,7 @@ export function projectRoutes(auth: AuthService, projects: ProjectRepository): R
     }
   });
 
-  router.patch('/:id', (req, res, next) => {
+  router.patch('/:id', async (req, res, next) => {
     try {
       const user = currentUser(req);
       const { name } = req.body as { name?: string };
@@ -49,17 +49,17 @@ export function projectRoutes(auth: AuthService, projects: ProjectRepository): R
         res.status(400).json({ error: { code: 'INVALID_NAME', message: 'Name is required' } });
         return;
       }
-      projects.update(user.id, req.params.id, name.trim(), nowIso());
+      await projects.update(user.id, req.params.id, name.trim(), nowIso());
       res.status(204).end();
     } catch (error) {
       next(error);
     }
   });
 
-  router.delete('/:id', (req, res, next) => {
+  router.delete('/:id', async (req, res, next) => {
     try {
       const user = currentUser(req);
-      projects.delete(user.id, req.params.id);
+      await projects.delete(user.id, req.params.id);
       res.status(204).end();
     } catch (error) {
       next(error);

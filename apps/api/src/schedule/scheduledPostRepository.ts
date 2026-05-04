@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import type { DbAdapter } from '../db/adapter.js';
 
 export interface ScheduledPostRecord {
   id: string;
@@ -42,24 +42,24 @@ function mapRow(row: ScheduledPostRow): ScheduledPostRecord {
 }
 
 export class ScheduledPostRepository {
-  constructor(private readonly db: Database.Database) {}
+  constructor(private readonly db: DbAdapter) {}
 
-  listForUser(userId: string): ScheduledPostRecord[] {
-    const rows = this.db.prepare(
+  async listForUser(userId: string): Promise<ScheduledPostRecord[]>{
+    const rows = await this.db.prepare(
       'SELECT * FROM scheduled_posts WHERE user_id = ? ORDER BY post_at DESC',
     ).all(userId) as ScheduledPostRow[];
     return rows.map(mapRow);
   }
 
-  listPending(limit = 50): ScheduledPostRecord[] {
+  async listPending(limit = 50): Promise<ScheduledPostRecord[]>{
     const now = new Date().toISOString();
-    const rows = this.db.prepare(
+    const rows = await this.db.prepare(
       'SELECT * FROM scheduled_posts WHERE status = ? AND post_at <= ? ORDER BY post_at ASC LIMIT ?',
     ).all('pending', now, limit) as ScheduledPostRow[];
     return rows.map(mapRow);
   }
 
-  create(post: ScheduledPostRecord): void {
+  async create(post: ScheduledPostRecord): Promise<void>{
     this.db.prepare(
       'INSERT INTO scheduled_posts (id, user_id, platform, content, image_artifact_id, post_at, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     ).run(
@@ -68,30 +68,30 @@ export class ScheduledPostRepository {
     );
   }
 
-  markPosted(id: string, postedAt: string): void {
-    this.db.prepare(
+  async markPosted(id: string, postedAt: string): Promise<void>{
+    await this.db.prepare(
       'UPDATE scheduled_posts SET status = ?, posted_at = ? WHERE id = ?',
     ).run('posted', postedAt, id);
   }
 
-  markFailed(id: string, errorMessage: string): void {
-    this.db.prepare(
+  async markFailed(id: string, errorMessage: string): Promise<void>{
+    await this.db.prepare(
       'UPDATE scheduled_posts SET status = ?, error_message = ? WHERE id = ?',
     ).run('failed', errorMessage, id);
   }
 
-  findById(userId: string, id: string): ScheduledPostRecord | null {
-    const row = this.db.prepare('SELECT * FROM scheduled_posts WHERE user_id = ? AND id = ?').get(userId, id) as ScheduledPostRow | undefined;
+  async findById(userId: string, id: string): Promise<ScheduledPostRecord | null>{
+    const row = await this.db.prepare('SELECT * FROM scheduled_posts WHERE user_id = ? AND id = ?').get(userId, id) as ScheduledPostRow | undefined;
     return row ? mapRow(row) : null;
   }
 
-  update(post: { id: string; userId: string; content: string; imageArtifactId: string | null; postAt: string }): void {
-    this.db.prepare(
+  async update(post: { id: string; userId: string; content: string; imageArtifactId: string | null; postAt: string }): Promise<void>{
+    await this.db.prepare(
       'UPDATE scheduled_posts SET content = ?, image_artifact_id = ?, post_at = ? WHERE id = ? AND user_id = ?',
     ).run(post.content, post.imageArtifactId, post.postAt, post.id, post.userId);
   }
 
-  deleteForUser(userId: string, id: string): void {
-    this.db.prepare('DELETE FROM scheduled_posts WHERE user_id = ? AND id = ?').run(userId, id);
+  async deleteForUser(userId: string, id: string): Promise<void>{
+    await this.db.prepare('DELETE FROM scheduled_posts WHERE user_id = ? AND id = ?').run(userId, id);
   }
 }

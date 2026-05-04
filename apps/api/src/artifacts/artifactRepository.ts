@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import type { DbAdapter } from '../db/adapter.js';
 import { createId } from '../utils/id.js';
 import { nowIso } from '../utils/time.js';
 import type { ArtifactItem } from '@cogentrex/shared';
@@ -43,14 +43,13 @@ function mapArtifact(row: {
 }
 
 export class ArtifactRepository {
-  constructor(private readonly db: Database.Database) {}
+  constructor(private readonly db: DbAdapter) {}
 
-  create(record: Omit<ArtifactRecord, 'id' | 'createdAt'>
-): ArtifactRecord {
+  async create(record: Omit<ArtifactRecord, 'id' | 'createdAt'>): Promise<ArtifactRecord> {
     const id = createId('art');
     const createdAt = nowIso();
     const artifact: ArtifactRecord = { ...record, id, createdAt };
-    this.db.prepare(
+    await this.db.prepare(
       `INSERT INTO artifacts (id, user_id, conversation_id, message_id, type, filename, language, content, size_bytes, created_at)
        VALUES (@id, @userId, @conversationId, @messageId, @type, @filename, @language, @content, @sizeBytes, @createdAt)`,
     ).run({
@@ -68,29 +67,29 @@ export class ArtifactRepository {
     return artifact;
   }
 
-  findById(userId: string, id: string): ArtifactRecord | undefined {
-    const row = this.db.prepare(
+  async findById(userId: string, id: string): Promise<ArtifactRecord | undefined> {
+    const row = await this.db.prepare(
       'SELECT * FROM artifacts WHERE id = ? AND user_id = ?',
     ).get(id, userId) as ReturnType<typeof mapArtifact>['id'] extends string ? any : never;
     return row ? mapArtifact(row) : undefined;
   }
 
-  listForConversation(userId: string, conversationId: string): ArtifactRecord[] {
-    const rows = this.db.prepare(
+  async listForConversation(userId: string, conversationId: string): Promise<ArtifactRecord[]> {
+    const rows = await this.db.prepare(
       'SELECT * FROM artifacts WHERE user_id = ? AND conversation_id = ? ORDER BY created_at ASC',
     ).all(userId, conversationId) as any[];
     return rows.map(mapArtifact);
   }
 
-  listForMessage(userId: string, messageId: string): ArtifactRecord[] {
-    const rows = this.db.prepare(
+  async listForMessage(userId: string, messageId: string): Promise<ArtifactRecord[]> {
+    const rows = await this.db.prepare(
       'SELECT * FROM artifacts WHERE user_id = ? AND message_id = ? ORDER BY created_at ASC',
     ).all(userId, messageId) as any[];
     return rows.map(mapArtifact);
   }
 
-  deleteForConversation(userId: string, conversationId: string): void {
-    this.db.prepare(
+  async deleteForConversation(userId: string, conversationId: string): Promise<void> {
+    await this.db.prepare(
       'DELETE FROM artifacts WHERE user_id = ? AND conversation_id = ?',
     ).run(userId, conversationId);
   }

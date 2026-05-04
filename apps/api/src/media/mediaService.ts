@@ -48,12 +48,12 @@ export class MediaService {
     const inputImages = options?.inputImages;
 
     // Resolve provider
-    let provider: ReturnType<ProviderService['resolve']>;
+    let provider: Awaited<ReturnType<ProviderService['resolve']>>;
     if (providerId) {
-      provider = this.providers.resolve(userId, providerId);
+      provider = await this.providers.resolve(userId, providerId);
     } else {
       const mode = type === 'image' ? 'IMAGE_GENERATION' : 'VIDEO_GENERATION';
-      const all = this.providers.list(userId);
+      const all = await this.providers.list(userId);
 
       // 1. Prefer per-mode default
       let candidate = all.find((p) => p.defaultForMode === mode);
@@ -74,22 +74,22 @@ export class MediaService {
       }
 
       if (!candidate) throw notFound('No suitable media provider found');
-      provider = this.providers.resolve(userId, candidate.id);
+      provider = await this.providers.resolve(userId, candidate.id);
     }
 
     this.logger.info({ userId, type, providerId: provider.id, model: provider.model, promptLength: prompt.length, options, hasInputImages: inputImages && inputImages.length > 0 }, 'media_generation_started');
 
     // Resolve or create conversation
-    let conversation: ReturnType<ConversationRepository['create']>;
+    let conversation: Awaited<ReturnType<ConversationRepository['create']>>;
     if (conversationId) {
-      const existing = this.conversations.findForUser(userId, conversationId);
+      const existing = await this.conversations.findForUser(userId, conversationId);
       if (!existing) {
         this.logger.warn({ userId, conversationId }, 'media_generation_conversation_not_found');
         throw notFound('Conversation not found');
       }
       conversation = existing;
     } else {
-      conversation = this.conversations.create({
+      conversation = await this.conversations.create({
         id: createId('cnv'),
         userId,
         title: prompt.slice(0, 80),
@@ -109,10 +109,10 @@ export class MediaService {
     if (options) {
       userMsgPayload.metadata = { imageOptions: options };
     }
-    this.conversations.addMessage(userMsgPayload);
+    await this.conversations.addMessage(userMsgPayload);
 
     // Create pending artifact
-    const artifact = this.media.create({
+    const artifact = await this.media.create({
       userId,
       conversationId: conversation.id,
       prompt,
@@ -131,14 +131,14 @@ export class MediaService {
         ? imageUrl.split('/api/media/files/').pop()!
         : undefined;
 
-      this.media.updateStatus(artifact.id, 'completed', { blobUrl: imageUrl, ...(localPath ? { localPath } : {}) });
-      const completedArtifact = this.media.findById(userId, artifact.id)!;
+      await this.media.updateStatus(artifact.id, 'completed', { blobUrl: imageUrl, ...(localPath ? { localPath } : {}) });
+      const completedArtifact = (await this.media.findById(userId, artifact.id))!;
 
       // Add assistant message with image URL
       const artifactContent = type === 'image'
         ? `![Generated Image](${imageUrl})`
         : `[Generated Video](${imageUrl})`;
-      this.conversations.addMessage({
+      await this.conversations.addMessage({
         id: createId('msg'),
         conversationId: conversation.id,
         role: 'assistant',
@@ -147,15 +147,15 @@ export class MediaService {
       });
 
       this.logger.info({ userId, artifactId: artifact.id, providerId: provider.id, durationMs: Math.round(performance.now() - startedAt) }, 'media_generation_completed');
-      const messages = this.conversations.listMessages(conversation.id);
+      const messages = await this.conversations.listMessages(conversation.id);
       return { messages, conversationId: conversation.id, artifact: completedArtifact };
     } catch (error) {
-      this.media.updateStatus(artifact.id, 'failed');
+      await this.media.updateStatus(artifact.id, 'failed');
       const message = error instanceof Error ? error.message : 'Media generation failed';
       this.logger.error({ userId, artifactId: artifact.id, providerId: provider.id, errorMessage: message }, 'media_generation_failed');
 
       // Store error as assistant message for inline display
-      this.conversations.addMessage({
+      await this.conversations.addMessage({
         id: createId('msg'),
         conversationId: conversation.id,
         role: 'assistant',
@@ -163,12 +163,12 @@ export class MediaService {
         now: nowIso(),
       });
 
-      const messages = this.conversations.listMessages(conversation.id);
+      const messages = await this.conversations.listMessages(conversation.id);
       return { messages, conversationId: conversation.id, artifact };
     }
   }
 
-  private async callProvider(provider: ReturnType<ProviderService['resolve']>, type: 'image' | 'video', prompt: string, options?: ImageGenerationOptions, inputImages?: string[]): Promise<string> {
+  private async callProvider(provider: Awaited<ReturnType<ProviderService['resolve']>>, type: 'image' | 'video', prompt: string, options?: ImageGenerationOptions, inputImages?: string[]): Promise<string> {
     if (type === 'image') {
       return await this.generateImage(provider, prompt, options, inputImages);
     }
@@ -194,7 +194,7 @@ export class MediaService {
     return `https://placehold.co/640x360/1a1a2e/FFF?text=Video+Placeholder`;
   }
 
-  private async generateImage(provider: ReturnType<ProviderService['resolve']>, prompt: string, options?: ImageGenerationOptions, inputImages?: string[]): Promise<string> {
+  private async generateImage(provider: Awaited<ReturnType<ProviderService['resolve']>>, prompt: string, options?: ImageGenerationOptions, inputImages?: string[]): Promise<string> {
     const isFlux = provider.model.toLowerCase().includes('flux') || provider.model.toLowerCase().includes('blackforest');
     const isAzure = provider.baseUrl.includes('azure.com') || provider.baseUrl.includes('services.ai.azure.com');
     const isGptImage = provider.model.toLowerCase().includes('gpt-image');
@@ -361,7 +361,7 @@ export class MediaService {
     }
   }
 
-  private async editWithFlux(provider: ReturnType<ProviderService['resolve']>, prompt: string, inputImages: string[], options?: ImageGenerationOptions): Promise<string> {
+  private async editWithFlux(provider: Awaited<ReturnType<ProviderService['resolve']>>, prompt: string, inputImages: string[], options?: ImageGenerationOptions): Promise<string> {
     const domainMatch = provider.baseUrl.match(/^(https?:\/\/[^\/]+)/);
     const domain = domainMatch ? domainMatch[1] : provider.baseUrl;
     const modelSlug = provider.model.toLowerCase().replace(/\./g, '-');
@@ -430,7 +430,7 @@ export class MediaService {
     }
   }
 
-  private async editWithGptImage(provider: ReturnType<ProviderService['resolve']>, prompt: string, inputImages: string[], options?: ImageGenerationOptions): Promise<string> {
+  private async editWithGptImage(provider: Awaited<ReturnType<ProviderService['resolve']>>, prompt: string, inputImages: string[], options?: ImageGenerationOptions): Promise<string> {
     const endpointUrl = `${provider.baseUrl}/openai/deployments/${provider.model}/images/edits?api-version=2025-04-01-preview`;
 
     if (inputImages.length === 0) throw new Error('No input images provided for editing');
@@ -496,13 +496,13 @@ export class MediaService {
 
   async analyzeImages(userId: string, filenames: string[]): Promise<string> {
     // Find first vision-capable provider
-    const allProviders = this.providers.list(userId);
+    const allProviders = await this.providers.list(userId);
     const visionProviderRecord = allProviders.find((p) => p.supportsVision);
     if (!visionProviderRecord) {
       this.logger.warn({ userId }, 'vision_analysis_no_vision_provider');
       return '';
     }
-    const visionProvider = this.providers.resolve(userId, visionProviderRecord.id);
+    const visionProvider = await this.providers.resolve(userId, visionProviderRecord.id);
 
     const imageParts: Array<{ type: 'image_url'; image_url: { url: string } }> = [];
     for (const filename of filenames) {
@@ -553,12 +553,12 @@ export class MediaService {
     imageType?: string,
     targetProviderId?: string,
   ): Promise<string> {
-    let chatProvider: ReturnType<ProviderService['resolve']> | undefined;
+    let chatProvider: Awaited<ReturnType<ProviderService['resolve']>> | undefined;
 
     // If a specific provider is requested, try it first
     if (providerId) {
       try {
-        const resolved = this.providers.resolve(userId, providerId);
+        const resolved = await this.providers.resolve(userId, providerId);
         // Validate it's a text provider
         if (resolved.kind !== 'IMAGE_GENERATION' && resolved.kind !== 'VIDEO_GENERATION') {
           chatProvider = resolved;
@@ -571,13 +571,13 @@ export class MediaService {
     // Auto-resolve if no valid provider was explicitly selected
     if (!chatProvider) {
       try {
-        const resolved = this.providers.resolveForMode(userId, 'CHAT');
+        const resolved = await this.providers.resolveForMode(userId, 'CHAT');
         if (resolved.kind === 'IMAGE_GENERATION' || resolved.kind === 'VIDEO_GENERATION') {
           throw new Error('Chat default is an image/video provider');
         }
         chatProvider = resolved;
       } catch {
-        const all = this.providers.list(userId);
+        const all = await this.providers.list(userId);
         const fallback = all.find(
           (p) =>
             !p.kind.includes('IMAGE') &&
@@ -588,7 +588,7 @@ export class MediaService {
           this.logger.warn({ userId }, 'enhance_prompt_no_text_provider');
           return prompt;
         }
-        chatProvider = this.providers.resolve(userId, fallback.id);
+        chatProvider = await this.providers.resolve(userId, fallback.id);
       }
     }
 
@@ -597,7 +597,7 @@ export class MediaService {
     const providerToCheck = targetProviderId ?? providerId;
     if (providerToCheck) {
       try {
-        const targetProvider = this.providers.resolve(userId, providerToCheck);
+        const targetProvider = await this.providers.resolve(userId, providerToCheck);
         isFluxTarget = targetProvider.kind === 'IMAGE_GENERATION' && targetProvider.model.toLowerCase().includes('flux');
       } catch {
         // Ignore resolve errors

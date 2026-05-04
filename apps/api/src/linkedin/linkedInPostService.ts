@@ -113,7 +113,7 @@ export class LinkedInPostService {
     const personUrn = await this.fetchPersonUrn(accessToken);
     const now = new Date();
     const expiresAt = new Date(now.getTime() + expiresIn * 1000).toISOString();
-    this.tokens.upsert(
+    await this.tokens.upsert(
       userId,
       this.encryption.encrypt(accessToken),
       personUrn,
@@ -123,32 +123,32 @@ export class LinkedInPostService {
     this.logger.info({ userId, personUrn }, 'linkedin_connected');
   }
 
-  disconnect(userId: string): void {
-    this.tokens.delete(userId);
+  async disconnect(userId: string): Promise<void> {
+    await this.tokens.delete(userId);
     this.logger.info({ userId }, 'linkedin_disconnected');
   }
 
-  getStatus(userId: string): { connected: boolean; personUrn?: string | undefined; needsPersonUrn?: boolean | undefined } {
-    const token = this.tokens.findByUser(userId);
+  async getStatus(userId: string): Promise<{ connected: boolean; personUrn?: string | undefined; needsPersonUrn?: boolean | undefined }> {
+    const token = await this.tokens.findByUser(userId);
     if (!token) return { connected: false };
     return { connected: true, personUrn: token.personUrn ?? undefined, needsPersonUrn: !token.personUrn };
   }
 
-  setPersonUrn(userId: string, personUrn: string): void {
+  async setPersonUrn(userId: string, personUrn: string): Promise<void> {
     const normalized = personUrn.startsWith('urn:li:person:') ? personUrn : `urn:li:person:${personUrn}`;
-    this.tokens.updatePersonUrn(userId, normalized, new Date().toISOString());
+    await this.tokens.updatePersonUrn(userId, normalized, new Date().toISOString());
     this.logger.info({ userId }, 'linkedin_person_urn_updated');
   }
 
   private async getAccessToken(userId: string): Promise<string> {
-    const token = this.tokens.findByUser(userId);
+    const token = await this.tokens.findByUser(userId);
     if (!token) throw new Error('LinkedIn not connected');
     return this.encryption.decrypt(token.encryptedAccessToken);
   }
 
   async postText(userId: string, content: string, visibility: 'PUBLIC' | 'CONNECTIONS' = 'PUBLIC'): Promise<string> {
     const accessToken = await this.getAccessToken(userId);
-    const token = this.tokens.findByUser(userId)!;
+    const token = (await this.tokens.findByUser(userId))!;
     const personUrn = token.personUrn;
     if (!personUrn) {
       throw new Error('LinkedIn is connected, but the Person URN is missing. Add the Sign In with LinkedIn/OpenID product or enter your LinkedIn Person URN in Social Settings.');
@@ -195,7 +195,7 @@ export class LinkedInPostService {
     visibility: 'PUBLIC' | 'CONNECTIONS' = 'PUBLIC',
   ): Promise<string> {
     const accessToken = await this.getAccessToken(userId);
-    const token = this.tokens.findByUser(userId)!;
+    const token = (await this.tokens.findByUser(userId))!;
     const personUrn = token.personUrn;
     if (!personUrn) {
       throw new Error('LinkedIn is connected, but the Person URN is missing. Add the Sign In with LinkedIn/OpenID product or enter your LinkedIn Person URN in Social Settings.');

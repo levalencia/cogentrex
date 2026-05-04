@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import type { DbAdapter } from '../db/adapter.js';
 import type { ProviderConfigView } from '@cogentrex/shared';
 
 export interface ProviderRecord extends ProviderConfigView {
@@ -78,54 +78,54 @@ export function toProviderView(provider: ProviderRecord): ProviderConfigView {
 }
 
 export class ProviderRepository {
-  constructor(private readonly db: Database.Database) {}
+  constructor(private readonly db: DbAdapter) {}
 
-  listForUser(userId: string): ProviderRecord[] {
-    const rows = this.db.prepare(
+  async listForUser(userId: string): Promise<ProviderRecord[]>{
+    const rows = await this.db.prepare(
       `SELECT * FROM providers WHERE user_id = ? OR is_global = 1
        ORDER BY is_default DESC, is_global DESC, created_at ASC`,
     ).all(userId) as ProviderRow[];
     return rows.map(mapProvider);
   }
 
-  listGlobal(): ProviderRecord[] {
-    const rows = this.db.prepare(
+  async listGlobal(): Promise<ProviderRecord[]>{
+    const rows = await this.db.prepare(
       'SELECT * FROM providers WHERE is_global = 1 ORDER BY created_at ASC',
     ).all() as ProviderRow[];
     return rows.map(mapProvider);
   }
 
-  findById(userId: string, id: string): ProviderRecord | null {
-    const row = this.db.prepare(
+  async findById(userId: string, id: string): Promise<ProviderRecord | null>{
+    const row = await this.db.prepare(
       'SELECT * FROM providers WHERE (user_id = ? OR is_global = 1) AND id = ?',
     ).get(userId, id) as ProviderRow | undefined;
     return row ? mapProvider(row) : null;
   }
 
-  findByIdAdmin(id: string): ProviderRecord | null {
-    const row = this.db.prepare('SELECT * FROM providers WHERE id = ?').get(id) as ProviderRow | undefined;
+  async findByIdAdmin(id: string): Promise<ProviderRecord | null>{
+    const row = await this.db.prepare('SELECT * FROM providers WHERE id = ?').get(id) as ProviderRow | undefined;
     return row ? mapProvider(row) : null;
   }
 
-  findDefault(userId: string): ProviderRecord | null {
-    const row = this.db.prepare(
+  async findDefault(userId: string): Promise<ProviderRecord | null>{
+    const row = await this.db.prepare(
       'SELECT * FROM providers WHERE (user_id = ? OR is_global = 1) AND is_default = 1 LIMIT 1',
     ).get(userId) as ProviderRow | undefined;
     return row ? mapProvider(row) : null;
   }
 
-  findDefaultForMode(userId: string, mode: 'CHAT' | 'DEEP_RESEARCH' | 'SOCIAL_WRITING' | 'IMAGE_GENERATION' | 'VIDEO_GENERATION'): ProviderRecord | null {
-    const row = this.db.prepare(
+  async findDefaultForMode(userId: string, mode: 'CHAT' | 'DEEP_RESEARCH' | 'SOCIAL_WRITING' | 'IMAGE_GENERATION' | 'VIDEO_GENERATION'): Promise<ProviderRecord | null>{
+    const row = await this.db.prepare(
       'SELECT * FROM providers WHERE (user_id = ? OR is_global = 1) AND default_for_mode = ? LIMIT 1',
     ).get(userId, mode) as ProviderRow | undefined;
     if (row) return mapProvider(row);
     return this.findDefault(userId);
   }
 
-  create(provider: ProviderRecord): ProviderRecord {
-    const tx = this.db.transaction(() => {
+  async create(provider: ProviderRecord): Promise<ProviderRecord>{
+    await this.db.transaction(async () => {
       if (provider.isDefault && !provider.isGlobal) {
-        this.db.prepare('UPDATE providers SET is_default = 0 WHERE user_id = ? AND is_global = 0').run(provider.userId);
+        await this.db.prepare('UPDATE providers SET is_default = 0 WHERE user_id = ? AND is_global = 0').run(provider.userId);
       }
       this.db.prepare(
         `INSERT INTO providers (
@@ -149,16 +149,15 @@ export class ProviderRepository {
         supportsVideo: provider.supportsVideo ? 1 : 0,
       });
     });
-    tx();
     return provider;
   }
 
-  update(provider: ProviderRecord): ProviderRecord {
-    const tx = this.db.transaction(() => {
+  async update(provider: ProviderRecord): Promise<ProviderRecord>{
+    await this.db.transaction(async () => {
       if (provider.isDefault && !provider.isGlobal) {
-        this.db.prepare('UPDATE providers SET is_default = 0 WHERE user_id = ? AND id != ? AND is_global = 0').run(provider.userId, provider.id);
+        await this.db.prepare('UPDATE providers SET is_default = 0 WHERE user_id = ? AND id != ? AND is_global = 0').run(provider.userId, provider.id);
       }
-      this.db.prepare(
+      await this.db.prepare(
         `UPDATE providers
          SET name = @name, base_url = @baseUrl, encrypted_api_key = @encryptedApiKey,
              model = @model, kind = @kind, is_default = @isDefault, is_global = @isGlobal,
@@ -180,25 +179,23 @@ export class ProviderRepository {
         supportsVideo: provider.supportsVideo ? 1 : 0,
       });
     });
-    tx();
     return provider;
   }
 
-  delete(userId: string, id: string): void {
-    const tx = this.db.transaction(() => {
-      this.db.prepare('DELETE FROM providers WHERE user_id = ? AND id = ? AND is_global = 0').run(userId, id);
-      const remainingDefault = this.db.prepare('SELECT 1 FROM providers WHERE user_id = ? AND is_default = 1 AND is_global = 0').get(userId);
+  async delete(userId: string, id: string): Promise<void>{
+    await this.db.transaction(async () => {
+      await this.db.prepare('DELETE FROM providers WHERE user_id = ? AND id = ? AND is_global = 0').run(userId, id);
+      const remainingDefault = await this.db.prepare('SELECT 1 FROM providers WHERE user_id = ? AND is_default = 1 AND is_global = 0').get(userId);
       if (!remainingDefault) {
-        const first = this.db.prepare('SELECT id FROM providers WHERE user_id = ? AND is_global = 0 ORDER BY created_at ASC LIMIT 1').get(userId) as { id: string } | undefined;
+        const first = await this.db.prepare('SELECT id FROM providers WHERE user_id = ? AND is_global = 0 ORDER BY created_at ASC LIMIT 1').get(userId) as { id: string } | undefined;
         if (first) {
-          this.db.prepare('UPDATE providers SET is_default = 1 WHERE user_id = ? AND id = ?').run(userId, first.id);
+          await this.db.prepare('UPDATE providers SET is_default = 1 WHERE user_id = ? AND id = ?').run(userId, first.id);
         }
       }
     });
-    tx();
   }
 
-  deleteAdmin(id: string): void {
-    this.db.prepare('DELETE FROM providers WHERE id = ?').run(id);
+  async deleteAdmin(id: string): Promise<void>{
+    await this.db.prepare('DELETE FROM providers WHERE id = ?').run(id);
   }
 }

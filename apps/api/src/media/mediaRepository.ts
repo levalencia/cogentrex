@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import type { DbAdapter } from '../db/adapter.js';
 import { createId } from '../utils/id.js';
 import { nowIso } from '../utils/time.js';
 
@@ -44,13 +44,13 @@ function mapArtifact(row: ArtifactRow): MediaArtifactRecord {
 }
 
 export class MediaRepository {
-  constructor(private readonly db: Database.Database) {}
+  constructor(private readonly db: DbAdapter) {}
 
-  create(record: Omit<MediaArtifactRecord, 'id' | 'createdAt'>): MediaArtifactRecord {
+  async create(record: Omit<MediaArtifactRecord, 'id' | 'createdAt'>): Promise<MediaArtifactRecord> {
     const id = createId('med');
     const createdAt = nowIso();
     const artifact: MediaArtifactRecord = { ...record, id, createdAt };
-    this.db.prepare(
+    await this.db.prepare(
       `INSERT INTO media_artifacts (id, user_id, conversation_id, prompt, type, provider_id, blob_url, local_path, status, created_at)
        VALUES (@id, @userId, @conversationId, @prompt, @type, @providerId, @blobUrl, @localPath, @status, @createdAt)`,
     ).run({
@@ -68,21 +68,21 @@ export class MediaRepository {
     return artifact;
   }
 
-  findById(userId: string, id: string): MediaArtifactRecord | undefined {
-    const row = this.db.prepare('SELECT * FROM media_artifacts WHERE id = ? AND user_id = ?').get(id, userId) as ArtifactRow | undefined;
+  async findById(userId: string, id: string): Promise<MediaArtifactRecord | undefined> {
+    const row = await this.db.prepare('SELECT * FROM media_artifacts WHERE id = ? AND user_id = ?').get(id, userId) as ArtifactRow | undefined;
     return row ? mapArtifact(row) : undefined;
   }
 
-  listForConversation(userId: string, conversationId: string): MediaArtifactRecord[] {
-    const rows = this.db.prepare('SELECT * FROM media_artifacts WHERE user_id = ? AND conversation_id = ? ORDER BY created_at ASC').all(userId, conversationId) as ArtifactRow[];
+  async listForConversation(userId: string, conversationId: string): Promise<MediaArtifactRecord[]> {
+    const rows = await this.db.prepare('SELECT * FROM media_artifacts WHERE user_id = ? AND conversation_id = ? ORDER BY created_at ASC').all(userId, conversationId) as ArtifactRow[];
     return rows.map(mapArtifact);
   }
 
-  updateStatus(id: string, status: 'pending' | 'completed' | 'failed', updates?: { blobUrl?: string; localPath?: string }): void {
+  async updateStatus(id: string, status: 'pending' | 'completed' | 'failed', updates?: { blobUrl?: string; localPath?: string }): Promise<void> {
     const fields: string[] = ['status = @status'];
     if (updates?.blobUrl) fields.push('blob_url = @blobUrl');
     if (updates?.localPath) fields.push('local_path = @localPath');
-    this.db.prepare(`UPDATE media_artifacts SET ${fields.join(', ')} WHERE id = @id`).run({
+    await this.db.prepare(`UPDATE media_artifacts SET ${fields.join(', ')} WHERE id = @id`).run({
       id,
       status,
       blobUrl: updates?.blobUrl ?? null,

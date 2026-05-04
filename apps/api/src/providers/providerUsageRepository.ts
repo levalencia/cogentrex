@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import type { DbAdapter } from '../db/adapter.js';
 import { createId } from '../utils/id.js';
 import { nowIso } from '../utils/time.js';
 
@@ -21,16 +21,16 @@ export interface ProviderUsageSummary {
 }
 
 export class ProviderUsageRepository {
-  constructor(private readonly db: Database.Database) {}
+  constructor(private readonly db: DbAdapter) {}
 
-  record(userId: string, providerId: string, tokens: number): void {
+  async record(userId: string, providerId: string, tokens: number): Promise<void>{
     const date = nowIso().slice(0, 10);
-    const existing = this.db.prepare(
+    const existing = await this.db.prepare(
       'SELECT * FROM provider_usage WHERE user_id = ? AND provider_id = ? AND date = ?',
     ).get(userId, providerId, date) as UsageRow | undefined;
 
     if (existing) {
-      this.db.prepare(
+      await this.db.prepare(
         `UPDATE provider_usage
          SET request_count = request_count + 1,
              token_count = token_count + @tokens,
@@ -52,8 +52,8 @@ export class ProviderUsageRepository {
     }
   }
 
-  getSummary(userId: string, providerId: string, days: number): ProviderUsageSummary[] {
-    const rows = this.db.prepare(
+  async getSummary(userId: string, providerId: string, days: number): Promise<ProviderUsageSummary[]>{
+    const rows = await this.db.prepare(
       `SELECT provider_id as providerId, date, request_count as requestCount, token_count as tokenCount
        FROM provider_usage
        WHERE user_id = ? AND provider_id = ? AND date >= date('now', '-${Math.max(1, days)} days')

@@ -7,7 +7,7 @@ export class WebChannelClient implements ChannelClient {
   constructor(private readonly client: WebSearchClient) {}
 
   async search(query: string, limit: number): Promise<ChannelResult[]> {
-    const results = await this.client.search(query, limit);
+    const results = await await this.client.search(query, limit);
     return results.map((r) => ({
       title: r.title,
       url: r.url,

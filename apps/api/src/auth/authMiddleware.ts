@@ -12,12 +12,12 @@ declare global {
 }
 
 export function requireAuth(auth: AuthService) {
-  return (req: Request, _res: Response, next: NextFunction) => {
+  return async (req: Request, _res: Response, next: NextFunction) => {
     try {
       const token = req.cookies?.session as string | undefined;
       if (!token) throw unauthorized();
       const payload = auth.verifyToken(token);
-      const user = auth.findPublicUser(payload.sub);
+      const user = await auth.findPublicUser(payload.sub);
       if (!user) throw unauthorized();
       req.user = user;
       next();

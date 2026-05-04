@@ -50,10 +50,10 @@ export function socialRoutes(
     }
   });
 
-  router.get('/config', (req, res, next) => {
+  router.get('/config', async (req, res, next) => {
     try {
       const user = currentUser(req);
-      const configsList = configs.listForUser(user.id);
+      const configsList = await configs.listForUser(user.id);
       res.json({
         configs: configsList.map((c) => ({
           platform: c.platform,

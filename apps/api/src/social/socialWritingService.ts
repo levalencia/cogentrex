@@ -60,7 +60,7 @@ export class SocialWritingService {
   }): Promise<{ conversationId: string; posts: GeneratedPost[]; researchContext: string }> {
     const startedAt = performance.now();
     const now = nowIso();
-    const conversation = this.conversations.create({
+    const conversation = await this.conversations.create({
       id: createId('cnv'),
       userId: input.userId,
       title: input.topic.slice(0, 80),
@@ -80,7 +80,7 @@ export class SocialWritingService {
     }, 'social_writing_started');
 
     // Add user message
-    this.conversations.addMessage({
+    await this.conversations.addMessage({
       id: createId('msg'),
       conversationId: conversation.id,
       role: 'user',
@@ -88,7 +88,7 @@ export class SocialWritingService {
       now,
     });
 
-    const provider = this.providers.resolveForMode(input.userId, 'SOCIAL_WRITING', input.providerId);
+    const provider = await this.providers.resolveForMode(input.userId, 'SOCIAL_WRITING', input.providerId);
 
     // Scrape any URLs pasted into the topic
     let urlContext = '';
@@ -99,7 +99,7 @@ export class SocialWritingService {
       const failedUrls: string[] = [];
       for (const url of urls) {
         try {
-          const page = await this.search.scrape(url);
+          const page = await await this.search.scrape(url);
           if (page) {
             scrapedPages.push({ url: page.url, title: page.title, markdown: page.markdown });
           } else {
@@ -135,7 +135,7 @@ export class SocialWritingService {
     const validPlatforms = input.platforms.filter((p): p is Platform => PLATFORMS.includes(p as Platform));
 
     for (const platform of validPlatforms) {
-      const config = this.configs.findForUser(input.userId, platform);
+      const config = await this.configs.findForUser(input.userId, platform);
       if (config && !config.isEnabled) continue;
 
       const systemPrompt = config?.systemPrompt ?? this.getDefaultPrompt(platform);
@@ -149,8 +149,8 @@ export class SocialWritingService {
         ]);
         const genDuration = Math.round(performance.now() - genStarted);
         const estimatedTokens = Math.round(content.length / 4);
-        this.usage.record(input.userId, provider.id, estimatedTokens);
-        this.metrics.record({
+        await this.usage.record(input.userId, provider.id, estimatedTokens);
+        await this.metrics.record({
           userId: input.userId,
           conversationId: conversation.id,
           messageId: createId('msg'),
@@ -172,7 +172,7 @@ export class SocialWritingService {
     }
 
     // Persist assistant message with JSON posts
-    this.conversations.addMessage({
+    await this.conversations.addMessage({
       id: createId('msg'),
       conversationId: conversation.id,
       role: 'assistant',
@@ -209,7 +209,7 @@ export class SocialWritingService {
       iterationCount++;
       const item = { channel: 'web' as const, query: rawQuery.replace(/^web:/, '') };
       try {
-        const results = await this.channels.search(item.channel, item.query, Math.min(5, maxSources - sources.length + 2));
+        const results = await await this.channels.search(item.channel, item.query, Math.min(5, maxSources - sources.length + 2));
         for (const result of results) {
           if (sources.length >= maxSources) break;
           if (seenUrls.has(result.url)) continue;
@@ -255,14 +255,14 @@ export class SocialWritingService {
 
   private async analyzeImages(userId: string, imageUrls: string[]): Promise<string> {
     // Find first vision-capable provider
-    const allProviders = this.providers.list(userId);
+    const allProviders = await this.providers.list(userId);
     const visionProviderRecord = allProviders.find((p) => p.supportsVision);
     if (!visionProviderRecord) {
       this.logger.warn({ userId }, 'social_writing_no_vision_provider');
       return '';
     }
 
-    const visionProvider = this.providers.resolve(userId, visionProviderRecord.id);
+    const visionProvider = await this.providers.resolve(userId, visionProviderRecord.id);
     const startedAt = performance.now();
 
     const imageParts: Array<{ type: 'image_url'; image_url: { url: string } }> = [];

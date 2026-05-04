@@ -55,14 +55,14 @@ export class ResearchService {
 
   async plan(providerId: string | undefined, userId: string, question: string): Promise<{ plan: string[]; jobId: string; conversationId: string; scrapedUrls: string[]; failedUrls: string[] }> {
     const now = nowIso();
-    const conversation = this.conversations.create({
+    const conversation = await this.conversations.create({
       id: createId('cnv'),
       userId,
       title: question.slice(0, 80),
       mode: 'DEEP_RESEARCH',
       now,
     });
-    const provider = this.providers.resolveForMode(userId, 'DEEP_RESEARCH', providerId);
+    const provider = await this.providers.resolveForMode(userId, 'DEEP_RESEARCH', providerId);
 
     const urls = extractUrls(question);
     const scrapedPages: ScrapedPage[] = [];
@@ -73,14 +73,14 @@ export class ResearchService {
       this.logger.info({ userId, conversationId: conversation.id, urlCount: urls.length }, 'research_url_scrape_started');
       for (const url of urls) {
         try {
-          const page = await this.search.scrape(url);
+          const page = await await this.search.scrape(url);
           if (page) {
             scrapedPages.push(page);
           } else {
             failedUrls.push(url);
             const searchQuery = url;
             try {
-              const results = await this.search.search(searchQuery, 3);
+              const results = await await this.search.search(searchQuery, 3);
               for (const result of results.slice(0, 2)) {
                 scrapedPages.push({
                   url: result.url,
@@ -101,7 +101,7 @@ export class ResearchService {
     }
     const scrapeDuration = Math.round(performance.now() - scrapeStarted);
 
-    this.metrics.record({
+    await this.metrics.record({
       userId,
       conversationId: conversation.id,
       providerId: provider.id,
@@ -118,7 +118,7 @@ export class ResearchService {
     const planStrings = planItems.map((item) => `${item.channel}:${item.query}`);
     const planningDuration = Math.round(performance.now() - planningStarted);
 
-    this.metrics.record({
+    await this.metrics.record({
       userId,
       conversationId: conversation.id,
       providerId: provider.id,
@@ -129,7 +129,7 @@ export class ResearchService {
       metadata: { queryCount: planStrings.length },
     });
 
-    const job = this.jobsRepo.create({
+    const job = await this.jobsRepo.create({
       id: createId('job'),
       userId,
       conversationId: conversation.id,
@@ -144,30 +144,30 @@ export class ResearchService {
   }
 
   async startJob(userId: string, jobId: string, plan: string[]): Promise<void> {
-    const job = this.jobsRepo.findById(userId, jobId);
+    const job = await this.jobsRepo.findById(userId, jobId);
     if (!job) throw new Error('Job not found');
-    const conversation = this.conversations.findForUser(userId, job.conversationId!);
+    const conversation = await this.conversations.findForUser(userId, job.conversationId!);
     if (!conversation) throw new Error('Conversation not found');
 
     const emitter = new EventEmitter();
     const entry: JobEntry = { emitter, buffer: [] };
-    this.jobs.set(jobId, entry);
-    this.jobsRepo.updateStatus(jobId, 'running', nowIso());
+    await this.jobs.set(jobId, entry);
+    await this.jobsRepo.updateStatus(jobId, 'running', nowIso());
 
-    const provider = this.providers.resolveForMode(userId, 'DEEP_RESEARCH', job.providerId ?? undefined);
+    const provider = await this.providers.resolveForMode(userId, 'DEEP_RESEARCH', job.providerId ?? undefined);
     const assistantMessageId = createId('msg');
-    this.conversations.addMessage({ id: createId('msg'), conversationId: conversation.id, role: 'user', content: job.question, now: nowIso() });
+    await this.conversations.addMessage({ id: createId('msg'), conversationId: conversation.id, role: 'user', content: job.question, now: nowIso() });
 
     const reasoningLog: StreamEvent[] = [];
     const sources: ResearchSource[] = [];
     const excerpts = new Map<number, string>();
     const seenUrls = new Set<string>();
 
-    const emit = (event: StreamEvent) => {
+    const emit =async  (event: StreamEvent) => {
       reasoningLog.push(event);
       entry.buffer.push(event);
       emitter.emit('event', event);
-      this.jobsRepo.updateStatus(jobId, 'running', nowIso(), { reasoning: reasoningLog.map((e) => ({ ...e })) });
+      await this.jobsRepo.updateStatus(jobId, 'running', nowIso(), { reasoning: reasoningLog.map((e) => ({ ...e })) });
     };
 
     // Fire background work without awaiting at the call site
@@ -183,7 +183,7 @@ export class ResearchService {
           this.logger.info({ jobId, iteration, channel: item.channel, queryHash: hashForLog(item.query), queryLength: item.query.length }, 'research_search_started');
           let results;
           try {
-            results = await this.channels.search(item.channel, item.query, 5);
+            results = await await this.channels.search(item.channel, item.query, 5);
           } catch (error) {
             const message = error instanceof Error ? error.message : 'Search failed';
             this.logger.error({ jobId, iteration, channel: item.channel, errorMessage: message }, 'research_search_failed');
@@ -199,7 +199,7 @@ export class ResearchService {
             emit({ type: 'source', source });
           }
           const iterationDuration = Math.round(performance.now() - iterationStarted);
-          this.metrics.record({
+          await this.metrics.record({
             userId,
             conversationId: conversation.id,
             messageId: assistantMessageId,
@@ -228,7 +228,7 @@ export class ResearchService {
         const estimatedTokens = Math.round(content.length / 4);
         const tps = synthesisDuration > 0 ? Math.round((estimatedTokens / synthesisDuration) * 1000 * 10) / 10 : undefined;
 
-        this.conversations.addMessage({
+        await this.conversations.addMessage({
           id: assistantMessageId,
           conversationId: conversation.id,
           role: 'assistant',
@@ -237,11 +237,11 @@ export class ResearchService {
           now: nowIso(),
         });
         emit({ type: 'done', content, sources });
-        this.jobsRepo.updateStatus(jobId, 'completed', nowIso(), { answer: content, sources, reasoning: reasoningLog.map((e) => ({ ...e })) });
+        await this.jobsRepo.updateStatus(jobId, 'completed', nowIso(), { answer: content, sources, reasoning: reasoningLog.map((e) => ({ ...e })) });
         const tokenCount = Math.round(content.length / 4);
-        this.usage.record(userId, provider.id, tokenCount);
+        await this.usage.record(userId, provider.id, tokenCount);
 
-        this.metrics.record({
+        await this.metrics.record({
           userId,
           conversationId: conversation.id,
           messageId: assistantMessageId,
@@ -258,7 +258,7 @@ export class ResearchService {
         });
 
         const totalDuration = Math.round(performance.now() - startedAt);
-        this.metrics.record({
+        await this.metrics.record({
           userId,
           conversationId: conversation.id,
           messageId: assistantMessageId,
@@ -274,20 +274,20 @@ export class ResearchService {
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Research failed';
         emit({ type: 'error', code: 'RESEARCH_ERROR', message });
-        this.jobsRepo.updateStatus(jobId, 'failed', nowIso(), { errorMessage: message });
+        await this.jobsRepo.updateStatus(jobId, 'failed', nowIso(), { errorMessage: message });
         this.logger.error({ jobId, errorMessage: message }, 'research_job_failed');
       } finally {
         emitter.removeAllListeners();
-        this.jobs.delete(jobId);
+        await this.jobs.delete(jobId);
       }
     })();
   }
 
-  subscribe(userId: string, jobId: string, handler: StreamSink): { unsubscribe: () => void } {
-    const entry = this.jobs.get(jobId);
+  async subscribe(userId: string, jobId: string, handler: StreamSink): Promise<{ unsubscribe: () => void }> {
+    const entry = await this.jobs.get(jobId);
     if (!entry) {
       // Job already finished or not found; try to replay from DB
-      const job = this.jobsRepo.findById(userId, jobId);
+      const job = await this.jobsRepo.findById(userId, jobId);
       if (job && job.status === 'completed' && job.answer) {
         handler({ type: 'start', conversationId: job.conversationId ?? '', messageId: createId('msg'), mode: 'DEEP_RESEARCH' });
         if (job.reasoning) {
@@ -310,8 +310,8 @@ export class ResearchService {
     return { unsubscribe: () => entry.emitter.off('event', listener) };
   }
 
-  getJob(userId: string, jobId: string) {
-    return this.jobsRepo.findById(userId, jobId);
+  async getJob(userId: string, jobId: string) {
+    return await this.jobsRepo.findById(userId, jobId);
   }
 
   // Legacy synchronous flow (kept for tests and chat stream fallback)
@@ -325,8 +325,8 @@ export class ResearchService {
     const startedAt = performance.now();
     const now = nowIso();
     const conversation = input.conversationId
-      ? this.conversations.findForUser(input.userId, input.conversationId)
-      : this.conversations.create({
+      ? await this.conversations.findForUser(input.userId, input.conversationId)
+      : await this.conversations.create({
           id: createId('cnv'),
           userId: input.userId,
           title: input.question.slice(0, 80),
@@ -344,9 +344,9 @@ export class ResearchService {
 
     const assistantMessageId = createId('msg');
     input.emit({ type: 'start', conversationId: conversation.id, messageId: assistantMessageId, mode: 'DEEP_RESEARCH' });
-    this.conversations.addMessage({ id: createId('msg'), conversationId: conversation.id, role: 'user', content: input.question, now });
+    await this.conversations.addMessage({ id: createId('msg'), conversationId: conversation.id, role: 'user', content: input.question, now });
 
-    const provider = this.providers.resolve(input.userId, input.providerId);
+    const provider = await this.providers.resolve(input.userId, input.providerId);
     input.emit({ type: 'reasoning', step: 'Planning research', detail: 'Creating focused search queries', iteration: 0 });
     let queries: string[];
     try {
@@ -355,7 +355,7 @@ export class ResearchService {
       if (urls.length) {
         for (const url of urls) {
           try {
-            const page = await this.search.scrape(url);
+            const page = await await this.search.scrape(url);
             if (page) scrapedPages.push(page);
           } catch {
             // ignore scrape failures in legacy flow
@@ -384,7 +384,7 @@ export class ResearchService {
       this.logger.info({ conversationId: conversation.id, iteration, channel: item.channel, queryHash: hashForLog(item.query), queryLength: item.query.length }, 'research_search_started');
       let results;
       try {
-        results = await this.channels.search(item.channel, item.query, 5);
+        results = await await this.channels.search(item.channel, item.query, 5);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Search failed';
         this.logger.error({ conversationId: conversation.id, iteration, channel: item.channel, errorMessage: message }, 'research_search_failed');
@@ -400,7 +400,7 @@ export class ResearchService {
         input.emit({ type: 'source', source });
       }
       const iterationDuration = Math.round(performance.now() - iterationStarted);
-      this.metrics.record({
+      await this.metrics.record({
         userId: input.userId,
         conversationId: conversation.id,
         messageId: assistantMessageId,
@@ -437,7 +437,7 @@ export class ResearchService {
     const estimatedTokens = Math.round(content.length / 4);
     const tps = synthesisDuration > 0 ? Math.round((estimatedTokens / synthesisDuration) * 1000 * 10) / 10 : undefined;
 
-    this.conversations.addMessage({
+    await this.conversations.addMessage({
       id: assistantMessageId,
       conversationId: conversation.id,
       role: 'assistant',
@@ -447,9 +447,9 @@ export class ResearchService {
     });
     input.emit({ type: 'done', content, sources });
     const tokenCount = Math.round(content.length / 4);
-    this.usage.record(input.userId, provider.id, tokenCount);
+    await this.usage.record(input.userId, provider.id, tokenCount);
 
-    this.metrics.record({
+    await this.metrics.record({
       userId: input.userId,
       conversationId: conversation.id,
       messageId: assistantMessageId,
@@ -466,7 +466,7 @@ export class ResearchService {
     });
 
     const totalDuration = Math.round(performance.now() - startedAt);
-    this.metrics.record({
+    await this.metrics.record({
       userId: input.userId,
       conversationId: conversation.id,
       messageId: assistantMessageId,

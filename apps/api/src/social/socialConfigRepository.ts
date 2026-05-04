@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import type { DbAdapter } from '../db/adapter.js';
 
 interface SocialConfigRow {
   id: number;
@@ -66,10 +66,10 @@ const DEFAULT_PROMPTS: Record<string, string> = {
 };
 
 export class SocialConfigRepository {
-  constructor(private readonly db: Database.Database) {}
+  constructor(private readonly db: DbAdapter) {}
 
-  listForUser(userId: string): SocialConfigRecord[] {
-    const rows = this.db.prepare(
+  async listForUser(userId: string): Promise<SocialConfigRecord[]>{
+    const rows = await this.db.prepare(
       'SELECT * FROM social_configs WHERE user_id = ? ORDER BY platform ASC',
     ).all(userId) as SocialConfigRow[];
 
@@ -88,18 +88,18 @@ export class SocialConfigRepository {
     return rows.map(mapRow);
   }
 
-  findForUser(userId: string, platform: string): SocialConfigRecord | null {
-    const row = this.db.prepare(
+  async findForUser(userId: string, platform: string): Promise<SocialConfigRecord | null>{
+    const row = await this.db.prepare(
       'SELECT * FROM social_configs WHERE user_id = ? AND platform = ?',
     ).get(userId, platform) as SocialConfigRow | undefined;
     return row ? mapRow(row) : null;
   }
 
-  upsert(userId: string, platform: string, systemPrompt: string, isEnabled: boolean): void {
+  async upsert(userId: string, platform: string, systemPrompt: string, isEnabled: boolean): Promise<void>{
     const now = new Date().toISOString();
-    const existing = this.findForUser(userId, platform);
+    const existing = await this.findForUser(userId, platform);
     if (existing) {
-      this.db.prepare(
+      await this.db.prepare(
         'UPDATE social_configs SET system_prompt = ?, is_enabled = ?, updated_at = ? WHERE user_id = ? AND platform = ?',
       ).run(systemPrompt, isEnabled ? 1 : 0, now, userId, platform);
     } else {

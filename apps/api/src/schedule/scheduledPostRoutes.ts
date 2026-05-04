@@ -37,7 +37,7 @@ export function scheduledPostRoutes(auth: AuthService, service: ScheduledPostSer
     }
   });
 
-  router.patch('/:id', (req, res, next) => {
+  router.patch('/:id', async (req, res, next) => {
     try {
       const user = currentUser(req);
       const { content, imageArtifactId, postAt } = req.body as {
@@ -49,12 +49,12 @@ export function scheduledPostRoutes(auth: AuthService, service: ScheduledPostSer
         res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'content is required' } });
         return;
       }
-      const existing = service.listForUser(user.id).find((p) => p.id === req.params.id);
+      const existing = (await service.listForUser(user.id)).find((p) => p.id === req.params.id);
       if (!existing) {
         res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Post not found' } });
         return;
       }
-      service.updatePost(user.id, req.params.id, content, imageArtifactId ?? existing.imageArtifactId ?? null, postAt ?? existing.postAt);
+      await service.updatePost(user.id, req.params.id, content, imageArtifactId ?? existing.imageArtifactId ?? null, postAt ?? existing.postAt);
       res.status(204).end();
     } catch (error) {
       next(error);

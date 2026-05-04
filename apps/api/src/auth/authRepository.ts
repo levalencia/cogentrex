@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import type { DbAdapter } from '../db/adapter.js';
 import type { PublicUser, UserRole } from '@cogentrex/shared';
 
 export interface UserRecord {
@@ -37,23 +37,23 @@ export function toPublicUser(user: UserRecord): PublicUser {
 }
 
 export class AuthRepository {
-  constructor(private readonly db: Database.Database) {}
+  constructor(private readonly db: DbAdapter) {}
 
-  create(user: UserRecord): UserRecord {
-    this.db.prepare(
+  async create(user: UserRecord): Promise<UserRecord> {
+    await this.db.prepare(
       `INSERT INTO users (id, email, password_hash, role, created_at)
        VALUES (@id, @email, @passwordHash, @role, @createdAt)`,
     ).run(user);
     return user;
   }
 
-  findByEmail(email: string): UserRecord | null {
-    const row = this.db.prepare('SELECT * FROM users WHERE email = ?').get(email) as UserRow | undefined;
+  async findByEmail(email: string): Promise<UserRecord | null> {
+    const row = await this.db.prepare('SELECT * FROM users WHERE email = ?').get(email) as UserRow | undefined;
     return row ? mapUser(row) : null;
   }
 
-  findById(id: string): UserRecord | null {
-    const row = this.db.prepare('SELECT * FROM users WHERE id = ?').get(id) as UserRow | undefined;
+  async findById(id: string): Promise<UserRecord | null> {
+    const row = await this.db.prepare('SELECT * FROM users WHERE id = ?').get(id) as UserRow | undefined;
     return row ? mapUser(row) : null;
   }
 }

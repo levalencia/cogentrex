@@ -10,7 +10,7 @@ function parseSse(text: string) {
 
 describe('chat streaming API', () => {
   it('streams chat responses and persists messages', async () => {
-    const { agent, database } = makeTestApp();
+    const { agent, database } = await makeTestApp();
     await registerAndLogin(agent);
     await createProvider(agent);
 

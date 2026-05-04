@@ -91,7 +91,7 @@ export class ArtifactService {
     detected: DetectedArtifact,
     emit: StreamSink,
   ): Promise<ArtifactRecord> {
-    const record = this.artifacts.create({
+    const record = await this.artifacts.create({
       userId,
       conversationId,
       messageId,

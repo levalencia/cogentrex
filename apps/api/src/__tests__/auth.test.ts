@@ -3,7 +3,7 @@ import { makeTestApp } from './testApp.js';
 
 describe('auth API', () => {
   it('registers, returns current user, and rejects duplicate registration', async () => {
-    const { agent, database } = makeTestApp();
+    const { agent, database } = await makeTestApp();
 
     await agent
       .post('/api/auth/register')
@@ -27,7 +27,7 @@ describe('auth API', () => {
   });
 
   it('does not expose protected routes without a session', async () => {
-    const { agent, database } = makeTestApp();
+    const { agent, database } = await makeTestApp();
     await agent.get('/api/providers').expect(401);
     database.close();
   });

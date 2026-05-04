@@ -22,18 +22,18 @@ export class ProviderService {
     private readonly logger: AppLogger,
   ) {}
 
-  list(userId: string): ProviderConfigView[] {
-    return this.providers.listForUser(userId).map(toProviderView);
+  async list(userId: string): Promise<ProviderConfigView[]> {
+    return (await this.providers.listForUser(userId)).map(toProviderView);
   }
 
-  listGlobal(): ProviderConfigView[] {
-    return this.providers.listGlobal().map(toProviderView);
+  async listGlobal(): Promise<ProviderConfigView[]> {
+    return (await this.providers.listGlobal()).map(toProviderView);
   }
 
-  create(userId: string, input: CreateProviderInput): ProviderConfigView {
+  async create(userId: string, input: CreateProviderInput): Promise<ProviderConfigView> {
     const now = nowIso();
-    const currentProviders = this.providers.listForUser(userId);
-    const provider = this.providers.create({
+    const currentProviders = await this.providers.listForUser(userId);
+    const provider = await this.providers.create({
       id: createId('prv'),
       userId,
       name: input.name,
@@ -59,9 +59,9 @@ export class ProviderService {
     return toProviderView(provider);
   }
 
-  createGlobal(adminUserId: string, input: CreateProviderInput): ProviderConfigView {
+  async createGlobal(adminUserId: string, input: CreateProviderInput): Promise<ProviderConfigView> {
     const now = nowIso();
-    const provider = this.providers.create({
+    const provider = await this.providers.create({
       id: createId('prv'),
       userId: adminUserId,
       name: input.name,
@@ -87,8 +87,8 @@ export class ProviderService {
     return toProviderView(provider);
   }
 
-  update(userId: string, id: string, input: UpdateProviderInput): ProviderConfigView {
-    const existing = this.providers.findById(userId, id);
+  async update(userId: string, id: string, input: UpdateProviderInput): Promise<ProviderConfigView> {
+    const existing = await this.providers.findById(userId, id);
     if (!existing) throw notFound('Provider not found');
     if (existing.isGlobal) throw notFound('Cannot edit global providers');
     const updated: ProviderRecord = {
@@ -109,13 +109,13 @@ export class ProviderService {
       supportsVideo: input.supportsVideo ?? existing.supportsVideo,
       updatedAt: nowIso(),
     };
-    const provider = this.providers.update(updated);
+    const provider = await this.providers.update(updated);
     this.logger.info({ userId, providerId: provider.id, kind: provider.kind, model: provider.model, isDefault: provider.isDefault, apiKeyRotated: Boolean(input.apiKey) }, 'provider_updated');
     return toProviderView(provider);
   }
 
-  updateGlobal(adminUserId: string, id: string, input: UpdateProviderInput): ProviderConfigView {
-    const existing = this.providers.findByIdAdmin(id);
+  async updateGlobal(adminUserId: string, id: string, input: UpdateProviderInput): Promise<ProviderConfigView> {
+    const existing = await this.providers.findByIdAdmin(id);
     if (!existing || !existing.isGlobal) throw notFound('Global provider not found');
     const updated: ProviderRecord = {
       ...existing,
@@ -135,29 +135,29 @@ export class ProviderService {
       supportsVideo: input.supportsVideo ?? existing.supportsVideo,
       updatedAt: nowIso(),
     };
-    const provider = this.providers.update(updated);
+    const provider = await this.providers.update(updated);
     this.logger.info({ adminUserId, providerId: provider.id, isGlobal: true }, 'global_provider_updated');
     return toProviderView(provider);
   }
 
-  delete(userId: string, id: string): void {
-    const existing = this.providers.findById(userId, id);
+  async delete(userId: string, id: string): Promise<void> {
+    const existing = await this.providers.findById(userId, id);
     if (existing?.isGlobal) throw notFound('Cannot delete global providers');
-    this.providers.delete(userId, id);
+    await this.providers.delete(userId, id);
     this.logger.info({ userId, providerId: id }, 'provider_deleted');
   }
 
-  deleteGlobal(adminUserId: string, id: string): void {
-    const existing = this.providers.findByIdAdmin(id);
+  async deleteGlobal(adminUserId: string, id: string): Promise<void> {
+    const existing = await this.providers.findByIdAdmin(id);
     if (!existing?.isGlobal) throw notFound('Global provider not found');
-    this.providers.deleteAdmin(id);
+    await this.providers.deleteAdmin(id);
     this.logger.info({ adminUserId, providerId: id }, 'global_provider_deleted');
   }
 
-  resolve(userId: string, providerId?: string): ProviderRuntimeConfig {
+  async resolve(userId: string, providerId?: string): Promise<ProviderRuntimeConfig> {
     const provider = providerId
-      ? this.providers.findById(userId, providerId)
-      : this.providers.findDefault(userId);
+      ? await this.providers.findById(userId, providerId)
+      : await this.providers.findDefault(userId);
     if (!provider) throw notFound('Provider not configured');
     this.logger.debug({ userId, providerId: provider.id, kind: provider.kind, model: provider.model }, 'provider_resolved');
     return {
@@ -170,9 +170,9 @@ export class ProviderService {
     };
   }
 
-  resolveForMode(userId: string, mode: 'CHAT' | 'DEEP_RESEARCH' | 'SOCIAL_WRITING' | 'IMAGE_GENERATION' | 'VIDEO_GENERATION', providerId?: string): ProviderRuntimeConfig {
+  async resolveForMode(userId: string, mode: 'CHAT' | 'DEEP_RESEARCH' | 'SOCIAL_WRITING' | 'IMAGE_GENERATION' | 'VIDEO_GENERATION', providerId?: string): Promise<ProviderRuntimeConfig> {
     if (providerId) return this.resolve(userId, providerId);
-    const provider = this.providers.findDefaultForMode(userId, mode);
+    const provider = await this.providers.findDefaultForMode(userId, mode);
     if (!provider) throw notFound('Provider not configured');
     this.logger.debug({ userId, providerId: provider.id, kind: provider.kind, model: provider.model, mode }, 'provider_resolved_for_mode');
     return {
@@ -186,7 +186,7 @@ export class ProviderService {
   }
 
   async test(userId: string, id: string): Promise<{ ok: boolean; status: 'ok' | 'fail'; error?: string }> {
-    const provider = this.providers.findById(userId, id);
+    const provider = await this.providers.findById(userId, id);
     if (!provider) throw notFound('Provider not found');
     const apiKey = this.encryption.decrypt(provider.encryptedApiKey);
     const now = nowIso();
@@ -198,7 +198,7 @@ export class ProviderService {
       });
       if (modelsResponse.ok) {
         const updated = { ...provider, testStatus: 'ok' as const, testedAt: now };
-        this.providers.update(updated);
+        await this.providers.update(updated);
         this.logger.info({ userId, providerId: id, status: 'ok' }, 'provider_tested');
         return { ok: true, status: 'ok' };
       }
@@ -210,18 +210,18 @@ export class ProviderService {
       if (baseResponse || (modelsResponse.status >= 400 && modelsResponse.status < 500)) {
         // Server responded with HTTP, so it's reachable — 401/403/404 means endpoint exists but route may differ
         const updated = { ...provider, testStatus: 'ok' as const, testedAt: now };
-        this.providers.update(updated);
+        await this.providers.update(updated);
         this.logger.info({ userId, providerId: id, status: 'ok', fallback: true, modelsStatus: modelsResponse.status }, 'provider_tested');
         return { ok: true, status: 'ok' };
       }
       const updated = { ...provider, testStatus: 'fail' as const, testedAt: now };
-      this.providers.update(updated);
+      await this.providers.update(updated);
       this.logger.warn({ userId, providerId: id, statusCode: modelsResponse.status }, 'provider_test_failed');
       return { ok: false, status: 'fail', error: `Provider returned ${modelsResponse.status}` };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Connection failed';
       const updated = { ...provider, testStatus: 'fail' as const, testedAt: now };
-      this.providers.update(updated);
+      await this.providers.update(updated);
       this.logger.warn({ userId, providerId: id, errorMessage: message }, 'provider_test_failed');
       return { ok: false, status: 'fail', error: message };
     }

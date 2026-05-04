@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import type { DbAdapter } from '../db/adapter.js';
 
 export interface ResearchJobRecord {
   id: string;
@@ -60,9 +60,9 @@ function mapJob(row: ResearchJobRow): ResearchJobRecord {
 }
 
 export class ResearchJobRepository {
-  constructor(private readonly db: Database.Database) {}
+  constructor(private readonly db: DbAdapter) {}
 
-  create(record: Omit<ResearchJobRecord, 'plan' | 'answer' | 'sources' | 'reasoning' | 'errorMessage'> & { plan?: string[] }): ResearchJobRecord {
+  async create(record: Omit<ResearchJobRecord, 'plan' | 'answer' | 'sources' | 'reasoning' | 'errorMessage'> & { plan?: string[] }): Promise<ResearchJobRecord>{
     this.db.prepare(
       `INSERT INTO research_jobs (id, user_id, conversation_id, provider_id, status, question, plan_json, created_at, updated_at)
        VALUES (@id, @userId, @conversationId, @providerId, @status, @question, @planJson, @createdAt, @updatedAt)`,
@@ -70,11 +70,11 @@ export class ResearchJobRepository {
       ...record,
       planJson: record.plan ? JSON.stringify(record.plan) : null,
     });
-    return this.findById(record.userId, record.id)!;
+    return (await this.findById(record.userId, record.id))!;
   }
 
-  findById(userId: string, id: string): ResearchJobRecord | null {
-    const row = this.db.prepare('SELECT * FROM research_jobs WHERE user_id = ? AND id = ?').get(userId, id) as ResearchJobRow | undefined;
+  async findById(userId: string, id: string): Promise<ResearchJobRecord | null>{
+    const row = await this.db.prepare('SELECT * FROM research_jobs WHERE user_id = ? AND id = ?').get(userId, id) as ResearchJobRow | undefined;
     return row ? mapJob(row) : null;
   }
 

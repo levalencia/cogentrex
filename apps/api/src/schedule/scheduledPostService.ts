@@ -34,7 +34,7 @@ export class ScheduledPostService {
   }
 
   async processPending(): Promise<void> {
-    const pending = this.posts.listPending(20);
+    const pending = await this.posts.listPending(20);
     if (!pending.length) return;
     this.logger.info({ count: pending.length }, 'scheduler_processing_pending');
 
@@ -42,14 +42,14 @@ export class ScheduledPostService {
       try {
         if (post.platform === 'linkedin') {
           if (post.imageArtifactId) {
-            const artifact = this.media.findById(post.userId, post.imageArtifactId);
+            const artifact = await this.media.findById(post.userId, post.imageArtifactId);
             if (artifact?.localPath) {
-              await this.linkedIn.postWithImage(post.userId, post.content, resolve(MEDIA_DIR, artifact.localPath));
+              await await this.linkedIn.postWithImage(post.userId, post.content, resolve(MEDIA_DIR, artifact.localPath));
             } else {
-              await this.linkedIn.postText(post.userId, post.content);
+              await await this.linkedIn.postText(post.userId, post.content);
             }
           } else {
-            await this.linkedIn.postText(post.userId, post.content);
+            await await this.linkedIn.postText(post.userId, post.content);
           }
         } else {
           throw new Error(`Platform ${post.platform} not supported for scheduled posting yet`);
@@ -64,8 +64,8 @@ export class ScheduledPostService {
     }
   }
 
-  schedule(userId: string, platform: string, content: string, imageArtifactId: string | null, postAt: string): void {
-    this.posts.create({
+  async schedule(userId: string, platform: string, content: string, imageArtifactId: string | null, postAt: string): Promise<void> {
+    await this.posts.create({
       id: createId('sch'),
       userId,
       platform,
@@ -80,9 +80,9 @@ export class ScheduledPostService {
     this.logger.info({ userId, platform, postAt }, 'post_scheduled');
   }
 
-  logPosted(userId: string, platform: string, content: string, imageArtifactId: string | null): void {
+  async logPosted(userId: string, platform: string, content: string, imageArtifactId: string | null): Promise<void> {
     const now = new Date().toISOString();
-    this.posts.create({
+    await this.posts.create({
       id: createId('pst'),
       userId,
       platform,
@@ -97,16 +97,16 @@ export class ScheduledPostService {
     this.logger.info({ userId, platform }, 'immediate_post_logged');
   }
 
-  listForUser(userId: string) {
-    return this.posts.listForUser(userId);
+  async listForUser(userId: string) {
+    return await this.posts.listForUser(userId);
   }
 
-  updatePost(userId: string, id: string, content: string, imageArtifactId: string | null, postAt: string): void {
-    const existing = this.posts.findById(userId, id);
+  async updatePost(userId: string, id: string, content: string, imageArtifactId: string | null, postAt: string): Promise<void> {
+    const existing = await this.posts.findById(userId, id);
     if (!existing) throw new Error('Post not found');
     if (existing.userId !== userId) throw new Error('Unauthorized');
     if (existing.status !== 'pending') throw new Error('Cannot edit a post that has already been processed');
-    this.posts.update({ id, userId, content, imageArtifactId, postAt });
+    await this.posts.update({ id, userId, content, imageArtifactId, postAt });
     this.logger.info({ userId, postId: id }, 'scheduled_post_updated');
   }
 

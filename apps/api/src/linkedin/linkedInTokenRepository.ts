@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import type { DbAdapter } from '../db/adapter.js';
 
 export interface LinkedInTokenRecord {
   id: number;
@@ -33,32 +33,32 @@ function mapRow(row: LinkedInTokenRow): LinkedInTokenRecord {
 }
 
 export class LinkedInTokenRepository {
-  constructor(private readonly db: Database.Database) {}
+  constructor(private readonly db: DbAdapter) {}
 
-  findByUser(userId: string): LinkedInTokenRecord | null {
-    const row = this.db.prepare('SELECT * FROM linkedin_tokens WHERE user_id = ?').get(userId) as LinkedInTokenRow | undefined;
+  async findByUser(userId: string): Promise<LinkedInTokenRecord | null> {
+    const row = await this.db.prepare('SELECT * FROM linkedin_tokens WHERE user_id = ?').get(userId) as LinkedInTokenRow | undefined;
     return row ? mapRow(row) : null;
   }
 
-  upsert(userId: string, encryptedAccessToken: string, personUrn: string | null, expiresAt: string | null, now: string): void {
-    const existing = this.findByUser(userId);
+  async upsert(userId: string, encryptedAccessToken: string, personUrn: string | null, expiresAt: string | null, now: string): Promise<void> {
+    const existing = await this.findByUser(userId);
     if (existing) {
-      this.db.prepare(
+      await this.db.prepare(
         'UPDATE linkedin_tokens SET encrypted_access_token = ?, person_urn = ?, expires_at = ?, updated_at = ? WHERE user_id = ?',
       ).run(encryptedAccessToken, personUrn, expiresAt, now, userId);
     } else {
-      this.db.prepare(
+      await this.db.prepare(
         'INSERT INTO linkedin_tokens (user_id, encrypted_access_token, person_urn, expires_at, connected_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
       ).run(userId, encryptedAccessToken, personUrn, expiresAt, now, now);
     }
   }
 
-  delete(userId: string): void {
-    this.db.prepare('DELETE FROM linkedin_tokens WHERE user_id = ?').run(userId);
+  async delete(userId: string): Promise<void> {
+    await this.db.prepare('DELETE FROM linkedin_tokens WHERE user_id = ?').run(userId);
   }
 
-  updatePersonUrn(userId: string, personUrn: string, updatedAt: string): void {
-    this.db.prepare(
+  async updatePersonUrn(userId: string, personUrn: string, updatedAt: string): Promise<void> {
+    await this.db.prepare(
       'UPDATE linkedin_tokens SET person_urn = ?, updated_at = ? WHERE user_id = ?',
     ).run(personUrn, updatedAt, userId);
   }

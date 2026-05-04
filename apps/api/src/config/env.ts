@@ -10,7 +10,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   API_PORT: z.coerce.number().int().positive().default(3001),
   WEB_ORIGIN: z.string().default('http://localhost:3000'),
-  DATABASE_PATH: z.string().default('./data/cogentrex.sqlite'),
+  DATABASE_URL: z.string().default('sqlite://./data/cogentrex.sqlite'),
   JWT_SECRET: z.string().min(24).default('test-only-jwt-secret-that-must-be-overridden'),
   APP_ENCRYPTION_KEY: z.string().min(24).default('test-only-encryption-secret-overridden'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),

@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import type { DbAdapter } from '../db/adapter.js';
 import type { AppMode, ChatMessage, ConversationSummary } from '@cogentrex/shared';
 
 interface ConversationRow {
@@ -46,53 +46,53 @@ function mapMessage(row: MessageRow): ChatMessage {
 }
 
 export class ConversationRepository {
-  constructor(private readonly db: Database.Database) {}
+  constructor(private readonly db: DbAdapter) {}
 
-  list(userId: string, projectId?: string | null): ConversationSummary[] {
+  async list(userId: string, projectId?: string | null): Promise<ConversationSummary[]> {
     if (projectId === null) {
-      const rows = this.db.prepare(
+      const rows = await this.db.prepare(
         "SELECT * FROM conversations WHERE user_id = ? AND project_id IS NULL ORDER BY is_pinned DESC, updated_at DESC",
       ).all(userId) as ConversationRow[];
       return rows.map(mapConversation);
     }
     if (projectId) {
-      const rows = this.db.prepare(
+      const rows = await this.db.prepare(
         "SELECT * FROM conversations WHERE user_id = ? AND project_id = ? ORDER BY is_pinned DESC, updated_at DESC",
       ).all(userId, projectId) as ConversationRow[];
       return rows.map(mapConversation);
     }
-    const rows = this.db.prepare(
+    const rows = await this.db.prepare(
       "SELECT * FROM conversations WHERE user_id = ? ORDER BY is_pinned DESC, updated_at DESC",
     ).all(userId) as ConversationRow[];
     return rows.map(mapConversation);
   }
 
-  create(input: { id: string; userId: string; title: string; mode: AppMode; projectId?: string | null; now: string }): ConversationSummary {
-    this.db.prepare(
+  async create(input: { id: string; userId: string; title: string; mode: AppMode; projectId?: string | null; now: string }): Promise<ConversationSummary> {
+    await this.db.prepare(
       `INSERT INTO conversations (id, user_id, project_id, title, mode, created_at, updated_at)
        VALUES (@id, @userId, @projectId, @title, @mode, @now, @now)`,
     ).run({ ...input, projectId: input.projectId ?? null });
     return { id: input.id, title: input.title, mode: input.mode, isPinned: false, projectId: input.projectId ?? null, createdAt: input.now, updatedAt: input.now };
   }
 
-  findForUser(userId: string, id: string): ConversationSummary | null {
-    const row = this.db.prepare('SELECT * FROM conversations WHERE user_id = ? AND id = ?').get(userId, id) as ConversationRow | undefined;
+  async findForUser(userId: string, id: string): Promise<ConversationSummary | null> {
+    const row = await this.db.prepare('SELECT * FROM conversations WHERE user_id = ? AND id = ?').get(userId, id) as ConversationRow | undefined;
     return row ? mapConversation(row) : null;
   }
 
-  touch(id: string, now: string): void {
-    this.db.prepare('UPDATE conversations SET updated_at = ? WHERE id = ?').run(now, id);
+  async touch(id: string, now: string): Promise<void> {
+    await this.db.prepare('UPDATE conversations SET updated_at = ? WHERE id = ?').run(now, id);
   }
 
-  addMessage(input: {
+  async addMessage(input: {
     id: string;
     conversationId: string;
     role: ChatMessage['role'];
     content: string;
     metadata?: Record<string, unknown>;
     now: string;
-  }): ChatMessage {
-    this.db.prepare(
+  }): Promise<ChatMessage> {
+    await this.db.prepare(
       `INSERT INTO messages (id, conversation_id, role, content, metadata_json, created_at)
        VALUES (@id, @conversationId, @role, @content, @metadataJson, @now)`,
     ).run({ ...input, metadataJson: input.metadata ? JSON.stringify(input.metadata) : null });
@@ -108,36 +108,36 @@ export class ConversationRepository {
     return message;
   }
 
-  listMessages(conversationId: string): ChatMessage[] {
-    const rows = this.db.prepare(
+  async listMessages(conversationId: string): Promise<ChatMessage[]> {
+    const rows = await this.db.prepare(
       'SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC',
     ).all(conversationId) as MessageRow[];
     return rows.map(mapMessage);
   }
 
-  updateTitle(userId: string, id: string, title: string, now: string): void {
-    this.db.prepare(
+  async updateTitle(userId: string, id: string, title: string, now: string): Promise<void> {
+    await this.db.prepare(
       'UPDATE conversations SET title = ?, updated_at = ? WHERE user_id = ? AND id = ?',
     ).run(title, now, userId, id);
   }
 
-  setPinned(userId: string, id: string, pinned: boolean): void {
-    this.db.prepare(
+  async setPinned(userId: string, id: string, pinned: boolean): Promise<void> {
+    await this.db.prepare(
       'UPDATE conversations SET is_pinned = ? WHERE user_id = ? AND id = ?',
     ).run(pinned ? 1 : 0, userId, id);
   }
 
-  setProject(userId: string, id: string, projectId: string | null): void {
-    this.db.prepare(
+  async setProject(userId: string, id: string, projectId: string | null): Promise<void> {
+    await this.db.prepare(
       'UPDATE conversations SET project_id = ?, updated_at = ? WHERE user_id = ? AND id = ?',
     ).run(projectId, new Date().toISOString(), userId, id);
   }
 
-  delete(userId: string, id: string): void {
-    this.db.prepare('DELETE FROM conversations WHERE user_id = ? AND id = ?').run(userId, id);
+  async delete(userId: string, id: string): Promise<void> {
+    await this.db.prepare('DELETE FROM conversations WHERE user_id = ? AND id = ?').run(userId, id);
   }
 
-  deleteAll(userId: string): void {
-    this.db.prepare('DELETE FROM conversations WHERE user_id = ?').run(userId);
+  async deleteAll(userId: string): Promise<void> {
+    await this.db.prepare('DELETE FROM conversations WHERE user_id = ?').run(userId);
   }
 }

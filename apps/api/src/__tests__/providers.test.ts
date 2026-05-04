@@ -3,7 +3,7 @@ import { createProvider, makeTestApp, registerAndLogin } from './testApp.js';
 
 describe('provider API', () => {
   it('stores provider configs without returning API keys', async () => {
-    const { agent, database } = makeTestApp();
+    const { agent, database } = await makeTestApp();
     await registerAndLogin(agent);
     const provider = await createProvider(agent);
 
@@ -20,7 +20,7 @@ describe('provider API', () => {
   });
 
   it('creates provider with capabilities and per-mode default', async () => {
-    const { agent, database } = makeTestApp();
+    const { agent, database } = await makeTestApp();
     await registerAndLogin(agent);
 
     const res = await agent.post('/api/providers').send({
@@ -45,7 +45,7 @@ describe('provider API', () => {
   });
 
   it('tests provider connection and updates test status', async () => {
-    const { agent, database } = makeTestApp();
+    const { agent, database } = await makeTestApp();
     await registerAndLogin(agent);
     const provider = await createProvider(agent);
 

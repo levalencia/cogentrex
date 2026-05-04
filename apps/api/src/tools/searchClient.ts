@@ -125,7 +125,7 @@ export class FakeWebSearchClient implements WebSearchClient {
   }
 
   async scrape(url: string): Promise<ScrapedPage | null> {
-    const hit = this.scraped.get(url);
+    const hit = await this.scraped.get(url);
     if (hit) return hit;
     return {
       url,
