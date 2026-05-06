@@ -667,6 +667,47 @@ export function ChatView() {
   const artifacts = useAppStore((state) => state.artifacts);
   const artifactPanelOpen = useAppStore((state) => state.artifactPanelOpen);
   const toggleArtifactPanel = useAppStore((state) => state.toggleArtifactPanel);
+  const conversations = useAppStore((state) => state.conversations);
+  const activeConversationId = useAppStore((state) => state.activeConversationId);
+
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
+
+  const activeConversation = conversations.find((c) => c.id === activeConversationId);
+
+  const handleShare = async () => {
+    if (!activeConversation) return;
+    setIsSharing(true);
+    try {
+      const token = activeConversation.shareToken
+        ? activeConversation.shareToken
+        : (await api.shareConversation(activeConversation.id)).shareToken;
+      const url = `${window.location.origin}/share/${token}`;
+      setShareUrl(url);
+      await navigator.clipboard.writeText(url);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to share');
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  const handleUnshare = async () => {
+    if (!activeConversation) return;
+    setIsSharing(true);
+    try {
+      await api.unshareConversation(activeConversation.id);
+      setShareUrl(null);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to revoke share');
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  useEffect(() => {
+    setShareUrl(null);
+  }, [activeConversationId]);
 
   const handleEditImage = useCallback((content: string) => {
     const filename = extractImageFilenameFromMarkdown(content);
@@ -707,6 +748,28 @@ export function ChatView() {
               Artifacts
               <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-bold text-ink">{artifacts.length}</span>
             </button>
+          ) : null}
+          {activeConversation ? (
+            shareUrl || activeConversation.shareToken ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-green-400">Link copied!</span>
+                <button
+                  onClick={handleUnshare}
+                  disabled={isSharing}
+                  className="rounded-xl border border-red-500/30 px-3 py-1.5 text-xs text-red-300 hover:bg-red-500/10 disabled:opacity-50"
+                >
+                  Revoke
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleShare}
+                disabled={isSharing}
+                className="rounded-xl border border-line px-3 py-1.5 text-sm text-slate-300 hover:border-accent disabled:opacity-50"
+              >
+                {isSharing ? '...' : 'Share'}
+              </button>
+            )
           ) : null}
           <a href="/settings/providers" className="rounded-xl border border-line px-3 py-1.5 text-sm text-slate-300 hover:border-accent">
             Provider Settings

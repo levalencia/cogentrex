@@ -11,6 +11,7 @@ import { toModelMessages } from './languageModel.js';
 import type { AppLogger } from '../observability/logger.js';
 import { hashForLog } from '../observability/logger.js';
 import type { ArtifactService } from '../artifacts/artifactService.js';
+import { randomBytes } from 'node:crypto';
 
 export type StreamSink = (event: StreamEvent) => void;
 
@@ -209,5 +210,24 @@ export class ChatService {
       durationMsTotal: Math.round(performance.now() - startedAt),
     }, 'chat_stream_finished');
     return { conversationId: conversation.id, content };
+  }
+
+  async shareConversation(userId: string, conversationId: string): Promise<{ shareToken: string }> {
+    const conversation = await this.conversations.findForUser(userId, conversationId);
+    if (!conversation) throw notFound('Conversation not found');
+    const token = randomBytes(24).toString('hex');
+    await this.conversations.setShareToken(userId, conversationId, token, nowIso());
+    return { shareToken: token };
+  }
+
+  async unshareConversation(userId: string, conversationId: string): Promise<void> {
+    await this.conversations.setShareToken(userId, conversationId, null, nowIso());
+  }
+
+  async getSharedConversation(token: string) {
+    const conversation = await this.conversations.findByShareToken(token);
+    if (!conversation) throw notFound('Shared conversation not found');
+    const messages = await this.conversations.listMessages(conversation.id);
+    return { conversation, messages };
   }
 }

@@ -56,6 +56,8 @@ CREATE TABLE IF NOT EXISTS conversations (
   title TEXT NOT NULL,
   mode TEXT NOT NULL,
   is_pinned INTEGER NOT NULL DEFAULT 0,
+  is_public INTEGER NOT NULL DEFAULT 0,
+  share_token TEXT UNIQUE,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,

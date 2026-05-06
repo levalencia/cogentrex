@@ -13,6 +13,17 @@ import type { AppLogger } from '../observability/logger.js';
 
 export function chatRoutes(auth: AuthService, chat: ChatService, research: ResearchService, metrics: MetricsRepository, artifacts: ArtifactService, logger: AppLogger): Router {
   const router = Router();
+
+  // Public share endpoint (no auth required)
+  router.get('/share/:token', async (req, res, next) => {
+    try {
+      const result = await chat.getSharedConversation(req.params.token);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   router.use(requireAuth(auth));
 
   router.get('/conversations', async (req, res, next) => {
@@ -94,7 +105,27 @@ export function chatRoutes(auth: AuthService, chat: ChatService, research: Resea
     }
   });
 
-  router.post('/plan', async (req, res, next) => {
+  router.post('/conversations/:id/share', async (req, res, next) => {
+    try {
+      const user = currentUser(req);
+      const result = await chat.shareConversation(user.id, req.params.id);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.delete('/conversations/:id/share', async (req, res, next) => {
+    try {
+      const user = currentUser(req);
+      await chat.unshareConversation(user.id, req.params.id);
+      res.status(204).end();
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get('/plan', async (req, res, next) => {
     try {
       const user = currentUser(req);
       const { content, providerId } = req.body as { content: string; providerId?: string };

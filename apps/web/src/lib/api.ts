@@ -114,6 +114,16 @@ export const api = {
   listProjects: () => jsonRequest<{ projects: ProjectSummary[] }>('/api/projects'),
   createProject: (name: string) => jsonRequest<{ project: ProjectSummary }>('/api/projects', { method: 'POST', body: JSON.stringify({ name }) }),
   deleteProject: (id: string) => jsonRequest<void>(`/api/projects/${id}`, { method: 'DELETE' }),
+  // Share
+  shareConversation: (conversationId: string) =>
+    jsonRequest<{ shareToken: string }>(`/api/chat/conversations/${conversationId}/share`, { method: 'POST' }),
+  unshareConversation: (conversationId: string) =>
+    jsonRequest<void>(`/api/chat/conversations/${conversationId}/share`, { method: 'DELETE' }),
+  getSharedConversation: (token: string) =>
+    fetch(`${API_BASE_URL}/api/chat/share/${token}`).then(async (res) => {
+      if (!res.ok) throw new Error('Shared conversation not found');
+      return res.json() as Promise<{ conversation: ConversationSummary; messages: ChatMessage[] }>;
+    }),
 };
 
 export async function streamMessage(input: {

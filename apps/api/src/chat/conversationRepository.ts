@@ -8,6 +8,8 @@ interface ConversationRow {
   title: string;
   mode: AppMode;
   is_pinned: 0 | 1;
+  is_public: 0 | 1;
+  share_token: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -18,6 +20,8 @@ function mapConversation(row: ConversationRow): ConversationSummary {
     title: row.title,
     mode: row.mode,
     isPinned: row.is_pinned === 1,
+    isPublic: row.is_public === 1,
+    shareToken: row.share_token ?? null,
     projectId: row.project_id ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -72,7 +76,7 @@ export class ConversationRepository {
       `INSERT INTO conversations (id, user_id, project_id, title, mode, created_at, updated_at)
        VALUES (@id, @userId, @projectId, @title, @mode, @now, @now)`,
     ).run({ ...input, projectId: input.projectId ?? null });
-    return { id: input.id, title: input.title, mode: input.mode, isPinned: false, projectId: input.projectId ?? null, createdAt: input.now, updatedAt: input.now };
+    return { id: input.id, title: input.title, mode: input.mode, isPinned: false, isPublic: false, shareToken: null, projectId: input.projectId ?? null, createdAt: input.now, updatedAt: input.now };
   }
 
   async findForUser(userId: string, id: string): Promise<ConversationSummary | null> {
@@ -139,5 +143,18 @@ export class ConversationRepository {
 
   async deleteAll(userId: string): Promise<void> {
     await this.db.prepare('DELETE FROM conversations WHERE user_id = ?').run(userId);
+  }
+
+  // ── Share token ────────────────────────────────────
+
+  async findByShareToken(token: string): Promise<ConversationSummary | null> {
+    const row = await this.db.prepare('SELECT * FROM conversations WHERE share_token = ? AND is_public = 1').get(token) as ConversationRow | undefined;
+    return row ? mapConversation(row) : null;
+  }
+
+  async setShareToken(userId: string, id: string, token: string | null, now: string): Promise<void> {
+    await this.db.prepare(
+      'UPDATE conversations SET share_token = ?, is_public = ?, updated_at = ? WHERE user_id = ? AND id = ?',
+    ).run(token, token ? 1 : 0, now, userId, id);
   }
 }

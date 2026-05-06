@@ -34,6 +34,8 @@ export interface ConversationSummary {
   title: string;
   mode: AppMode;
   isPinned: boolean;
+  isPublic: boolean;
+  shareToken: string | null;
   projectId: string | null;
   createdAt: string;
   updatedAt: string;
