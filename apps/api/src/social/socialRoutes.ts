@@ -67,7 +67,7 @@ export function socialRoutes(
     }
   });
 
-  router.put('/config/:platform', (req, res, next) => {
+  router.put('/config/:platform', async (req, res, next) => {
     try {
       const user = currentUser(req);
       const { platform } = req.params;
@@ -78,7 +78,7 @@ export function socialRoutes(
         return;
       }
 
-      configs.upsert(user.id, platform, systemPrompt, isEnabled ?? true);
+      await configs.upsert(user.id, platform, systemPrompt, isEnabled ?? true);
       res.status(204).end();
     } catch (error) {
       next(error);

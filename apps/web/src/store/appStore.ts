@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import type { AppMode, ChatMessage, ConversationSummary, GeneratedPost, ImageGenerationOptions, ProjectSummary, ProviderConfigView, PublicUser, ResearchSource, StreamEvent, ArtifactItem } from '@cogentrex/shared';
 import { api, streamMessage, streamResearch } from '@/lib/api';
+import { ApiError } from '@/lib/api';
 
 interface ReasoningItem {
   id: string;
@@ -21,7 +22,7 @@ interface PendingPlan {
 }
 
 interface AppState {
-  user: PublicUser | null;
+  user: PublicUser | null | undefined;
   providers: ProviderConfigView[];
   conversations: ConversationSummary[];
   projects: ProjectSummary[];
@@ -33,6 +34,7 @@ interface AppState {
   reasoning: ReasoningItem[];
   sources: ResearchSource[];
   isStreaming: boolean;
+  isWarmingUp: boolean;
   error: string | undefined;
   pendingPlan: PendingPlan | null;
   imageOptions: ImageGenerationOptions;
@@ -82,7 +84,7 @@ function isMediaMode(mode: AppMode): mode is 'IMAGE_GENERATION' | 'VIDEO_GENERAT
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
-  user: null,
+  user: undefined,
   providers: [],
   conversations: [],
   projects: [],
@@ -94,6 +96,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   reasoning: [],
   sources: [],
   isStreaming: false,
+  isWarmingUp: false,
   error: undefined,
   pendingPlan: null,
   imageOptions: { size: '1024x1024', quality: 'auto', n: 1 },
@@ -106,22 +109,46 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectedArtifactId: undefined,
   artifactPanelOpen: false,
   async bootstrap() {
-    try {
-      const [{ user }, { providers }, { conversations }, { projects }] = await Promise.all([
-        api.me(),
-        api.listProviders(),
-        api.listConversations(get().activeProjectId),
-        api.listProjects(),
-      ]);
-      set({
-        user,
-        providers,
-        conversations,
-        projects,
-        activeProviderId: providers.find((provider) => provider.isDefault)?.id ?? providers[0]?.id,
-      });
-    } catch {
-      set({ user: null });
+    const maxRetries = 6;
+    const retryDelay = 3000;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const [{ user }, { providers }, { conversations }, { projects }] = await Promise.all([
+          api.me(),
+          api.listProviders(),
+          api.listConversations(get().activeProjectId),
+          api.listProjects(),
+        ]);
+        set({
+          user,
+          providers,
+          conversations,
+          projects,
+          activeProviderId: providers.find((provider) => provider.isDefault)?.id ?? providers[0]?.id,
+          isWarmingUp: false,
+        });
+        return;
+      } catch (err) {
+        const isUnauthorized = err instanceof ApiError && err.status === 401;
+        const isServerError = err instanceof ApiError && (err.status === 502 || err.status === 503 || err.status === 504);
+        const isNetworkError = err instanceof TypeError || (err instanceof Error && /fetch|network|timeout/i.test(err.message));
+
+        if (isUnauthorized) {
+          set({ user: null, isWarmingUp: false });
+          return;
+        }
+
+        if ((isServerError || isNetworkError) && attempt < maxRetries) {
+          set({ isWarmingUp: true });
+          await new Promise((resolve) => setTimeout(resolve, retryDelay));
+          continue;
+        }
+
+        // Unknown or persistent error — fall back to login
+        set({ user: null, isWarmingUp: false });
+        return;
+      }
     }
   },
   async register(email, password) {

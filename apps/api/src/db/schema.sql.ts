@@ -38,6 +38,17 @@ CREATE UNIQUE INDEX IF NOT EXISTS providers_one_default_per_user
 ON providers(user_id)
 WHERE is_default = 1;
 
+CREATE TABLE IF NOT EXISTS projects (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS projects_user ON projects(user_id);
+
 CREATE TABLE IF NOT EXISTS conversations (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
@@ -153,17 +164,6 @@ CREATE TABLE IF NOT EXISTS social_configs (
 
 CREATE INDEX IF NOT EXISTS social_configs_user ON social_configs(user_id);
 
-CREATE TABLE IF NOT EXISTS projects (
-  id TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL,
-  name TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS projects_user ON projects(user_id);
-
 CREATE TABLE IF NOT EXISTS linkedin_tokens (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id TEXT NOT NULL UNIQUE,
@@ -209,3 +209,7 @@ CREATE TABLE IF NOT EXISTS scheduled_posts (
 CREATE INDEX IF NOT EXISTS scheduled_posts_user_status ON scheduled_posts(user_id, status);
 CREATE INDEX IF NOT EXISTS scheduled_posts_pending ON scheduled_posts(status, post_at);
 `;
+
+export const postgresSchemaSql = schemaSql
+  .replace(/^PRAGMA .*;\n/gm, '')
+  .replaceAll('INTEGER PRIMARY KEY AUTOINCREMENT', 'SERIAL PRIMARY KEY');

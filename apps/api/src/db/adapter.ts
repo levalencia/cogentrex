@@ -19,7 +19,7 @@ export interface DbAdapter {
 
 function toPositionalParams(sql: string, params?: any[] | Record<string, any> | any): { sql: string; values: any[] } {
   if (!params) return { sql, values: [] };
-  if (Array.isArray(params)) return { sql, values: params };
+  if (Array.isArray(params)) return { sql: replaceQuestionPlaceholders(sql), values: params };
   if (typeof params === 'object' && params !== null) {
     const names: string[] = [];
     const values: any[] = [];
@@ -35,7 +35,18 @@ function toPositionalParams(sql: string, params?: any[] | Record<string, any> | 
     const newSql = sql.replace(/@\w+/g, () => `$${idx++}`);
     return { sql: newSql, values };
   }
-  return { sql, values: [params] };
+  return { sql: replaceQuestionPlaceholders(sql), values: [params] };
+}
+
+function replaceQuestionPlaceholders(sql: string): string {
+  let idx = 1;
+  return sql.replace(/\?/g, () => `$${idx++}`);
+}
+
+function normalizePreparedArgs(args: any[]): any[] | Record<string, any> | any | undefined {
+  if (args.length === 0) return undefined;
+  if (args.length === 1) return args[0];
+  return args;
 }
 
 class PostgresAdapter implements DbAdapter {
@@ -58,7 +69,7 @@ class PostgresAdapter implements DbAdapter {
     return {
       run: async (...args: any[]) => {
         const client = this.getClient();
-        const { sql: finalSql, values } = toPositionalParams(sql, args[0]);
+        const { sql: finalSql, values } = toPositionalParams(sql, normalizePreparedArgs(args));
         const result = await client.query(finalSql, values);
         if (result.rowCount != null) {
           return { changes: result.rowCount };
@@ -67,13 +78,13 @@ class PostgresAdapter implements DbAdapter {
       },
       get: async (...args: any[]) => {
         const client = this.getClient();
-        const { sql: finalSql, values } = toPositionalParams(sql, args[0]);
+        const { sql: finalSql, values } = toPositionalParams(sql, normalizePreparedArgs(args));
         const result = await client.query(finalSql, values);
         return result.rows[0] ?? undefined;
       },
       all: async (...args: any[]) => {
         const client = this.getClient();
-        const { sql: finalSql, values } = toPositionalParams(sql, args[0]);
+        const { sql: finalSql, values } = toPositionalParams(sql, normalizePreparedArgs(args));
         const result = await client.query(finalSql, values);
         return result.rows;
       },

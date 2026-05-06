@@ -47,6 +47,9 @@ const MessageItem = memo(function MessageItem({ message, onEditImage }: MessageI
         <div className="rounded-2xl border border-line bg-panel p-4 md:p-6">
           <PostCards posts={parsedPosts} conversationId={message.conversationId} />
         </div>
+        {message.id ? (
+          <ViewLogsButton conversationId={message.conversationId} messageId={message.id} />
+        ) : null}
       </div>
     );
   }

@@ -44,7 +44,7 @@ export class ProjectRepository {
   }
 
   async create(project: ProjectRecord): Promise<ProjectRecord>{
-    this.db.prepare(
+    await this.db.prepare(
       'INSERT INTO projects (id, user_id, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
     ).run(project.id, project.userId, project.name, project.createdAt, project.updatedAt);
     return project;

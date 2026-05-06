@@ -85,7 +85,7 @@ export class MetricsRepository {
       metadata: metric.metadata,
       createdAt,
     };
-    this.db.prepare(
+    await this.db.prepare(
       `INSERT INTO request_metrics (
         id, user_id, conversation_id, message_id, provider_id, model, mode, step,
         duration_ms, prompt_tokens, completion_tokens, total_tokens, ttft_ms, tps,

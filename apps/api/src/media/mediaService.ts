@@ -21,7 +21,7 @@ export interface MediaGenerationResult {
   artifact: MediaArtifactRecord;
 }
 
-const IMAGE_PROVIDER_TIMEOUT_MS = 300_000; // 5 minutes — Azure can be very slow
+const IMAGE_PROVIDER_TIMEOUT_MS = 220_000; // Keep below ingress/client timeouts so failures return cleanly.
 
 export class MediaService {
   constructor(
@@ -287,35 +287,6 @@ export class MediaService {
       };
     }
 
-    // Pre-flight validation: quickly check if endpoint is reachable
-    try {
-      const preflightController = new AbortController();
-      const preflightTimeout = setTimeout(() => preflightController.abort(), 10_000);
-      const preflightRes = await fetch(endpointUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${provider.apiKey}`,
-        },
-        body: JSON.stringify(buildBody()),
-        signal: preflightController.signal,
-      }).finally(() => clearTimeout(preflightTimeout));
-
-      if (preflightRes.status === 404) {
-        const body = await preflightRes.text().catch(() => '');
-        this.logger.warn({ providerId: provider.id, model: provider.model, statusCode: 404 }, 'image_preflight_404');
-        throw new Error(`Provider returned 404: This model/deployment does not support image generation at this endpoint. ${body.slice(0, 200)}`);
-      }
-      if (!preflightRes.ok && preflightRes.status !== 422 && preflightRes.status !== 429) {
-        const body = await preflightRes.text().catch(() => '');
-        throw new Error(`Provider returned ${preflightRes.status}: ${body.slice(0, 200)}`);
-      }
-    } catch (error: unknown) {
-      if (error instanceof Error && error.message.includes('Provider returned')) {
-        throw error;
-      }
-    }
-
     // Full request with timeout
     const startedAt = performance.now();
     const requestBody = buildBody();
@@ -355,6 +326,7 @@ export class MediaService {
       if (error instanceof Error && error.name === 'AbortError') {
         throw new Error(`Provider timed out after ${Math.round(IMAGE_PROVIDER_TIMEOUT_MS / 1000)} seconds`);
       }
+      this.logger.error({ providerId: provider.id, model: provider.model, endpoint: endpointUrl, errorMessage: error instanceof Error ? error.message : 'Provider request failed' }, 'image_provider_request_failed');
       throw error;
     } finally {
       clearTimeout(timeout);

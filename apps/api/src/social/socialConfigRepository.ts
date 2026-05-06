@@ -80,7 +80,7 @@ export class SocialConfigRepository {
         'INSERT INTO social_configs (user_id, platform, system_prompt, is_enabled, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?)',
       );
       for (const [platform, prompt] of Object.entries(DEFAULT_PROMPTS)) {
-        insert.run(userId, platform, prompt, now, now);
+        await insert.run(userId, platform, prompt, now, now);
       }
       return this.listForUser(userId);
     }
@@ -103,7 +103,7 @@ export class SocialConfigRepository {
         'UPDATE social_configs SET system_prompt = ?, is_enabled = ?, updated_at = ? WHERE user_id = ? AND platform = ?',
       ).run(systemPrompt, isEnabled ? 1 : 0, now, userId, platform);
     } else {
-      this.db.prepare(
+      await this.db.prepare(
         'INSERT INTO social_configs (user_id, platform, system_prompt, is_enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
       ).run(userId, platform, systemPrompt, isEnabled ? 1 : 0, now, now);
     }

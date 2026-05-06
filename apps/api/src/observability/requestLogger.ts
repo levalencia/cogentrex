@@ -15,18 +15,29 @@ export function requestLogger(rootLogger: AppLogger) {
   return (req: Request, res: Response, next: NextFunction) => {
     const requestId = req.header('x-request-id') ?? createRequestId();
     const start = performance.now();
+    const path = req.originalUrl;
     req.requestId = requestId;
     req.logger = rootLogger.child({ requestId });
     res.setHeader('x-request-id', requestId);
 
-    req.logger.info({ method: req.method, path: req.path }, 'request_started');
+    req.logger.info({ method: req.method, path }, 'request_started');
     res.on('finish', () => {
       req.logger?.info({
         method: req.method,
-        path: req.path,
+        path,
         statusCode: res.statusCode,
         durationMs: Math.round(performance.now() - start),
       }, 'request_finished');
+    });
+    res.on('close', () => {
+      if (!res.writableEnded) {
+        req.logger?.warn({
+          method: req.method,
+          path,
+          statusCode: res.statusCode,
+          durationMs: Math.round(performance.now() - start),
+        }, 'request_closed_before_finish');
+      }
     });
     next();
   };

@@ -63,14 +63,16 @@ export class ResearchJobRepository {
   constructor(private readonly db: DbAdapter) {}
 
   async create(record: Omit<ResearchJobRecord, 'plan' | 'answer' | 'sources' | 'reasoning' | 'errorMessage'> & { plan?: string[] }): Promise<ResearchJobRecord>{
-    this.db.prepare(
+    await this.db.prepare(
       `INSERT INTO research_jobs (id, user_id, conversation_id, provider_id, status, question, plan_json, created_at, updated_at)
        VALUES (@id, @userId, @conversationId, @providerId, @status, @question, @planJson, @createdAt, @updatedAt)`,
     ).run({
       ...record,
       planJson: record.plan ? JSON.stringify(record.plan) : null,
     });
-    return (await this.findById(record.userId, record.id))!;
+    const created = await this.findById(record.userId, record.id);
+    if (!created) throw new Error('Research job was not created');
+    return created;
   }
 
   async findById(userId: string, id: string): Promise<ResearchJobRecord | null>{
@@ -78,7 +80,7 @@ export class ResearchJobRepository {
     return row ? mapJob(row) : null;
   }
 
-  updateStatus(id: string, status: ResearchJobRecord['status'], now: string, extras?: { answer?: string; sources?: unknown[]; reasoning?: unknown[]; errorMessage?: string }): void {
+  async updateStatus(id: string, status: ResearchJobRecord['status'], now: string, extras?: { answer?: string; sources?: unknown[]; reasoning?: unknown[]; errorMessage?: string }): Promise<void> {
     const sets = ['status = @status', 'updated_at = @now'];
     const params: Record<string, unknown> = { id, status, now };
     if (extras?.answer !== undefined) {
@@ -97,6 +99,6 @@ export class ResearchJobRepository {
       sets.push('error_message = @error');
       params.error = extras.errorMessage;
     }
-    this.db.prepare(`UPDATE research_jobs SET ${sets.join(', ')} WHERE id = @id`).run(params);
+    await this.db.prepare(`UPDATE research_jobs SET ${sets.join(', ')} WHERE id = @id`).run(params);
   }
 }

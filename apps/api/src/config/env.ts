@@ -9,6 +9,7 @@ loadDotEnv();
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   API_PORT: z.coerce.number().int().positive().default(3001),
+  API_PUBLIC_BASE_URL: z.string().url().optional(),
   WEB_ORIGIN: z.string().default('http://localhost:3000'),
   DATABASE_URL: z.string().default('sqlite://./data/cogentrex.sqlite'),
   JWT_SECRET: z.string().min(24).default('test-only-jwt-secret-that-must-be-overridden'),

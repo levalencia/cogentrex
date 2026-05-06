@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ENV=${1:-dev}
-LOCATION="westus2"
+LOCATION="centralus"
 RG="rg-cogentrex-$ENV"
 ACR="acrcogentrex${ENV}"
 KV="kv-cogentrex-$ENV"

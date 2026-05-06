@@ -58,6 +58,8 @@ export interface AppDependencies {
 
 export async function createApp(env: AppEnv, deps: AppDependencies = {}) {
   const app = express();
+  app.set('trust proxy', 1);
+  const webOrigins = env.WEB_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean);
   const database = deps.database ?? new AppDatabase(env.DATABASE_URL);
   await database.init();
   const logger = deps.logger ?? createLogger(env.LOG_LEVEL);
@@ -84,7 +86,7 @@ export async function createApp(env: AppEnv, deps: AppDependencies = {}) {
   const researchService = new ResearchService(conversationRepository, providerService, llm, search, channelRegistry, researchJobRepository, new ProviderUsageRepository(database.adapter), metricsRepository, logger.child({ component: 'ResearchService' }));
 
   const mediaRepository = new MediaRepository(database.adapter);
-  const apiBaseUrl = `http://localhost:${env.API_PORT}`;
+  const apiBaseUrl = env.API_PUBLIC_BASE_URL ?? `http://localhost:${env.API_PORT}`;
   const mediaService = new MediaService(conversationRepository, providerService, mediaRepository, llm, logger.child({ component: 'MediaService' }), apiBaseUrl);
 
   const socialConfigRepository = new SocialConfigRepository(database.adapter);
@@ -128,10 +130,10 @@ export async function createApp(env: AppEnv, deps: AppDependencies = {}) {
   scheduledPostService.startScheduler();
 
   app.use(helmet());
-  app.use(cors({ origin: env.WEB_ORIGIN, credentials: true }));
+  app.use(requestLogger(logger));
+  app.use(cors({ origin: webOrigins.length === 1 ? webOrigins[0] : webOrigins, credentials: true }));
   app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
-  app.use(requestLogger(logger));
   app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 500, standardHeaders: true, legacyHeaders: false }));
 
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));
@@ -157,6 +159,6 @@ export async function createApp(env: AppEnv, deps: AppDependencies = {}) {
   app.use('/api/scheduled-posts', scheduledPostRoutes(authService, scheduledPostService));
   app.use(errorMiddleware(logger));
 
-  logger.info({ databaseUrl: env.DATABASE_URL, firecrawlConfigured: Boolean(env.FIRECRAWL_API_KEY) }, 'app_initialized');
+  logger.info({ databaseKind: env.DATABASE_URL.startsWith('postgres') ? 'postgres' : 'sqlite', firecrawlConfigured: Boolean(env.FIRECRAWL_API_KEY) }, 'app_initialized');
   return { app, database, services: { authService, providerService, chatService, researchService } };
 }

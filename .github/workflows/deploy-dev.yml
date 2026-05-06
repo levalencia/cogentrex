@@ -7,6 +7,8 @@ on:
 env:
   REGISTRY_LOGIN_SERVER: ${{ secrets.REGISTRY_LOGIN_SERVER }}
   IMAGE_PREFIX: ${{ secrets.REGISTRY_LOGIN_SERVER }}/cogentrex
+  DEV_API_BASE_URL: https://api.cogentrex.com
+  DEV_WEB_ORIGIN: https://cogentrex.com,https://www.cogentrex.com,https://ca-cogentrex-web-dev.blacksmoke-54283d14.centralus.azurecontainerapps.io
 
 jobs:
   build-and-deploy:
@@ -25,12 +27,14 @@ jobs:
 
       - name: Build and push API
         run: |
-          docker build --target api -t $IMAGE_PREFIX-api:dev .
+          docker build --platform linux/amd64 --target api -t $IMAGE_PREFIX-api:dev .
           docker push $IMAGE_PREFIX-api:dev
 
       - name: Build and push Web
         run: |
-          docker build --target web -t $IMAGE_PREFIX-web:dev .
+          docker build --platform linux/amd64 --target web \
+            --build-arg NEXT_PUBLIC_API_BASE_URL=$DEV_API_BASE_URL \
+            -t $IMAGE_PREFIX-web:dev .
           docker push $IMAGE_PREFIX-web:dev
 
       - name: Deploy API to Container Apps
@@ -38,11 +42,13 @@ jobs:
           az containerapp update \
             --name ca-cogentrex-api-dev \
             --resource-group rg-cogentrex-dev \
-            --image $IMAGE_PREFIX-api:dev
+            --image $IMAGE_PREFIX-api:dev \
+            --set-env-vars WEB_ORIGIN=$DEV_WEB_ORIGIN API_PUBLIC_BASE_URL=$DEV_API_BASE_URL
 
       - name: Deploy Web to Container Apps
         run: |
           az containerapp update \
             --name ca-cogentrex-web-dev \
             --resource-group rg-cogentrex-dev \
-            --image $IMAGE_PREFIX-web:dev
+            --image $IMAGE_PREFIX-web:dev \
+            --set-env-vars NEXT_PUBLIC_API_BASE_URL=$DEV_API_BASE_URL

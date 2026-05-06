@@ -60,7 +60,7 @@ export class ScheduledPostRepository {
   }
 
   async create(post: ScheduledPostRecord): Promise<void>{
-    this.db.prepare(
+    await this.db.prepare(
       'INSERT INTO scheduled_posts (id, user_id, platform, content, image_artifact_id, post_at, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     ).run(
       post.id, post.userId, post.platform, post.content,

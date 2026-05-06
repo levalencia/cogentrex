@@ -1,12 +1,14 @@
 import { dirname } from 'node:path';
 import { mkdirSync } from 'node:fs';
 import { createAdapter, type DbAdapter } from './adapter.js';
-import { schemaSql } from './schema.sql.js';
+import { postgresSchemaSql, schemaSql } from './schema.sql.js';
 
 export class AppDatabase {
   readonly adapter: DbAdapter;
+  private readonly isPostgres: boolean;
 
   constructor(connectionString: string) {
+    this.isPostgres = connectionString.startsWith('postgresql://') || connectionString.startsWith('postgres://');
     const path = connectionString.startsWith('sqlite://') ? connectionString.slice(9) : connectionString;
     if (!connectionString.startsWith('postgresql://') && !connectionString.startsWith('postgres://')) {
       if (path !== ':memory:') {
@@ -17,7 +19,7 @@ export class AppDatabase {
   }
 
   async init(): Promise<void> {
-    await this.adapter.exec(schemaSql);
+    await this.adapter.exec(this.isPostgres ? postgresSchemaSql : schemaSql);
 
     // SQLite-specific migrations (no-op on PostgreSQL since PRAGMA is ignored)
     try {

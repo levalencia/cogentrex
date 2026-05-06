@@ -2,6 +2,16 @@ import type { ArtifactItem, ChatMessage, ConversationSummary, MediaArtifact, Pro
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001';
 
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 async function jsonRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
@@ -13,7 +23,7 @@ async function jsonRequest<T>(path: string, init: RequestInit = {}): Promise<T> 
   });
   if (!response.ok) {
     const body = await response.json().catch(() => null) as { error?: { message?: string } } | null;
-    throw new Error(body?.error?.message ?? `Request failed with ${response.status}`);
+    throw new ApiError(body?.error?.message ?? `Request failed with ${response.status}`, response.status);
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;

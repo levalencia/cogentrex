@@ -96,7 +96,7 @@ export class ConversationRepository {
       `INSERT INTO messages (id, conversation_id, role, content, metadata_json, created_at)
        VALUES (@id, @conversationId, @role, @content, @metadataJson, @now)`,
     ).run({ ...input, metadataJson: input.metadata ? JSON.stringify(input.metadata) : null });
-    this.touch(input.conversationId, input.now);
+    await this.touch(input.conversationId, input.now);
     const message: ChatMessage = {
       id: input.id,
       conversationId: input.conversationId,

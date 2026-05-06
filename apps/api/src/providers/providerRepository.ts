@@ -127,7 +127,7 @@ export class ProviderRepository {
       if (provider.isDefault && !provider.isGlobal) {
         await this.db.prepare('UPDATE providers SET is_default = 0 WHERE user_id = ? AND is_global = 0').run(provider.userId);
       }
-      this.db.prepare(
+      await this.db.prepare(
         `INSERT INTO providers (
           id, user_id, name, base_url, encrypted_api_key, model, kind, is_default, is_global,
           default_for_mode, supports_streaming, supports_vision, supports_tools, supports_search,

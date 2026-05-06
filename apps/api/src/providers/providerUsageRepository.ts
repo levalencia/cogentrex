@@ -38,7 +38,7 @@ export class ProviderUsageRepository {
          WHERE user_id = @userId AND provider_id = @providerId AND date = @date`,
       ).run({ userId, providerId, date, tokens, now: nowIso() });
     } else {
-      this.db.prepare(
+      await this.db.prepare(
         `INSERT INTO provider_usage (id, user_id, provider_id, date, request_count, token_count, created_at, updated_at)
          VALUES (@id, @userId, @providerId, @date, 1, @tokens, @now, @now)`,
       ).run({

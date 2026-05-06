@@ -21,7 +21,10 @@ export class ScheduledPostService {
     if (this.timer) return;
     this.logger.info({ intervalMs }, 'scheduler_started');
     this.timer = setInterval(() => {
-      void this.processPending();
+      void this.processPending().catch((error) => {
+        const message = error instanceof Error ? error.message : 'Scheduler failed';
+        this.logger.error({ errorMessage: message }, 'scheduler_failed');
+      });
     }, intervalMs);
   }
 
@@ -54,11 +57,11 @@ export class ScheduledPostService {
         } else {
           throw new Error(`Platform ${post.platform} not supported for scheduled posting yet`);
         }
-        this.posts.markPosted(post.id, new Date().toISOString());
+        await this.posts.markPosted(post.id, new Date().toISOString());
         this.logger.info({ postId: post.id, platform: post.platform }, 'scheduler_posted');
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Scheduler post failed';
-        this.posts.markFailed(post.id, message);
+        await this.posts.markFailed(post.id, message);
         this.logger.error({ postId: post.id, errorMessage: message }, 'scheduler_post_failed');
       }
     }
@@ -111,7 +114,7 @@ export class ScheduledPostService {
   }
 
   cancel(userId: string, id: string): void {
-    this.posts.deleteForUser(userId, id);
+    void this.posts.deleteForUser(userId, id);
     this.logger.info({ userId, postId: id }, 'post_cancelled');
   }
 }

@@ -86,10 +86,14 @@ export default function SocialSettingsPage() {
   const [editPostAt, setEditPostAt] = useState('');
 
   useEffect(() => {
-    void api.getSocialConfig().then(({ configs: data }) => {
-      setConfigs(data);
-      setLoading(false);
-    });
+    void api.getSocialConfig()
+      .then(({ configs: data }) => {
+        setConfigs(data);
+      })
+      .catch((error) => {
+        setMessage(error instanceof Error ? error.message : 'Could not load social settings');
+      })
+      .finally(() => setLoading(false));
     void loadLinkedInStatus();
     void loadScheduledPosts();
 
