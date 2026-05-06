@@ -77,6 +77,7 @@ interface AppState {
   assignConversationToProject: (conversationId: string, projectId: string | null) => Promise<void>;
   createProject: (name: string) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
+  clearChat: () => void;
 }
 
 function isMediaMode(mode: AppMode): mode is 'IMAGE_GENERATION' | 'VIDEO_GENERATION' {
@@ -607,5 +608,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   closeArtifactPanel() {
     set({ artifactPanelOpen: false, selectedArtifactId: undefined });
+  },
+  clearChat() {
+    set({ messages: [], activeConversationId: undefined, reasoning: [], sources: [], pendingPlan: null, artifacts: [], artifactPanelOpen: false, selectedArtifactId: undefined, logsPanelOpen: false });
   },
 }));

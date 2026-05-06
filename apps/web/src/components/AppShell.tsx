@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useParams, usePathname } from 'next/navigation';
 import { AuthPanel } from './AuthPanel';
 import { ChatView } from './ChatView';
 import { Sidebar } from './Sidebar';
@@ -10,10 +11,23 @@ export function AppShell() {
   const user = useAppStore((state) => state.user);
   const isWarmingUp = useAppStore((state) => state.isWarmingUp);
   const bootstrap = useAppStore((state) => state.bootstrap);
+  const loadMessages = useAppStore((state) => state.loadMessages);
+  const clearChat = useAppStore((state) => state.clearChat);
+  const params = useParams();
+  const pathname = usePathname();
+  const conversationId = params?.id as string | undefined;
 
   useEffect(() => {
     void bootstrap();
   }, [bootstrap]);
+
+  useEffect(() => {
+    if (conversationId) {
+      void loadMessages(conversationId);
+    } else if (pathname === '/') {
+      clearChat();
+    }
+  }, [conversationId, pathname, loadMessages, clearChat]);
 
   if (user === undefined) {
     return (

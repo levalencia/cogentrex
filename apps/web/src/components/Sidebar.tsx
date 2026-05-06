@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/store/appStore';
 
 function modeLabel(mode: string): string {
@@ -16,7 +17,6 @@ export function Sidebar() {
   const projects = useAppStore((state) => state.projects);
   const activeProjectId = useAppStore((state) => state.activeProjectId);
   const activeConversationId = useAppStore((state) => state.activeConversationId);
-  const loadMessages = useAppStore((state) => state.loadMessages);
   const logout = useAppStore((state) => state.logout);
   const user = useAppStore((state) => state.user);
   const renameConversation = useAppStore((state) => state.renameConversation);
@@ -27,6 +27,7 @@ export function Sidebar() {
   const assignConversationToProject = useAppStore((state) => state.assignConversationToProject);
   const createProject = useAppStore((state) => state.createProject);
   const deleteProject = useAppStore((state) => state.deleteProject);
+  const router = useRouter();
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -68,6 +69,10 @@ export function Sidebar() {
     setCreatingProject(false);
   }
 
+  function handleConversationClick(id: string) {
+    router.push(`/chats/${id}`);
+  }
+
   return (
     <aside className="hidden h-full w-72 shrink-0 flex-col border-r border-line bg-panel/80 lg:flex">
       {/* Header */}
@@ -86,7 +91,7 @@ export function Sidebar() {
 
       {/* New Chat */}
       <div className="p-3">
-        <button onClick={() => window.location.reload()} className="w-full rounded-2xl bg-accent px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-white">New chat</button>
+        <button onClick={() => router.push('/')} className="w-full rounded-2xl bg-accent px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-white">New chat</button>
       </div>
 
       {/* Project Filter */}
@@ -159,7 +164,7 @@ export function Sidebar() {
                   ) : (
                     <div className="flex items-center gap-2 px-3 py-2">
                       <button
-                        onClick={() => void loadMessages(conversation.id)}
+                        onClick={() => handleConversationClick(conversation.id)}
                         className="flex-1 truncate text-left text-sm text-slate-300"
                       >
                         {conversation.title || 'Untitled'}
