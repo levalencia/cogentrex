@@ -166,4 +166,37 @@ GitHub Actions runs: `install --frozen-lockfile` → `typecheck` → `build` →
 2. Rotate exposed secrets
 3. Fix image generation (verify Azure Foundry deployment/quotas)
 4. Debug social settings blank screen (get browser console logs)
-5. Commit changes when explicitly approved
+
+---
+
+## Development Workflow (Effective 2026-05-05)
+
+### Branch Strategy
+```
+feature/<name>  ──►  dev  ──►  (auto deploy to Azure DEV)
+```
+
+1. **All work happens in feature branches** — never commit directly to `dev` or `main`
+2. **Develop and test locally** before creating a PR
+3. **Only create PR + merge after user explicit approval**
+4. **Pushing `dev` branch** still triggers `.github/workflows/deploy-dev.yml`
+
+### Current Feature Branches
+| Branch | Status | Description |
+|--------|--------|-------------|
+| `feature/fix-login-retry-and-social-logs` | ✅ Committed | Login retry, warming spinner, social logs button |
+
+### How to Review a Feature
+```bash
+git fetch origin
+git checkout feature/fix-login-retry-and-social-logs
+git diff dev
+# Review changes, run pnpm typecheck / pnpm test
+# If approved: gh pr create --base dev --title "..."
+```
+
+### Local Dev Reminder
+- `DATABASE_URL` in `.env` points to **remote PostgreSQL** — schema changes affect DEV database
+- Test with `pnpm dev` (localhost:3000/3001)
+- Run `pnpm typecheck` and `pnpm test:api` before saying "ready for PR"
+- Do NOT run `pnpm db:reset` against remote Postgres
