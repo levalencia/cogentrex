@@ -21,6 +21,18 @@ export class AppDatabase {
   async init(): Promise<void> {
     await this.adapter.exec(this.isPostgres ? postgresSchemaSql : schemaSql);
 
+    try {
+      await this.adapter.exec('ALTER TABLE conversations ADD COLUMN is_public INTEGER NOT NULL DEFAULT 0');
+    } catch { /* column already exists */ }
+
+    try {
+      await this.adapter.exec('ALTER TABLE conversations ADD COLUMN share_token TEXT');
+    } catch { /* column already exists */ }
+
+    try {
+      await this.adapter.exec('CREATE UNIQUE INDEX IF NOT EXISTS conversations_share_token_unique ON conversations(share_token) WHERE share_token IS NOT NULL');
+    } catch { /* index creation is best-effort for existing databases */ }
+
     // SQLite-specific migrations (no-op on PostgreSQL since PRAGMA is ignored)
     try {
       const hasPinned = await this.adapter.getOne(

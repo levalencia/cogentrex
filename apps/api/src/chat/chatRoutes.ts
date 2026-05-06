@@ -125,7 +125,7 @@ export function chatRoutes(auth: AuthService, chat: ChatService, research: Resea
     }
   });
 
-  router.get('/plan', async (req, res, next) => {
+  router.post('/plan', async (req, res, next) => {
     try {
       const user = currentUser(req);
       const { content, providerId } = req.body as { content: string; providerId?: string };
