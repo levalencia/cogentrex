@@ -16,31 +16,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Parse Azure credentials
-        id: azure-creds
-        run: |
-          CREDS='${{ secrets.AZURE_CREDENTIALS }}'
-          echo "Raw creds length: ${#CREDS}"
-          CLIENT_ID=$(echo "$CREDS" | jq -r '.clientId // .client_id // empty')
-          TENANT_ID=$(echo "$CREDS" | jq -r '.tenantId // .tenant_id // empty')
-          SUB_ID=$(echo "$CREDS" | jq -r '.subscriptionId // .subscription_id // empty')
-          CLIENT_SECRET=$(echo "$CREDS" | jq -r '.clientSecret // .client_secret // empty')
-          echo "client-id=$CLIENT_ID" >> $GITHUB_OUTPUT
-          echo "tenant-id=$TENANT_ID" >> $GITHUB_OUTPUT
-          echo "subscription-id=$SUB_ID" >> $GITHUB_OUTPUT
-          echo "client-secret=$CLIENT_SECRET" >> $GITHUB_OUTPUT
-          if [ -z "$CLIENT_ID" ] || [ -z "$TENANT_ID" ]; then
-            echo "ERROR: Failed to parse AZURE_CREDENTIALS. Ensure it's valid JSON from 'az ad sp create-for-rbac'"
-            exit 1
-          fi
-
       - name: Azure Login
-        uses: azure/login@v2
+        uses: azure/login@v1
         with:
-          client-id: ${{ steps.azure-creds.outputs.client-id }}
-          tenant-id: ${{ steps.azure-creds.outputs.tenant-id }}
-          subscription-id: ${{ steps.azure-creds.outputs.subscription-id }}
-          client-secret: ${{ steps.azure-creds.outputs.client-secret }}
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: ACR Login
         run: |
