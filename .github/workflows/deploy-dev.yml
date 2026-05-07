@@ -16,10 +16,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Parse Azure credentials
+        id: azure-creds
+        run: |
+          echo "client-id=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.clientId // .client_id // empty')" >> $GITHUB_OUTPUT
+          echo "tenant-id=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.tenantId // .tenant_id // empty')" >> $GITHUB_OUTPUT
+          echo "subscription-id=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.subscriptionId // .subscription_id // empty')" >> $GITHUB_OUTPUT
+          echo "client-secret=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.clientSecret // .client_secret // empty')" >> $GITHUB_OUTPUT
+
       - name: Azure Login
         uses: azure/login@v1
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          client-id: ${{ steps.azure-creds.outputs.client-id }}
+          tenant-id: ${{ steps.azure-creds.outputs.tenant-id }}
+          subscription-id: ${{ steps.azure-creds.outputs.subscription-id }}
+          client-secret: ${{ steps.azure-creds.outputs.client-secret }}
 
       - name: ACR Login
         run: |
