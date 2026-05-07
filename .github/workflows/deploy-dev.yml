@@ -19,13 +19,23 @@ jobs:
       - name: Parse Azure credentials
         id: azure-creds
         run: |
-          echo "client-id=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.clientId // .client_id // empty')" >> $GITHUB_OUTPUT
-          echo "tenant-id=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.tenantId // .tenant_id // empty')" >> $GITHUB_OUTPUT
-          echo "subscription-id=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.subscriptionId // .subscription_id // empty')" >> $GITHUB_OUTPUT
-          echo "client-secret=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r '.clientSecret // .client_secret // empty')" >> $GITHUB_OUTPUT
+          CREDS='${{ secrets.AZURE_CREDENTIALS }}'
+          echo "Raw creds length: ${#CREDS}"
+          CLIENT_ID=$(echo "$CREDS" | jq -r '.clientId // .client_id // empty')
+          TENANT_ID=$(echo "$CREDS" | jq -r '.tenantId // .tenant_id // empty')
+          SUB_ID=$(echo "$CREDS" | jq -r '.subscriptionId // .subscription_id // empty')
+          CLIENT_SECRET=$(echo "$CREDS" | jq -r '.clientSecret // .client_secret // empty')
+          echo "client-id=$CLIENT_ID" >> $GITHUB_OUTPUT
+          echo "tenant-id=$TENANT_ID" >> $GITHUB_OUTPUT
+          echo "subscription-id=$SUB_ID" >> $GITHUB_OUTPUT
+          echo "client-secret=$CLIENT_SECRET" >> $GITHUB_OUTPUT
+          if [ -z "$CLIENT_ID" ] || [ -z "$TENANT_ID" ]; then
+            echo "ERROR: Failed to parse AZURE_CREDENTIALS. Ensure it's valid JSON from 'az ad sp create-for-rbac'"
+            exit 1
+          fi
 
       - name: Azure Login
-        uses: azure/login@v1
+        uses: azure/login@v2
         with:
           client-id: ${{ steps.azure-creds.outputs.client-id }}
           tenant-id: ${{ steps.azure-creds.outputs.tenant-id }}
