@@ -12,8 +12,9 @@ import type { ChannelRegistry } from '../tools/channels/channelRegistry.js';
 import type { AppLogger } from '../observability/logger.js';
 import { hashForLog } from '../observability/logger.js';
 import { formatSourcesForPrompt, createSynthesisMessages } from './researchPrompts.js';
-import { ResearchPlanner, parsePlanItem } from './researchPlanner.js';
+import { ResearchPlanner, parsePlanItem, type PlanItem } from './researchPlanner.js';
 import { ResearchJobRepository } from './researchJobRepository.js';
+import type { ResearchSourceRepository } from './researchSourceRepository.js';
 
 export function extractUrls(text: string): string[] {
   const urlRegex = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi;
@@ -46,6 +47,7 @@ export class ResearchService {
     private readonly search: WebSearchClient,
     private readonly channels: ChannelRegistry,
     private readonly jobsRepo: ResearchJobRepository,
+    private readonly sourceRepo: ResearchSourceRepository,
     private readonly usage: ProviderUsageRepository,
     private readonly metrics: MetricsRepository,
     private readonly logger: AppLogger,
@@ -53,15 +55,45 @@ export class ResearchService {
     this.planner = new ResearchPlanner(llm);
   }
 
-  async plan(providerId: string | undefined, userId: string, question: string): Promise<{ plan: string[]; jobId: string; conversationId: string; scrapedUrls: string[]; failedUrls: string[] }> {
+  async plan(providerId: string | undefined, userId: string, question: string, conversationId?: string): Promise<{ plan: string[]; jobId: string; conversationId: string; scrapedUrls: string[]; failedUrls: string[]; priorSourceCount: number }> {
     const now = nowIso();
-    const conversation = await this.conversations.create({
-      id: createId('cnv'),
-      userId,
-      title: question.slice(0, 80),
-      mode: 'DEEP_RESEARCH',
-      now,
-    });
+    
+    // Reuse existing conversation for follow-ups, or create new one
+    let conversation: Awaited<ReturnType<ConversationRepository['create']>>;
+    let priorSources: Array<ResearchSource & { excerpt?: string | undefined }> = [];
+    
+    if (conversationId) {
+      const existing = await this.conversations.findForUser(userId, conversationId);
+      if (!existing) {
+        this.logger.warn({ userId, conversationId }, 'research_follow_up_conversation_not_found');
+        // Fall through to create new
+        conversation = await this.conversations.create({
+          id: createId('cnv'),
+          userId,
+          title: question.slice(0, 80),
+          mode: 'DEEP_RESEARCH',
+          now,
+        });
+      } else {
+        conversation = existing;
+        await this.conversations.touch(conversation.id, now);
+        try {
+          priorSources = await this.sourceRepo.listByConversation(conversation.id);
+          this.logger.info({ userId, conversationId: conversation.id, priorSourceCount: priorSources.length }, 'research_prior_sources_loaded_for_plan');
+        } catch {
+          // Non-critical
+        }
+      }
+    } else {
+      conversation = await this.conversations.create({
+        id: createId('cnv'),
+        userId,
+        title: question.slice(0, 80),
+        mode: 'DEEP_RESEARCH',
+        now,
+      });
+    }
+    
     const provider = await this.providers.resolveForMode(userId, 'DEEP_RESEARCH', providerId);
 
     const urls = extractUrls(question);
@@ -109,12 +141,22 @@ export class ResearchService {
       mode: 'DEEP_RESEARCH',
       step: 'url_scraping',
       durationMs: scrapeDuration,
-      metadata: { urlCount: urls.length, scrapedCount: scrapedPages.length, failedCount: failedUrls.length },
+      metadata: { urlCount: urls.length, scrapedCount: scrapedPages.length, failedCount: failedUrls.length, priorSourceCount: priorSources.length },
     });
 
     const planningStarted = performance.now();
     const seedContext = buildSeedContext(scrapedPages);
-    const planItems = (await this.planner.plan(provider, question, seedContext)).slice(0, 10);
+    
+    let planItems: PlanItem[];
+    if (priorSources.length > 0) {
+      // Follow-up: limit to 5 new queries, avoid re-searching what's known
+      const priorTopics = priorSources.slice(0, 5).map((s) => s.title).join('; ');
+      planItems = (await this.planner.planFollowUp(provider, question, priorSources.length, priorTopics, seedContext)).slice(0, 5);
+    } else {
+      // Fresh research: up to 10 queries
+      planItems = (await this.planner.plan(provider, question, seedContext)).slice(0, 10);
+    }
+    
     const planStrings = planItems.map((item) => `${item.channel}:${item.query}`);
     const planningDuration = Math.round(performance.now() - planningStarted);
 
@@ -126,7 +168,7 @@ export class ResearchService {
       mode: 'DEEP_RESEARCH',
       step: 'planning',
       durationMs: planningDuration,
-      metadata: { queryCount: planStrings.length },
+      metadata: { queryCount: planStrings.length, priorSourceCount: priorSources.length, isFollowUp: priorSources.length > 0 },
     });
 
     const job = await this.jobsRepo.create({
@@ -140,7 +182,7 @@ export class ResearchService {
       createdAt: now,
       updatedAt: now,
     });
-    return { plan: planStrings, jobId: job.id, conversationId: conversation.id, scrapedUrls: scrapedPages.map((p) => p.url), failedUrls };
+    return { plan: planStrings, jobId: job.id, conversationId: conversation.id, scrapedUrls: scrapedPages.map((p) => p.url), failedUrls, priorSourceCount: priorSources.length };
   }
 
   async startJob(userId: string, jobId: string, plan: string[]): Promise<void> {
@@ -162,6 +204,15 @@ export class ResearchService {
     const sources: ResearchSource[] = [];
     const excerpts = new Map<number, string>();
     const seenUrls = new Set<string>();
+
+    // Load prior research sources for this conversation (follow-up support)
+    let priorSources: Array<ResearchSource & { excerpt?: string | undefined }> = [];
+    try {
+      priorSources = await this.sourceRepo.listByConversation(conversation.id);
+      this.logger.info({ jobId, conversationId: conversation.id, priorSourceCount: priorSources.length }, 'research_prior_sources_loaded');
+    } catch {
+      // Non-critical: if index doesn't exist yet, continue with fresh search
+    }
 
     const emit =async  (event: StreamEvent) => {
       reasoningLog.push(event);
@@ -196,7 +247,7 @@ export class ResearchService {
             const source: ResearchSource = { id, title: result.title, url: result.url, snippet: result.description ?? result.markdown.slice(0, 240), channel: result.channel };
             sources.push(source);
             excerpts.set(id, result.markdown.slice(0, 3500));
-            emit({ type: 'source', source });
+            emit({ type: 'source', source, iteration, channel: item.channel });
           }
           const iterationDuration = Math.round(performance.now() - iterationStarted);
           await this.metrics.record({
@@ -214,7 +265,22 @@ export class ResearchService {
         }
 
         emit({ type: 'reasoning', step: 'Synthesizing answer', detail: 'Writing final response with citations', iteration: plan.length });
-        const sourceNotes = formatSourcesForPrompt(sources, excerpts);
+
+        // Merge prior sources with new ones for synthesis (deduplicate by URL)
+        const allSources: ResearchSource[] = [...priorSources];
+        const allExcerpts = new Map<number, string>();
+        for (const ps of priorSources) {
+          allExcerpts.set(ps.id, ps.excerpt ?? ps.snippet ?? '');
+        }
+        for (const ns of sources) {
+          if (!allSources.some((s) => s.url === ns.url)) {
+            const nextId = allSources.length + 1;
+            allSources.push({ ...ns, id: nextId });
+            allExcerpts.set(nextId, excerpts.get(ns.id) ?? '');
+          }
+        }
+
+        const sourceNotes = formatSourcesForPrompt(allSources, allExcerpts);
         let content = '';
         const synthesisStarted = performance.now();
         let firstTokenAt: number | null = null;
@@ -233,11 +299,13 @@ export class ResearchService {
           conversationId: conversation.id,
           role: 'assistant',
           content,
-          metadata: { sources },
+          metadata: { sources: allSources, reasoning: reasoningLog.map((e) => ({ ...e })) },
           now: nowIso(),
         });
-        emit({ type: 'done', content, sources });
-        await this.jobsRepo.updateStatus(jobId, 'completed', nowIso(), { answer: content, sources, reasoning: reasoningLog.map((e) => ({ ...e })) });
+        emit({ type: 'done', content, sources: allSources });
+        await this.jobsRepo.updateStatus(jobId, 'completed', nowIso(), { answer: content, sources: allSources, reasoning: reasoningLog.map((e) => ({ ...e })) });
+        // Persist merged sources to per-conversation research index for follow-ups
+        await this.sourceRepo.replaceAll(conversation.id, allSources.map((s) => ({ ...s, excerpt: allExcerpts.get(s.id) })), nowIso());
         const tokenCount = Math.round(content.length / 4);
         await this.usage.record(userId, provider.id, tokenCount);
 
@@ -314,6 +382,10 @@ export class ResearchService {
     return await this.jobsRepo.findById(userId, jobId);
   }
 
+  async getJobsByConversation(userId: string, conversationId: string) {
+    return await this.jobsRepo.listByConversation(userId, conversationId);
+  }
+
   // Legacy synchronous flow (kept for tests and chat stream fallback)
   async run(input: {
     userId: string;
@@ -346,8 +418,10 @@ export class ResearchService {
     input.emit({ type: 'start', conversationId: conversation.id, messageId: assistantMessageId, mode: 'DEEP_RESEARCH' });
     await this.conversations.addMessage({ id: createId('msg'), conversationId: conversation.id, role: 'user', content: input.question, now });
 
+    const reasoningLog: StreamEvent[] = [];
     const provider = await this.providers.resolve(input.userId, input.providerId);
     input.emit({ type: 'reasoning', step: 'Planning research', detail: 'Creating focused search queries', iteration: 0 });
+    reasoningLog.push({ type: 'reasoning', step: 'Planning research', detail: 'Creating focused search queries', iteration: 0 });
     let queries: string[];
     try {
       const urls = extractUrls(input.question);
@@ -376,11 +450,23 @@ export class ResearchService {
     const excerpts = new Map<number, string>();
     const seenUrls = new Set<string>();
 
+    // Load prior research sources for this conversation (follow-up support)
+    let priorSources: Array<ResearchSource & { excerpt?: string | undefined }> = [];
+    if (input.conversationId) {
+      try {
+        priorSources = await this.sourceRepo.listByConversation(conversation.id);
+        this.logger.info({ conversationId: conversation.id, priorSourceCount: priorSources.length }, 'research_prior_sources_loaded');
+      } catch {
+        // Non-critical: if index doesn't exist yet, continue with fresh search
+      }
+    }
+
     for (const [index, rawQuery] of queries.entries()) {
       const item = parsePlanItem(rawQuery);
       const iteration = index + 1;
       const iterationStarted = performance.now();
       input.emit({ type: 'reasoning', step: `Searching ${item.channel}`, detail: item.query, iteration });
+      reasoningLog.push({ type: 'reasoning', step: `Searching ${item.channel}`, detail: item.query, iteration });
       this.logger.info({ conversationId: conversation.id, iteration, channel: item.channel, queryHash: hashForLog(item.query), queryLength: item.query.length }, 'research_search_started');
       let results;
       try {
@@ -397,7 +483,7 @@ export class ResearchService {
         const source: ResearchSource = { id, title: result.title, url: result.url, snippet: result.description ?? result.markdown.slice(0, 240) };
         sources.push(source);
         excerpts.set(id, result.markdown.slice(0, 3500));
-        input.emit({ type: 'source', source });
+        input.emit({ type: 'source', source, iteration, channel: item.channel });
       }
       const iterationDuration = Math.round(performance.now() - iterationStarted);
       await this.metrics.record({
@@ -412,12 +498,29 @@ export class ResearchService {
         metadata: { iteration, query: item.query, sourceCount: results.length },
       });
       input.emit({ type: 'reasoning', step: 'Reviewing findings', detail: `${sources.length} unique sources collected`, iteration });
+      reasoningLog.push({ type: 'reasoning', step: 'Reviewing findings', detail: `${sources.length} unique sources collected`, iteration });
       this.logger.info({ conversationId: conversation.id, iteration, totalSources: sources.length }, 'research_iteration_reviewed');
     }
 
     input.emit({ type: 'reasoning', step: 'Synthesizing answer', detail: 'Writing final response with citations', iteration: queries.length });
-    this.logger.info({ conversationId: conversation.id, totalSources: sources.length }, 'research_synthesis_started');
-    const sourceNotes = formatSourcesForPrompt(sources, excerpts);
+    reasoningLog.push({ type: 'reasoning', step: 'Synthesizing answer', detail: 'Writing final response with citations', iteration: queries.length });
+    this.logger.info({ conversationId: conversation.id, totalSources: sources.length, priorSourceCount: priorSources.length }, 'research_synthesis_started');
+
+    // Merge prior sources with new ones for synthesis (deduplicate by URL)
+    const allSources: ResearchSource[] = [...priorSources];
+    const allExcerpts = new Map<number, string>();
+    for (const ps of priorSources) {
+      allExcerpts.set(ps.id, ps.excerpt ?? ps.snippet ?? '');
+    }
+    for (const ns of sources) {
+      if (!allSources.some((s) => s.url === ns.url)) {
+        const nextId = allSources.length + 1;
+        allSources.push({ ...ns, id: nextId });
+        allExcerpts.set(nextId, excerpts.get(ns.id) ?? '');
+      }
+    }
+
+    const sourceNotes = formatSourcesForPrompt(allSources, allExcerpts);
     let content = '';
     const synthesisStarted = performance.now();
     let firstTokenAt: number | null = null;
@@ -442,12 +545,15 @@ export class ResearchService {
       conversationId: conversation.id,
       role: 'assistant',
       content,
-      metadata: { sources },
+      metadata: { sources: allSources, reasoning: reasoningLog },
       now: nowIso(),
     });
-    input.emit({ type: 'done', content, sources });
+    input.emit({ type: 'done', content, sources: allSources });
     const tokenCount = Math.round(content.length / 4);
     await this.usage.record(input.userId, provider.id, tokenCount);
+
+    // Persist merged sources to per-conversation research index
+    await this.sourceRepo.replaceAll(conversation.id, allSources.map((s) => ({ ...s, excerpt: allExcerpts.get(s.id) })), nowIso());
 
     await this.metrics.record({
       userId: input.userId,

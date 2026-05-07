@@ -3,10 +3,86 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Highlight, themes } from 'prism-react-renderer';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import type { ResearchSource } from '@cogentrex/shared';
 
 interface MarkdownMessageProps {
   content: string;
+  sources?: ResearchSource[] | undefined;
+}
+
+function CitationBadge({ num, source }: { num: number; source: ResearchSource | undefined }) {
+  const [showTooltip, setShowTooltip] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleEnter = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setShowTooltip(true), 150);
+  };
+
+  const handleLeave = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setShowTooltip(false), 100);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  return (
+    <span
+      className="relative inline-flex align-middle"
+      onMouseEnter={handleEnter}
+      onMouseLeave={handleLeave}
+      onClick={() => setShowTooltip((s) => !s)}
+    >
+      <span className="mx-0.5 inline-flex h-5 min-w-[1.25rem] cursor-pointer items-center justify-center rounded-md bg-accent/15 px-1 text-xs font-semibold text-accent hover:bg-accent/25 transition-colors">
+        {num}
+      </span>
+      {showTooltip && source ? (
+        <span className="absolute bottom-full left-1/2 z-50 mb-2 block w-64 -translate-x-1/2 rounded-xl border border-line bg-panel p-3 shadow-xl">
+          <span className="flex items-start gap-2">
+            <span className="mt-0.5 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-md bg-accent/15 px-1 text-[10px] font-semibold text-accent">
+              {num}
+            </span>
+            <span className="block min-w-0">
+              <span className="block text-xs font-medium text-slate-200 line-clamp-2">{source.title}</span>
+              <span className="mt-0.5 block text-[10px] text-slate-500">
+                {(() => {
+                  try {
+                    return new URL(source.url).hostname.replace(/^www\./, '');
+                  } catch {
+                    return source.url;
+                  }
+                })()}
+              </span>
+              {source.snippet ? (
+                <span className="mt-1 block text-[10px] text-slate-400 line-clamp-3">{source.snippet}</span>
+              ) : null}
+            </span>
+          </span>
+          <span className="absolute left-1/2 top-full block h-2 w-2 -translate-x-1/2 -translate-y-1/2 rotate-45 border-b border-r border-line bg-panel" />
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+function CitationLink({ href, children, sources }: { href: string | undefined; children: React.ReactNode; sources?: ResearchSource[] | undefined }) {
+  if (!href) return <span>{children}</span>;
+  const match = href.match(/^#source-(\d+)$/);
+  if (match && match[1]) {
+    const num = parseInt(match[1], 10);
+    const source = sources?.find((s) => s.id === num);
+    return <CitationBadge num={num} source={source} />;
+  }
+  return (
+    <a href={href} target="_blank" rel="noreferrer" className="text-accent underline hover:text-white">
+      {children}
+    </a>
+  );
 }
 
 function CodeBlock({ children, className }: { children: string; className?: string }) {
@@ -53,7 +129,7 @@ function CodeBlock({ children, className }: { children: string; className?: stri
   );
 }
 
-export function MarkdownMessage({ content }: MarkdownMessageProps) {
+export function MarkdownMessage({ content, sources }: MarkdownMessageProps) {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
@@ -79,11 +155,7 @@ export function MarkdownMessage({ content }: MarkdownMessageProps) {
           <th className="border border-slate-700 px-3 py-2 text-left font-semibold text-white">{children}</th>
         ),
         td: ({ children }) => <td className="border border-slate-700 px-3 py-2 text-slate-200">{children}</td>,
-        a: ({ href, children }) => (
-          <a href={href} target="_blank" rel="noreferrer" className="text-accent underline hover:text-white">
-            {children}
-          </a>
-        ),
+        a: ({ href, children }) => <CitationLink href={href ?? ''} sources={sources}>{children}</CitationLink>,
         pre: ({ children }) => children,
         code: ({ children, className }) => {
           const isInline = !className;

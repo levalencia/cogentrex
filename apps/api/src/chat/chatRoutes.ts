@@ -58,6 +58,26 @@ export function chatRoutes(auth: AuthService, chat: ChatService, research: Resea
     }
   });
 
+  router.get('/conversations/:id/diagnostics', async (req, res, next) => {
+    try {
+      const user = currentUser(req);
+      const conversation = await chat.getConversation(user.id, req.params.id);
+      if (!conversation) return res.status(404).json({ error: { message: 'Conversation not found' } });
+      const metricsData = await metrics.listForConversation(user.id, req.params.id);
+      let reasoning: StreamEvent[] | undefined;
+      if (conversation.mode === 'DEEP_RESEARCH') {
+        const jobs = await research.getJobsByConversation(user.id, req.params.id);
+        const job = jobs[0];
+        if (job && job.reasoning) {
+          reasoning = job.reasoning as StreamEvent[];
+        }
+      }
+      res.json({ metrics: metricsData, reasoning });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   router.patch('/conversations/:id', async (req, res, next) => {
     try {
       const user = currentUser(req);
@@ -128,8 +148,8 @@ export function chatRoutes(auth: AuthService, chat: ChatService, research: Resea
   router.post('/plan', async (req, res, next) => {
     try {
       const user = currentUser(req);
-      const { content, providerId } = req.body as { content: string; providerId?: string };
-      const result = await research.plan(providerId, user.id, content);
+      const { content, providerId, conversationId } = req.body as { content: string; providerId?: string; conversationId?: string };
+      const result = await research.plan(providerId, user.id, content, conversationId);
       res.json(result);
     } catch (error) {
       next(error);

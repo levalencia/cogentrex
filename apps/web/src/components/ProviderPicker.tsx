@@ -25,14 +25,11 @@ function isProviderValidForMode(provider: ProviderConfigView, mode: AppMode): bo
   if (mode === 'VIDEO_GENERATION') {
     return provider.kind === 'VIDEO_GENERATION' || provider.supportsVideo;
   }
-  if (mode === 'SOCIAL_WRITING') {
-    // Social writing needs text providers only
-    const textKinds: ProviderConfigView['kind'][] = ['AZURE_FOUNDRY', 'OPENAI_COMPATIBLE', 'ANTHROPIC', 'GOOGLE'];
-    return textKinds.includes(provider.kind);
-  }
-  // CHAT or DEEP_RESEARCH: any text provider
+  // CHAT, DEEP_RESEARCH, SOCIAL_WRITING: only text providers
   const textKinds: ProviderConfigView['kind'][] = ['AZURE_FOUNDRY', 'OPENAI_COMPATIBLE', 'ANTHROPIC', 'GOOGLE'];
-  return textKinds.includes(provider.kind) || provider.supportsStreaming;
+  const isTextProvider = textKinds.includes(provider.kind);
+  const isDedicatedMediaProvider = provider.kind === 'IMAGE_GENERATION' || provider.kind === 'VIDEO_GENERATION';
+  return isTextProvider && !isDedicatedMediaProvider;
 }
 
 function pickDefaultProvider(providers: ProviderConfigView[], mode: AppMode, currentId?: string): string | undefined {
@@ -66,14 +63,14 @@ export function ProviderPicker() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // Auto-switch provider when mode changes
+  // Auto-switch provider when mode changes or if current provider becomes invalid
   useEffect(() => {
     if (providers.length === 0) return;
     const bestId = pickDefaultProvider(providers, mode, activeProviderId);
     if (bestId && bestId !== activeProviderId) {
       setActiveProvider(bestId);
     }
-  }, [mode, providers.length]);
+  }, [mode, providers.length, activeProviderId]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -88,8 +85,10 @@ export function ProviderPicker() {
 
   const validProviders = providers.filter((p) => isProviderValidForMode(p, mode));
   const activeProvider = providers.find((p) => p.id === activeProviderId);
+  const displayProvider = activeProvider && isProviderValidForMode(activeProvider, mode) ? activeProvider : undefined;
 
   const handleSelect = useCallback((provider: ProviderConfigView) => {
+    if (!isProviderValidForMode(provider, mode)) return;
     setActiveProvider(provider.id);
     setLastProviderId(mode, provider.id);
     setOpen(false);
@@ -102,13 +101,13 @@ export function ProviderPicker() {
       <button
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-2 rounded-xl border border-line bg-ink/50 px-3 py-2 text-sm transition hover:border-accent"
-        title={activeProvider ? `${activeProvider.name} — ${activeProvider.baseUrl}` : 'Select provider'}
+        title={displayProvider ? `${displayProvider.name} — ${displayProvider.baseUrl}` : 'Select provider'}
       >
         <span className="truncate max-w-[140px] text-slate-200">
-          {activeProvider ? activeProvider.name : 'Select provider'}
+          {displayProvider ? displayProvider.name : 'Select provider'}
         </span>
         <span className="text-[10px] text-slate-500">
-          {activeProvider ? activeProvider.model.slice(0, 12) : ''}
+          {displayProvider ? displayProvider.model.slice(0, 12) : ''}
         </span>
         <svg className="h-3 w-3 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />

@@ -61,7 +61,7 @@ export type StreamEvent =
   | { type: 'start'; conversationId: string; messageId: string; mode: 'CHAT' | 'DEEP_RESEARCH' | 'SOCIAL_WRITING' }
   | { type: 'delta'; content: string }
   | { type: 'reasoning'; step: string; detail?: string; iteration?: number }
-  | { type: 'source'; source: ResearchSource }
+  | { type: 'source'; source: ResearchSource; iteration?: number; channel?: string }
   | { type: 'artifact'; filename: string; language?: string; artifactType: string; content: string }
   | { type: 'done'; content: string; sources?: ResearchSource[]; title?: string }
   | { type: 'error'; code: string; message: string };
@@ -84,6 +84,15 @@ export interface ResearchSource {
   url: string;
   snippet?: string | undefined;
   channel?: string | undefined;
+}
+
+export interface SearchIteration {
+  id: number;
+  channel: string;
+  query: string;
+  status: 'searching' | 'found';
+  resultCount: number;
+  results: ResearchSource[];
 }
 
 export interface RequestMetric {

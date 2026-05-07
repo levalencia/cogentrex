@@ -80,6 +80,11 @@ export class ResearchJobRepository {
     return row ? mapJob(row) : null;
   }
 
+  async listByConversation(userId: string, conversationId: string): Promise<ResearchJobRecord[]>{
+    const rows = await this.db.prepare('SELECT * FROM research_jobs WHERE user_id = ? AND conversation_id = ? ORDER BY created_at DESC').all(userId, conversationId) as ResearchJobRow[];
+    return rows.map(mapJob);
+  }
+
   async updateStatus(id: string, status: ResearchJobRecord['status'], now: string, extras?: { answer?: string; sources?: unknown[]; reasoning?: unknown[]; errorMessage?: string }): Promise<void> {
     const sets = ['status = @status', 'updated_at = @now'];
     const params: Record<string, unknown> = { id, status, now };

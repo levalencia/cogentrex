@@ -20,6 +20,7 @@ import { EncryptionService } from './security/encryption.js';
 import { FirecrawlSearchClient, FakeWebSearchClient, type WebSearchClient } from './tools/searchClient.js';
 import { ResearchService } from './research/researchService.js';
 import { ResearchJobRepository } from './research/researchJobRepository.js';
+import { ResearchSourceRepository } from './research/researchSourceRepository.js';
 import { ProviderUsageRepository } from './providers/providerUsageRepository.js';
 import { ChannelRegistry } from './tools/channels/channelRegistry.js';
 import { WebChannelClient } from './tools/channels/webChannelClient.js';
@@ -78,12 +79,13 @@ export async function createApp(env: AppEnv, deps: AppDependencies = {}) {
 
   const chatService = new ChatService(conversationRepository, providerService, llm, new ProviderUsageRepository(database.adapter), metricsRepository, logger.child({ component: 'ChatService' }), artifactService);
   const researchJobRepository = new ResearchJobRepository(database.adapter);
+  const researchSourceRepository = new ResearchSourceRepository(database.adapter);
   const channelRegistry = new ChannelRegistry();
   channelRegistry.register(new WebChannelClient(search));
   channelRegistry.register(new RedditChannelClient());
   channelRegistry.register(new RssChannelClient());
   channelRegistry.register(new YouTubeChannelClient());
-  const researchService = new ResearchService(conversationRepository, providerService, llm, search, channelRegistry, researchJobRepository, new ProviderUsageRepository(database.adapter), metricsRepository, logger.child({ component: 'ResearchService' }));
+  const researchService = new ResearchService(conversationRepository, providerService, llm, search, channelRegistry, researchJobRepository, researchSourceRepository, new ProviderUsageRepository(database.adapter), metricsRepository, logger.child({ component: 'ResearchService' }));
 
   const mediaRepository = new MediaRepository(database.adapter);
   const apiBaseUrl = env.API_PUBLIC_BASE_URL ?? `http://localhost:${env.API_PORT}`;

@@ -316,6 +316,29 @@ export class AppDatabase {
         `);
       }
     } catch { /* ignored on PostgreSQL */ }
+
+    try {
+      const hasResearchSources = await this.adapter.getOne(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='research_sources'",
+      );
+      if (!hasResearchSources) {
+        await this.adapter.exec(`
+          CREATE TABLE IF NOT EXISTS research_sources (
+            id TEXT PRIMARY KEY,
+            conversation_id TEXT NOT NULL,
+            source_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            url TEXT NOT NULL,
+            snippet TEXT,
+            excerpt TEXT,
+            channel TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+          );
+          CREATE INDEX IF NOT EXISTS research_sources_conversation ON research_sources(conversation_id);
+        `);
+      }
+    } catch { /* ignored on PostgreSQL */ }
   }
 
   async close(): Promise<void> {

@@ -11,6 +11,16 @@ export function createPlanningMessages(question: string, seedContext?: string): 
   ];
 }
 
+export function createFollowUpPlanningMessages(question: string, priorSourceCount: number, priorTopics: string, seedContext?: string): ModelMessage[] {
+  const systemContent = seedContext
+    ? `You are a deep research planner for FOLLOW-UP questions. Prior research already found ${priorSourceCount} sources covering: ${priorTopics}.\n\nGenerate up to 5 NEW search queries focused on information NOT already covered by prior research. Avoid re-searching the same topics. Return only JSON: {"queries":["..."]}.\n\nAvailable channels: web, reddit, youtube, rss. Prefix queries with channel name followed by colon.\n\nExtracted context:\n${seedContext}`
+    : `You are a deep research planner for FOLLOW-UP questions. Prior research already found ${priorSourceCount} sources covering: ${priorTopics}.\n\nGenerate up to 5 NEW search queries focused on information NOT already covered by prior research. Avoid re-searching the same topics. Return only JSON: {"queries":["..."]}.\n\nAvailable channels: web, reddit, youtube, rss. Prefix queries with channel name followed by colon.`;
+  return [
+    { role: 'system', content: systemContent },
+    { role: 'user', content: question },
+  ];
+}
+
 export function createSynthesisMessages(question: string, sourceNotes: string): ModelMessage[] {
   return [
     {

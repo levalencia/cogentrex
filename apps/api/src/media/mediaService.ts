@@ -21,9 +21,17 @@ export interface MediaGenerationResult {
   artifact: MediaArtifactRecord;
 }
 
-const IMAGE_PROVIDER_TIMEOUT_MS = 220_000; // Keep below ingress/client timeouts so failures return cleanly.
+const IMAGE_PROVIDER_TIMEOUT_MS = 600_000; // 10 min
+
+interface CacheEntry {
+  result: string;
+  expiresAt: number;
+}
 
 export class MediaService {
+  private readonly promptCache = new Map<string, CacheEntry>();
+  private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
   constructor(
     private readonly conversations: ConversationRepository,
     private readonly providers: ProviderService,
@@ -456,6 +464,15 @@ export class MediaService {
     }
   }
 
+  private getMediaUrl(filename: string): string {
+    // In local dev, if API_PUBLIC_BASE_URL points to production, construct local URL instead
+    // so generated images are served from the same local API instance.
+    if (process.env.NODE_ENV === 'development' && this.apiBaseUrl.includes('cogentrex.com')) {
+      return `http://localhost:${process.env.API_PORT ?? 3001}/api/media/files/${filename}`;
+    }
+    return `${this.apiBaseUrl}/api/media/files/${filename}`;
+  }
+
   private saveBase64Image(base64Data: string): string {
     const id = createId('img');
     const filename = `${id}.png`;
@@ -463,7 +480,7 @@ export class MediaService {
     const buffer = Buffer.from(base64Data, 'base64');
     writeFileSync(filepath, buffer);
     this.logger.info({ fileId: id, sizeBytes: buffer.length }, 'image_saved_to_disk');
-    return `${this.apiBaseUrl}/api/media/files/${filename}`;
+    return this.getMediaUrl(filename);
   }
 
   async analyzeImages(userId: string, filenames: string[]): Promise<string> {
@@ -525,6 +542,12 @@ export class MediaService {
     imageType?: string,
     targetProviderId?: string,
   ): Promise<string> {
+    // Clean expired cache entries
+    const now = Date.now();
+    for (const [key, entry] of this.promptCache) {
+      if (entry.expiresAt < now) this.promptCache.delete(key);
+    }
+
     let chatProvider: Awaited<ReturnType<ProviderService['resolve']>> | undefined;
 
     // If a specific provider is requested, try it first
@@ -574,6 +597,15 @@ export class MediaService {
       } catch {
         // Ignore resolve errors
       }
+    }
+
+    // Build cache key from all inputs that affect the output
+    const cacheKeyParts = [prompt, style ?? '', context ?? '', String(isFluxTarget), imageType ?? ''];
+    const cacheKey = cacheKeyParts.join('|');
+    const cached = this.promptCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      this.logger.info({ userId, cacheHit: true, promptLength: prompt.length }, 'prompt_enhance_cache_hit');
+      return cached.result;
     }
 
     const styleHint = style ? `Make it ${style}. ` : '';
@@ -628,8 +660,10 @@ CRITICAL FLUX RULES:
     ];
     try {
       const enhanced = await this.llm.complete(chatProvider, messages);
-      this.logger.info({ userId, style, imageType, isFlux: isFluxTarget, originalLength: prompt.length, enhancedLength: enhanced.length }, 'prompt_enhanced');
-      return enhanced.trim() || prompt;
+      const result = enhanced.trim() || prompt;
+      this.promptCache.set(cacheKey, { result, expiresAt: Date.now() + this.CACHE_TTL_MS });
+      this.logger.info({ userId, style, imageType, isFlux: isFluxTarget, originalLength: prompt.length, enhancedLength: result.length, cacheHit: false }, 'prompt_enhanced');
+      return result;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Prompt enhancement failed';
       this.logger.warn({ userId, errorMessage: message }, 'prompt_enhancement_failed');

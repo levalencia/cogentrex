@@ -1,19 +1,21 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback, memo } from 'react';
+import type { ResearchSource } from '@cogentrex/shared';
 import { useAppStore } from '@/store/appStore';
 import { ReasoningPanel } from '@/components/ReasoningPanel';
 import { MarkdownMessage } from '@/components/MarkdownMessage';
 import { PlanEditor } from '@/components/PlanEditor';
 import { SourceCards } from '@/components/SourceCards';
 import { ExportButtons } from '@/components/ExportButtons';
-import { ViewLogsButton } from '@/components/MetricsPanel';
+import { ViewDiagnosticsButton } from '@/components/DiagnosticsPanel';
+import { DiagnosticsBottomPanel } from '@/components/DiagnosticsPanel';
 import { ProviderPicker } from '@/components/ProviderPicker';
 import { ImageOptionsPanel } from '@/components/ImageOptionsPanel';
 import { PostCards, tryParsePosts } from '@/components/PostCards';
-import { LogsBottomPanel } from '@/components/MetricsPanel';
 import { api } from '@/lib/api';
 import { ArtifactsPanel } from '@/components/ArtifactsPanel';
+import { MessageReasoningBlock } from '@/components/MessageReasoningBlock';
 
 // ── Helper ──────────────────────────────────────────
 function extractImageFilenameFromMarkdown(content: string): string | null {
@@ -23,9 +25,31 @@ function extractImageFilenameFromMarkdown(content: string): string | null {
 
 // ── MessageItem (memoised) ──────────────────────────
 interface MessageItemProps {
-  message: { id: string; conversationId: string; role: 'user' | 'assistant' | 'system' | 'tool'; content: string };
+  message: { id: string; conversationId: string; role: 'user' | 'assistant' | 'system' | 'tool'; content: string; metadata?: Record<string, unknown> | null };
   onEditImage: (content: string) => void;
 }
+
+function processCitations(content: string, sources: ResearchSource[]): string {
+  if (!sources.length) return content;
+  const ids = new Set(sources.map((s) => s.id));
+  return content.replace(/\[(\d+)\]/g, (match, num) => {
+    const id = parseInt(num, 10);
+    return ids.has(id) ? `[${id}](#source-${id})` : match;
+  });
+}
+
+function getCitedSources(content: string, sources: ResearchSource[] | undefined): ResearchSource[] {
+  if (!sources?.length) return [];
+  const citedIds = new Set<number>();
+  const regex = /\[(\d+)\]/g;
+  let match;
+  while ((match = regex.exec(content)) !== null) {
+    const num = match[1];
+    if (num) citedIds.add(parseInt(num, 10));
+  }
+  return sources.filter((s) => citedIds.has(s.id));
+}
+
 const MessageItem = memo(function MessageItem({ message, onEditImage }: MessageItemProps) {
   if (message.role === 'user') {
     // Detect if this user message was for social generation
@@ -48,7 +72,7 @@ const MessageItem = memo(function MessageItem({ message, onEditImage }: MessageI
           <PostCards posts={parsedPosts} conversationId={message.conversationId} />
         </div>
         {message.id ? (
-          <ViewLogsButton conversationId={message.conversationId} messageId={message.id} />
+          <ViewDiagnosticsButton conversationId={message.conversationId} messageId={message.id} />
         ) : null}
       </div>
     );
@@ -57,6 +81,10 @@ const MessageItem = memo(function MessageItem({ message, onEditImage }: MessageI
   const isError = message.content?.includes('❌') || message.content?.includes('Generation failed') || message.content?.includes('timed out');
   const isLoading = message.content?.includes('Generating image') || message.content?.includes('Generating video');
   const hasGeneratedImage = message.content?.includes('![Generated Image]');
+  const messageSources = message.metadata?.sources as ResearchSource[] | undefined;
+  const citedSources = getCitedSources(message.content, messageSources);
+  const processedContent = citedSources.length ? processCitations(message.content, citedSources) : message.content;
+  const messageReasoning = message.metadata?.reasoning as Array<{ step: string; detail?: string; iteration?: number }> | undefined;
 
   return (
     <article className="flex justify-start">
@@ -77,13 +105,21 @@ const MessageItem = memo(function MessageItem({ message, onEditImage }: MessageI
               </div>
             </div>
           ) : (
-            <MarkdownMessage content={message.content} />
+            <MarkdownMessage content={processedContent} sources={citedSources} />
           )
         ) : (
           'Thinking...'
         )}
+        {citedSources.length ? (
+          <div className="mt-3">
+            <SourceCards sources={citedSources} />
+          </div>
+        ) : null}
+        {messageReasoning && messageReasoning.length ? (
+          <MessageReasoningBlock reasoning={messageReasoning} />
+        ) : null}
         {message.id && !message.content?.startsWith('Thinking') ? (
-          <ViewLogsButton conversationId={message.conversationId} messageId={message.id} />
+          <ViewDiagnosticsButton conversationId={message.conversationId} messageId={message.id} />
         ) : null}
         {hasGeneratedImage ? (
           <button
@@ -104,7 +140,6 @@ function MessageList({ onEditImage }: { onEditImage: (content: string) => void }
   const mode = useAppStore((state) => state.mode);
   const reasoning = useAppStore((state) => state.reasoning);
   const isStreaming = useAppStore((state) => state.isStreaming);
-  const sources = useAppStore((state) => state.sources);
   const error = useAppStore((state) => state.error);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -147,8 +182,8 @@ function MessageList({ onEditImage }: { onEditImage: (content: string) => void }
           {messages.map((message, index) => (
             <div key={message.id}>
               <MessageItem message={message} onEditImage={onEditImage} />
-              {/* Render reasoning panel right after the user message that triggered current generation */}
-              {isStreaming && reasoning.length > 0 && index === lastUserIndex ? (
+              {/* Show reasoning panel inline after the last user message when research is active */}
+              {reasoning.length > 0 && index === lastUserIndex ? (
                 <div className="mt-2">
                   <ReasoningPanel />
                 </div>
@@ -156,12 +191,11 @@ function MessageList({ onEditImage }: { onEditImage: (content: string) => void }
             </div>
           ))}
         </div>
-        {lastAssistant && sources.length > 0 && !isStreaming ? (
+        {lastAssistant && !isStreaming ? (
           <div className="flex items-center justify-between">
-            <ExportButtons content={lastAssistant.content} sources={sources} />
+            <ExportButtons content={lastAssistant.content} sources={getCitedSources(lastAssistant.content, (lastAssistant.metadata?.sources as ResearchSource[] | undefined) ?? [])} />
           </div>
         ) : null}
-        <SourceCards sources={sources} />
         {error ? <p className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</p> : null}
         <div className="h-4 shrink-0" />
       </div>
@@ -782,7 +816,7 @@ export function ChatView() {
 
       <MessageList onEditImage={handleEditImage} />
       <ChatInput onSend={handleSend} onGenerateSocial={handleGenerateSocial} />
-      <LogsBottomPanel />
+      <DiagnosticsBottomPanel />
     </main>
     <ArtifactsPanel />
     </div>

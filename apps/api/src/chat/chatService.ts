@@ -30,6 +30,10 @@ export class ChatService {
     return await this.conversations.list(userId, projectId);
   }
 
+  async getConversation(userId: string, conversationId: string) {
+    return await this.conversations.findForUser(userId, conversationId);
+  }
+
   async listMessages(userId: string, conversationId: string) {
     const conversation = await this.conversations.findForUser(userId, conversationId);
     if (!conversation) throw notFound('Conversation not found');

@@ -94,6 +94,21 @@ CREATE TABLE IF NOT EXISTS research_jobs (
 
 CREATE INDEX IF NOT EXISTS research_jobs_user_status ON research_jobs(user_id, status);
 
+CREATE TABLE IF NOT EXISTS research_sources (
+  id TEXT PRIMARY KEY,
+  conversation_id TEXT NOT NULL,
+  source_id INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  url TEXT NOT NULL,
+  snippet TEXT,
+  excerpt TEXT,
+  channel TEXT,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS research_sources_conversation ON research_sources(conversation_id);
+
 CREATE TABLE IF NOT EXISTS provider_usage (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,

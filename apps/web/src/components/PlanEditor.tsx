@@ -44,8 +44,14 @@ export function PlanEditor() {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="w-full max-w-xl rounded-3xl border border-line bg-panel p-6 shadow-2xl">
-        <h2 className="text-lg font-semibold text-white">Research Plan</h2>
-        <p className="mt-1 text-sm text-slate-400">Review or edit the search queries before starting deep research.</p>
+        <h2 className="text-lg font-semibold text-white">
+          {pendingPlan.priorSourceCount ? `Follow-up Research · ${pendingPlan.priorSourceCount} prior sources` : 'Research Plan'}
+        </h2>
+        <p className="mt-1 text-sm text-slate-400">
+          {pendingPlan.priorSourceCount
+            ? 'Building on prior research. Review or edit the new search queries.'
+            : 'Review or edit the search queries before starting deep research.'}
+        </p>
 
         <div className="mt-4 space-y-2 max-h-80 overflow-y-auto">
           {plan.map((query, index) => (

@@ -1,6 +1,6 @@
 import type { ProviderRuntimeConfig } from '../providers/providerService.js';
 import type { LanguageModelClient } from '../chat/languageModel.js';
-import { createPlanningMessages } from './researchPrompts.js';
+import { createPlanningMessages, createFollowUpPlanningMessages } from './researchPrompts.js';
 
 export interface PlanItem {
   query: string;
@@ -36,6 +36,25 @@ export class ResearchPlanner {
       { query: `${question} recent evidence`, channel: 'web' },
       { query: `${question} expert analysis`, channel: 'web' },
       { query: `${question} limitations criticism`, channel: 'web' },
+    ];
+  }
+
+  async planFollowUp(provider: ProviderRuntimeConfig, question: string, priorSourceCount: number, priorTopics: string, seedContext?: string): Promise<PlanItem[]> {
+    try {
+      const text = await this.llm.complete(provider, createFollowUpPlanningMessages(question, priorSourceCount, priorTopics, seedContext));
+      const parsed = JSON.parse(text) as { queries?: unknown };
+      if (Array.isArray(parsed.queries)) {
+        const items = parsed.queries
+          .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+          .map(parsePlanItem);
+        if (items.length) return items.slice(0, 5);
+      }
+    } catch {
+      // Fallback for follow-up planning
+    }
+    return [
+      { query: question, channel: 'web' },
+      { query: `${question} latest updates`, channel: 'web' },
     ];
   }
 }

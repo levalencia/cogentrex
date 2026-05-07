@@ -49,6 +49,7 @@ export const api = {
   testProvider: (id: string) => jsonRequest<{ ok: boolean; status: 'ok' | 'fail'; error?: string }>(`/api/providers/${id}/test`, { method: 'POST' }),
   getCatalog: () => jsonRequest<{ catalog: { id: string; name: string; description: string; kind: ProviderConfigView['kind']; baseUrl?: string; baseUrlTemplate?: string; models: string[]; features: { chat: boolean; vision: boolean; tools: boolean; image: boolean; video: boolean }; docsUrl: string }[] }>('/api/providers/catalog'),
   getMetrics: (conversationId: string) => jsonRequest<{ metrics: RequestMetric[] }>(`/api/chat/conversations/${conversationId}/metrics`),
+  getDiagnostics: (conversationId: string) => jsonRequest<{ metrics: RequestMetric[]; reasoning?: StreamEvent[] }>(`/api/chat/conversations/${conversationId}/diagnostics`),
   listConversations: (projectId?: string | null) => jsonRequest<{ conversations: ConversationSummary[] }>(`/api/chat/conversations${projectId !== undefined ? `?projectId=${projectId ?? 'null'}` : ''}`),
   listMessages: (conversationId: string) => jsonRequest<{ messages: ChatMessage[] }>(`/api/chat/conversations/${conversationId}/messages`),
   listArtifacts: (conversationId: string) => jsonRequest<{ artifacts: ArtifactItem[] }>(`/api/artifacts/conversation/${conversationId}`),
@@ -58,8 +59,8 @@ export const api = {
   deleteAllConversations: () => jsonRequest<void>('/api/chat/conversations', { method: 'DELETE' }),
   setConversationProject: (conversationId: string, projectId: string | null) =>
     jsonRequest<void>(`/api/chat/conversations/${conversationId}/project`, { method: 'PATCH', body: JSON.stringify({ projectId }) }),
-  planResearch: (content: string, providerId?: string) =>
-    jsonRequest<{ plan: string[]; jobId: string; conversationId: string }>('/api/chat/plan', { method: 'POST', body: JSON.stringify({ content, providerId }) }),
+  planResearch: (content: string, providerId?: string, conversationId?: string) =>
+    jsonRequest<{ plan: string[]; jobId: string; conversationId: string; priorSourceCount: number }>('/api/chat/plan', { method: 'POST', body: JSON.stringify({ content, providerId, conversationId }) }),
   startResearch: (jobId: string, plan: string[]) =>
     jsonRequest<{ started: boolean }>('/api/chat/research', { method: 'POST', body: JSON.stringify({ jobId, plan }) }),
   // Admin

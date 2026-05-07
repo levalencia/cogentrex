@@ -1,7 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
-import type { AppMode, ChatMessage, ConversationSummary, GeneratedPost, ImageGenerationOptions, ProjectSummary, ProviderConfigView, PublicUser, ResearchSource, StreamEvent, ArtifactItem } from '@cogentrex/shared';
+import type { AppMode, ChatMessage, ConversationSummary, GeneratedPost, ImageGenerationOptions, ProjectSummary, ProviderConfigView, PublicUser, ResearchSource, StreamEvent, ArtifactItem, SearchIteration } from '@cogentrex/shared';
 import { api, streamMessage, streamResearch } from '@/lib/api';
 import { ApiError } from '@/lib/api';
 
@@ -19,6 +19,7 @@ interface PendingPlan {
   question: string;
   isLoading: boolean;
   loadingMessage?: string | undefined;
+  priorSourceCount?: number;
 }
 
 interface AppState {
@@ -33,6 +34,8 @@ interface AppState {
   mode: AppMode;
   reasoning: ReasoningItem[];
   sources: ResearchSource[];
+  searchIterations: SearchIteration[];
+  researchDrawerOpen: boolean;
   isStreaming: boolean;
   isWarmingUp: boolean;
   error: string | undefined;
@@ -40,9 +43,9 @@ interface AppState {
   imageOptions: ImageGenerationOptions;
   editingImages: string[];
   lastResearchContext: string;
-  logsPanelOpen: boolean;
-  logsPanelConversationId: string | undefined;
-  logsPanelMessageId: string | undefined;
+  diagnosticsPanelOpen: boolean;
+  diagnosticsConversationId: string | undefined;
+  diagnosticsMessageId: string | undefined;
   artifacts: ArtifactItem[];
   selectedArtifactId: string | undefined;
   artifactPanelOpen: boolean;
@@ -64,8 +67,9 @@ interface AppState {
   exitEditMode: () => void;
   addEditingImage: (filename: string) => void;
   removeEditingImage: (filename: string) => void;
-  openLogsPanel: (conversationId: string, messageId?: string) => void;
-  closeLogsPanel: () => void;
+  openDiagnosticsPanel: (conversationId: string, messageId?: string) => void;
+  closeDiagnosticsPanel: () => void;
+  toggleResearchDrawer: () => void;
   selectArtifact: (id: string | undefined) => void;
   toggleArtifactPanel: () => void;
   closeArtifactPanel: () => void;
@@ -96,6 +100,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   mode: 'CHAT',
   reasoning: [],
   sources: [],
+  searchIterations: [],
+  researchDrawerOpen: false,
   isStreaming: false,
   isWarmingUp: false,
   error: undefined,
@@ -103,9 +109,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   imageOptions: { size: '1024x1024', quality: 'auto', n: 1 },
   editingImages: [],
   lastResearchContext: '',
-  logsPanelOpen: false,
-  logsPanelConversationId: undefined,
-  logsPanelMessageId: undefined,
+  diagnosticsPanelOpen: false,
+  diagnosticsConversationId: undefined,
+  diagnosticsMessageId: undefined,
   artifacts: [],
   selectedArtifactId: undefined,
   artifactPanelOpen: false,
@@ -195,10 +201,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!content.trim() || state.isStreaming) return;
 
     if (state.mode === 'DEEP_RESEARCH') {
-      set({ pendingPlan: { jobId: '', conversationId: '', plan: [], question: content, isLoading: true, loadingMessage: 'Reading linked sources...' } });
+      set({ pendingPlan: { jobId: '', conversationId: state.activeConversationId ?? '', plan: [], question: content, isLoading: true, loadingMessage: 'Reading linked sources...' } });
       try {
-        const { plan, jobId, conversationId } = await api.planResearch(content, state.activeProviderId);
-        set({ pendingPlan: { jobId, conversationId, plan, question: content, isLoading: false } });
+        const { plan, jobId, conversationId, priorSourceCount } = await api.planResearch(content, state.activeProviderId, state.activeConversationId);
+        set({ pendingPlan: { jobId, conversationId, plan, question: content, isLoading: false, priorSourceCount } });
       } catch (error) {
         set({ error: error instanceof Error ? error.message : 'Planning failed', pendingPlan: null });
       }
@@ -303,6 +309,8 @@ export const useAppStore = create<AppState>((set, get) => ({
             content: '',
             createdAt: new Date().toISOString(),
           }],
+          researchDrawerOpen: event.mode === 'DEEP_RESEARCH' ? true : current.researchDrawerOpen,
+          searchIterations: event.mode === 'DEEP_RESEARCH' ? [] : current.searchIterations,
         }));
       }
       if (event.type === 'delta') {
@@ -313,9 +321,59 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
       if (event.type === 'reasoning') {
         set((current) => ({ reasoning: [...current.reasoning, { id: `${Date.now()}-${current.reasoning.length}`, step: event.step, detail: event.detail, iteration: event.iteration }] }));
+        const step = event.step;
+        const iteration = event.iteration;
+        const detail = event.detail;
+        if (step?.startsWith('Searching ') && iteration !== undefined && detail) {
+          set((current) => {
+            const channel = step.replace('Searching ', '');
+            if (current.searchIterations.some((si) => si.id === iteration)) return current;
+            return {
+              searchIterations: [...current.searchIterations, {
+                id: iteration,
+                channel,
+                query: detail,
+                status: 'searching' as const,
+                resultCount: 0,
+                results: [],
+              }],
+            };
+          });
+        }
+        if (step === 'Reviewing findings' && iteration !== undefined) {
+          set((current) => ({
+            searchIterations: current.searchIterations.map((si) =>
+              si.id === iteration ? { ...si, status: 'found' as const } : si
+            ),
+          }));
+        }
       }
       if (event.type === 'source') {
-        set((current) => ({ sources: [...current.sources, event.source] }));
+        set((current) => {
+          const updatedSources = [...current.sources, event.source];
+          const updatedMessages = current.messages.map((msg) =>
+            msg.id === assistantId
+              ? {
+                  ...msg,
+                  metadata: {
+                    ...msg.metadata,
+                    sources: [...((msg.metadata?.sources as ResearchSource[] | undefined) ?? []), event.source],
+                  },
+                }
+              : msg
+          );
+          return { sources: updatedSources, messages: updatedMessages };
+        });
+        const sourceIteration = event.iteration;
+        if (sourceIteration !== undefined) {
+          set((current) => ({
+            searchIterations: current.searchIterations.map((si) =>
+              si.id === sourceIteration
+                ? { ...si, results: [...si.results, event.source], resultCount: si.resultCount + 1 }
+                : si
+            ),
+          }));
+        }
       }
       if (event.type === 'artifact') {
         set((current) => {
@@ -344,7 +402,14 @@ export const useAppStore = create<AppState>((set, get) => ({
                 c.id === current.activeConversationId ? { ...c, title: event.title! } : c
               )
             : current.conversations;
-          return { sources: event.sources ?? current.sources, isStreaming: false, conversations: updatedConversations };
+          const updatedMessages = event.sources
+            ? current.messages.map((msg) =>
+                msg.id === assistantId
+                  ? { ...msg, metadata: { ...msg.metadata, sources: event.sources } }
+                  : msg
+              )
+            : current.messages;
+          return { sources: event.sources ?? current.sources, isStreaming: false, conversations: updatedConversations, messages: updatedMessages };
         });
       }
       if (event.type === 'error') {
@@ -486,6 +551,8 @@ export const useAppStore = create<AppState>((set, get) => ({
             content: '',
             createdAt: new Date().toISOString(),
           }],
+          researchDrawerOpen: true,
+          searchIterations: [],
         }));
       }
       if (event.type === 'delta') {
@@ -496,12 +563,71 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
       if (event.type === 'reasoning') {
         set((current) => ({ reasoning: [...current.reasoning, { id: `${Date.now()}-${current.reasoning.length}`, step: event.step, detail: event.detail, iteration: event.iteration }] }));
+        const step = event.step;
+        const iteration = event.iteration;
+        const detail = event.detail;
+        if (step?.startsWith('Searching ') && iteration !== undefined && detail) {
+          set((current) => {
+            const channel = step.replace('Searching ', '');
+            if (current.searchIterations.some((si) => si.id === iteration)) return current;
+            return {
+              searchIterations: [...current.searchIterations, {
+                id: iteration,
+                channel,
+                query: detail,
+                status: 'searching' as const,
+                resultCount: 0,
+                results: [],
+              }],
+            };
+          });
+        }
+        if (step === 'Reviewing findings' && iteration !== undefined) {
+          set((current) => ({
+            searchIterations: current.searchIterations.map((si) =>
+              si.id === iteration ? { ...si, status: 'found' as const } : si
+            ),
+          }));
+        }
       }
       if (event.type === 'source') {
-        set((current) => ({ sources: [...current.sources, event.source] }));
+        set((current) => {
+          const updatedSources = [...current.sources, event.source];
+          const updatedMessages = current.messages.map((msg) =>
+            msg.id === assistantId
+              ? {
+                  ...msg,
+                  metadata: {
+                    ...msg.metadata,
+                    sources: [...((msg.metadata?.sources as ResearchSource[] | undefined) ?? []), event.source],
+                  },
+                }
+              : msg
+          );
+          return { sources: updatedSources, messages: updatedMessages };
+        });
+        const sourceIteration = event.iteration;
+        if (sourceIteration !== undefined) {
+          set((current) => ({
+            searchIterations: current.searchIterations.map((si) =>
+              si.id === sourceIteration
+                ? { ...si, results: [...si.results, event.source], resultCount: si.resultCount + 1 }
+                : si
+            ),
+          }));
+        }
       }
       if (event.type === 'done') {
-        set({ sources: event.sources ?? get().sources, isStreaming: false });
+        set((current) => {
+          const updatedMessages = event.sources
+            ? current.messages.map((msg) =>
+                msg.id === assistantId
+                  ? { ...msg, metadata: { ...msg.metadata, sources: event.sources } }
+                  : msg
+              )
+            : current.messages;
+          return { sources: event.sources ?? current.sources, isStreaming: false, messages: updatedMessages };
+        });
       }
       if (event.type === 'error') {
         set({ error: event.message });
@@ -594,11 +720,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       editingImages: current.editingImages.filter((f) => f !== filename),
     }));
   },
-  openLogsPanel(conversationId, messageId) {
-    set({ logsPanelOpen: true, logsPanelConversationId: conversationId, logsPanelMessageId: messageId });
+  openDiagnosticsPanel(conversationId, messageId) {
+    set({ diagnosticsPanelOpen: true, diagnosticsConversationId: conversationId, diagnosticsMessageId: messageId });
   },
-  closeLogsPanel() {
-    set({ logsPanelOpen: false });
+  closeDiagnosticsPanel() {
+    set({ diagnosticsPanelOpen: false });
+  },
+  toggleResearchDrawer() {
+    set((current) => ({ researchDrawerOpen: !current.researchDrawerOpen }));
   },
   selectArtifact(id) {
     set({ selectedArtifactId: id });
@@ -610,6 +739,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ artifactPanelOpen: false, selectedArtifactId: undefined });
   },
   clearChat() {
-    set({ messages: [], activeConversationId: undefined, reasoning: [], sources: [], pendingPlan: null, artifacts: [], artifactPanelOpen: false, selectedArtifactId: undefined, logsPanelOpen: false });
+    set({ messages: [], activeConversationId: undefined, reasoning: [], sources: [], searchIterations: [], researchDrawerOpen: false, pendingPlan: null, artifacts: [], artifactPanelOpen: false, selectedArtifactId: undefined, diagnosticsPanelOpen: false });
   },
 }));
