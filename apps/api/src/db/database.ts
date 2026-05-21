@@ -21,6 +21,8 @@ export class AppDatabase {
   async init(): Promise<void> {
     await this.adapter.exec(this.isPostgres ? postgresSchemaSql : schemaSql);
 
+    await this.ensureNullableUserPasswordHash();
+
     try {
       await this.adapter.exec('ALTER TABLE conversations ADD COLUMN is_public INTEGER NOT NULL DEFAULT 0');
     } catch { /* column already exists */ }
@@ -339,6 +341,38 @@ export class AppDatabase {
         `);
       }
     } catch { /* ignored on PostgreSQL */ }
+  }
+
+  private async ensureNullableUserPasswordHash(): Promise<void> {
+    if (this.isPostgres) {
+      try {
+        await this.adapter.exec('ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL');
+      } catch { /* column is already nullable or migration is not needed */ }
+      return;
+    }
+
+    try {
+      const passwordColumn = await this.adapter.getOne<{ notnull: number }>(
+        "SELECT [notnull] AS notnull FROM pragma_table_info('users') WHERE name = 'password_hash'",
+      );
+      if (passwordColumn?.notnull !== 1) return;
+
+      await this.adapter.exec(`
+        PRAGMA foreign_keys=OFF;
+        CREATE TABLE users_new (
+          id TEXT PRIMARY KEY,
+          email TEXT NOT NULL UNIQUE,
+          password_hash TEXT,
+          role TEXT NOT NULL DEFAULT 'USER',
+          created_at TEXT NOT NULL
+        );
+        INSERT INTO users_new (id, email, password_hash, role, created_at)
+          SELECT id, email, password_hash, role, created_at FROM users;
+        DROP TABLE users;
+        ALTER TABLE users_new RENAME TO users;
+        PRAGMA foreign_keys=ON;
+      `);
+    } catch { /* best-effort SQLite migration for existing local databases */ }
   }
 
   async close(): Promise<void> {

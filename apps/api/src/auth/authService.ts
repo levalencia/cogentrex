@@ -7,6 +7,7 @@ import { nowIso } from '../utils/time.js';
 import type { AppLogger } from '../observability/logger.js';
 import { hashForLog } from '../observability/logger.js';
 import { AuthRepository, toPublicUser } from './authRepository.js';
+import type { GoogleProfile } from './googleOAuthClient.js';
 
 export interface AuthTokenPayload {
   sub: string;
@@ -48,6 +49,11 @@ export class AuthService {
       throw unauthorized('Invalid email or password');
     }
 
+    if (!user.passwordHash) {
+      this.logger.warn({ userId: user.id, emailHash: hashForLog(user.email) }, 'auth_login_password_not_available');
+      throw unauthorized('Use Google sign-in for this account');
+    }
+
     const isValid = await bcrypt.compare(input.password, user.passwordHash);
     if (!isValid) {
       this.logger.warn({ userId: user.id, emailHash: hashForLog(user.email) }, 'auth_login_bad_password');
@@ -55,6 +61,47 @@ export class AuthService {
     }
 
     this.logger.info({ userId: user.id, emailHash: hashForLog(user.email) }, 'auth_login_success');
+    return { user: toPublicUser(user), token: this.sign(user) };
+  }
+
+  async loginWithGoogleProfile(profile: GoogleProfile): Promise<{ user: PublicUser; token: string }> {
+    if (!profile.emailVerified) {
+      this.logger.warn({ providerUserId: profile.sub, emailHash: hashForLog(profile.email) }, 'auth_google_email_unverified');
+      throw unauthorized('Google email must be verified');
+    }
+
+    const email = profile.email.toLowerCase();
+    const existingAccount = await this.users.findOAuthAccount('google', profile.sub);
+    if (existingAccount) {
+      const existingUser = await this.users.findById(existingAccount.userId);
+      if (!existingUser) throw unauthorized('OAuth account is not linked to a valid user');
+      this.logger.info({ userId: existingUser.id, emailHash: hashForLog(existingUser.email) }, 'auth_google_login_success');
+      return { user: toPublicUser(existingUser), token: this.sign(existingUser) };
+    }
+
+    let user = await this.users.findByEmail(email);
+    if (!user) {
+      user = await this.users.create({
+        id: createId('usr'),
+        email,
+        passwordHash: null,
+        role: 'USER',
+        createdAt: nowIso(),
+      });
+    }
+
+    const now = nowIso();
+    await this.users.createOAuthAccount({
+      id: createId('oauth'),
+      userId: user.id,
+      provider: 'google',
+      providerUserId: profile.sub,
+      email,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    this.logger.info({ userId: user.id, emailHash: hashForLog(user.email) }, 'auth_google_login_success');
     return { user: toPublicUser(user), token: this.sign(user) };
   }
 

@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useAppStore } from '@/store/appStore';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001';
+
 export function AuthPanel() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -22,6 +24,10 @@ export function AuthPanel() {
     }
   }
 
+  function continueWithGoogle() {
+    window.location.href = `${API_BASE_URL}/api/auth/google`;
+  }
+
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,#17233a,#0b0f19_46%)] px-6 py-10 text-slate-100">
       <section className="mx-auto grid max-w-5xl gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
@@ -34,8 +40,21 @@ export function AuthPanel() {
         </div>
         <form onSubmit={submit} className="rounded-3xl border border-line bg-panel/80 p-6 shadow-2xl shadow-black/30 backdrop-blur">
           <h2 className="text-2xl font-semibold">{mode === 'login' ? 'Welcome back' : 'Create account'}</h2>
-          <p className="mt-2 text-sm text-slate-400">Email/password auth only. OAuth can be added later.</p>
-          <label className="mt-6 block text-sm text-slate-300">
+          <p className="mt-2 text-sm text-slate-400">Use Google or continue with email and password.</p>
+          <button
+            type="button"
+            onClick={continueWithGoogle}
+            className="mt-6 flex w-full items-center justify-center gap-3 rounded-2xl border border-line bg-white px-4 py-3 font-semibold text-slate-900 transition hover:bg-slate-100"
+          >
+            <span className="text-lg">G</span>
+            Continue with Google
+          </button>
+          <div className="my-6 flex items-center gap-3 text-xs uppercase tracking-[0.2em] text-slate-500">
+            <span className="h-px flex-1 bg-line" />
+            <span>or</span>
+            <span className="h-px flex-1 bg-line" />
+          </div>
+          <label className="block text-sm text-slate-300">
             Email
             <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" required className="mt-2 w-full rounded-2xl border border-line bg-ink px-4 py-3 text-white outline-none focus:border-accent" />
           </label>

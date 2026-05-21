@@ -49,12 +49,14 @@ import { scheduledPostRoutes } from './schedule/scheduledPostRoutes.js';
 import { ArtifactRepository } from './artifacts/artifactRepository.js';
 import { ArtifactService } from './artifacts/artifactService.js';
 import { artifactRoutes } from './artifacts/artifactRoutes.js';
+import { RealGoogleOAuthClient, type GoogleOAuthClient } from './auth/googleOAuthClient.js';
 
 export interface AppDependencies {
   database?: AppDatabase;
   llm?: LanguageModelClient;
   search?: WebSearchClient;
   logger?: AppLogger;
+  googleOAuth?: GoogleOAuthClient;
 }
 
 export async function createApp(env: AppEnv, deps: AppDependencies = {}) {
@@ -89,6 +91,10 @@ export async function createApp(env: AppEnv, deps: AppDependencies = {}) {
 
   const mediaRepository = new MediaRepository(database.adapter);
   const apiBaseUrl = env.API_PUBLIC_BASE_URL ?? `http://localhost:${env.API_PORT}`;
+  const googleRedirectUri = `${apiBaseUrl}/api/auth/google/callback`;
+  const googleOAuth = deps.googleOAuth ?? (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
+    ? new RealGoogleOAuthClient(env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET)
+    : null);
   const mediaService = new MediaService(conversationRepository, providerService, mediaRepository, llm, logger.child({ component: 'MediaService' }), apiBaseUrl);
 
   const socialConfigRepository = new SocialConfigRepository(database.adapter);
@@ -147,7 +153,11 @@ export async function createApp(env: AppEnv, deps: AppDependencies = {}) {
       kind: 'AZURE_FOUNDRY' as const,
     },
   }));
-  app.use('/api/auth', authRoutes(authService));
+  app.use('/api/auth', authRoutes(authService, {
+    googleOAuth,
+    googleRedirectUri: googleOAuth ? googleRedirectUri : undefined,
+    webOrigin: env.WEB_ORIGIN,
+  }));
   app.use('/api/providers', providerRoutes(authService, providerService));
   app.use('/api/admin', adminRoutes(authService, providerService));
   app.use('/api/chat', chatRoutes(authService, chatService, researchService, metricsRepository, artifactService, logger.child({ component: 'ChatRoutes' })));

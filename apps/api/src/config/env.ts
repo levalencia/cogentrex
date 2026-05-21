@@ -22,6 +22,8 @@ const envSchema = z.object({
   MEDIA_DIR: z.string().optional(),
   LINKEDIN_CLIENT_ID: z.string().optional(),
   LINKEDIN_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;
