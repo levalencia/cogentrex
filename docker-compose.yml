@@ -14,11 +14,29 @@ services:
       APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY}
+      BRAVE_SEARCH_API_KEY: ${BRAVE_SEARCH_API_KEY}
+      WEB_SEARCH_ADAPTER: ${WEB_SEARCH_ADAPTER:-brave}
+      WEB_FETCH_ADAPTER: ${WEB_FETCH_ADAPTER:-scrapling}
+      SCRAPLING_BASE_URL: http://scrapling-fetcher:8000
       DEFAULT_PROVIDER_NAME: ${DEFAULT_PROVIDER_NAME:-Cogentrex Default}
       DEFAULT_PROVIDER_BASE_URL: ${DEFAULT_PROVIDER_BASE_URL}
       DEFAULT_PROVIDER_MODEL: ${DEFAULT_PROVIDER_MODEL}
+    depends_on:
+      - scrapling-fetcher
     volumes:
       - cogentrex-data:/data
+
+  scrapling-fetcher:
+    build:
+      context: .
+      dockerfile: services/scrapling-fetcher/Dockerfile
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   web:
     build:
