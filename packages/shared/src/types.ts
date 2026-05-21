@@ -9,6 +9,50 @@ export interface PublicUser {
 
 export type AppMode = 'CHAT' | 'DEEP_RESEARCH' | 'SOCIAL_WRITING' | 'IMAGE_GENERATION' | 'VIDEO_GENERATION';
 
+export type WorkflowId = 'CHAT' | 'IMAGE_GENERATION' | 'SOCIAL_WRITING' | 'DEEP_RESEARCH';
+export type ProviderCapabilityId = 'text' | 'streaming' | 'vision' | 'tool-calling' | 'provider-search' | 'image' | 'video';
+export type ToolCapabilityId = 'web.search' | 'web.fetch' | 'web.extract';
+export type CapabilityStatus = 'ready' | 'degraded' | 'missing';
+
+export type SkillId = 'chat-general' | 'deep-research-default' | 'social-writing-default' | 'image-prompt-default';
+
+export interface SkillDefinition {
+  id: SkillId;
+  label: string;
+  workflowId: WorkflowId;
+  description: string;
+  requiredProviderCapabilities: ProviderCapabilityId[];
+  optionalProviderCapabilities: ProviderCapabilityId[];
+  requiredToolCapabilities: ToolCapabilityId[];
+  optionalToolCapabilities: ToolCapabilityId[];
+  systemPromptModule?: string | undefined;
+}
+
+export interface WorkflowDefinition {
+  id: WorkflowId;
+  label: string;
+  description: string;
+  requiredProviderCapabilities: ProviderCapabilityId[];
+  optionalProviderCapabilities: ProviderCapabilityId[];
+  requiredToolCapabilities: ToolCapabilityId[];
+  optionalToolCapabilities: ToolCapabilityId[];
+  defaultSkillId?: SkillId | undefined;
+}
+
+export interface CapabilityReadinessItem {
+  id: ProviderCapabilityId | ToolCapabilityId;
+  status: CapabilityStatus;
+  adapterId?: string | undefined;
+  message?: string | undefined;
+}
+
+export interface WorkflowReadiness {
+  workflow: WorkflowDefinition;
+  status: CapabilityStatus;
+  providers: CapabilityReadinessItem[];
+  tools: CapabilityReadinessItem[];
+}
+
 export interface ProviderConfigView {
   id: string;
   name: string;

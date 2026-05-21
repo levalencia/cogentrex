@@ -17,7 +17,7 @@ import { ProviderRepository } from './providers/providerRepository.js';
 import { ProviderService } from './providers/providerService.js';
 import { providerRoutes } from './providers/providerRoutes.js';
 import { EncryptionService } from './security/encryption.js';
-import { FirecrawlSearchClient, FakeWebSearchClient, type WebSearchClient } from './tools/searchClient.js';
+import { createDefaultWebSearchClient, type WebSearchClient } from './tools/searchClient.js';
 import { ResearchService } from './research/researchService.js';
 import { ResearchJobRepository } from './research/researchJobRepository.js';
 import { ResearchSourceRepository } from './research/researchSourceRepository.js';
@@ -50,6 +50,8 @@ import { ArtifactRepository } from './artifacts/artifactRepository.js';
 import { ArtifactService } from './artifacts/artifactService.js';
 import { artifactRoutes } from './artifacts/artifactRoutes.js';
 import { RealGoogleOAuthClient, type GoogleOAuthClient } from './auth/googleOAuthClient.js';
+import { CapabilityService } from './capabilities/capabilityService.js';
+import { capabilityRoutes } from './capabilities/capabilityRoutes.js';
 
 export interface AppDependencies {
   database?: AppDatabase;
@@ -71,9 +73,10 @@ export async function createApp(env: AppEnv, deps: AppDependencies = {}) {
   const encryption = new EncryptionService(env.APP_ENCRYPTION_KEY);
   const providerRepository = new ProviderRepository(database.adapter);
   const providerService = new ProviderService(providerRepository, encryption, logger.child({ component: 'ProviderService' }));
+  const capabilityService = new CapabilityService(providerService, env);
   const conversationRepository = new ConversationRepository(database.adapter);
   const llm = deps.llm ?? new OpenAICompatibleClient();
-  const search = deps.search ?? (env.FIRECRAWL_API_KEY ? new FirecrawlSearchClient(env.FIRECRAWL_API_KEY) : new FakeWebSearchClient());
+  const search = deps.search ?? createDefaultWebSearchClient(env);
   const metricsRepository = new MetricsRepository(database.adapter);
 
   const artifactRepository = new ArtifactRepository(database.adapter);
@@ -159,6 +162,7 @@ export async function createApp(env: AppEnv, deps: AppDependencies = {}) {
     webOrigin: env.WEB_ORIGIN,
   }));
   app.use('/api/providers', providerRoutes(authService, providerService));
+  app.use('/api/capabilities', capabilityRoutes(authService, capabilityService));
   app.use('/api/admin', adminRoutes(authService, providerService));
   app.use('/api/chat', chatRoutes(authService, chatService, researchService, metricsRepository, artifactService, logger.child({ component: 'ChatRoutes' })));
   app.use('/api/media', mediaRoutes(authService, mediaService, apiBaseUrl));
@@ -171,6 +175,11 @@ export async function createApp(env: AppEnv, deps: AppDependencies = {}) {
   app.use('/api/scheduled-posts', scheduledPostRoutes(authService, scheduledPostService));
   app.use(errorMiddleware(logger));
 
-  logger.info({ databaseKind: env.DATABASE_URL.startsWith('postgres') ? 'postgres' : 'sqlite', firecrawlConfigured: Boolean(env.FIRECRAWL_API_KEY) }, 'app_initialized');
+  logger.info({
+    databaseKind: env.DATABASE_URL.startsWith('postgres') ? 'postgres' : 'sqlite',
+    braveSearchConfigured: Boolean(env.BRAVE_SEARCH_API_KEY),
+    scraplingConfigured: Boolean(env.SCRAPLING_BASE_URL),
+    firecrawlConfigured: Boolean(env.FIRECRAWL_API_KEY),
+  }, 'app_initialized');
   return { app, database, services: { authService, providerService, chatService, researchService } };
 }
