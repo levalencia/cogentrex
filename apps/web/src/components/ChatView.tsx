@@ -696,18 +696,20 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string) => 
 
 // ── ChatView (layout shell only) ────────────────────
 export function ChatView() {
-  const providers = useAppStore((state) => state.providers);
   const enterEditMode = useAppStore((state) => state.enterEditMode);
   const artifacts = useAppStore((state) => state.artifacts);
   const artifactPanelOpen = useAppStore((state) => state.artifactPanelOpen);
   const toggleArtifactPanel = useAppStore((state) => state.toggleArtifactPanel);
   const conversations = useAppStore((state) => state.conversations);
+  const projects = useAppStore((state) => state.projects);
+  const activeProjectId = useAppStore((state) => state.activeProjectId);
   const activeConversationId = useAppStore((state) => state.activeConversationId);
 
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId);
+  const activeProject = activeProjectId ? projects.find((project) => project.id === activeProjectId) : undefined;
 
   const handleShare = async () => {
     if (!activeConversation) return;
@@ -761,16 +763,16 @@ export function ChatView() {
       <main className="flex h-full flex-1 flex-col overflow-hidden bg-[radial-gradient(circle_at_top_right,#152238,#0b0f19_45%)]">
       <PlanEditor />
       <div className="flex items-center justify-between border-b border-line bg-panel/70 px-4 py-3">
-        <div className="flex items-center gap-3">
+        <div className="min-w-0">
           <div className="flex items-center gap-2">
             <div className="flex h-6 w-6 items-center justify-center rounded-md bg-white shadow-sm">
               <img src="/logo" alt="Cogentrex" className="h-5 w-5 object-contain" />
             </div>
             <span className="text-sm font-semibold tracking-[0.12em] text-accent">Cogentrex</span>
           </div>
-          {providers.length > 0 ? (
-            <span className="text-xs text-slate-500">{providers.find(p => p.isDefault)?.name ?? providers[0]?.name}</span>
-          ) : null}
+          <p className="mt-1 truncate text-xs text-slate-500">
+            {activeProject ? `Project: ${activeProject.name}` : activeConversation ? activeConversation.title : 'Project: All conversations'}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           {artifacts.length > 0 && !artifactPanelOpen ? (
@@ -805,12 +807,6 @@ export function ChatView() {
               </button>
             )
           ) : null}
-          <a href="/settings/providers" className="rounded-xl border border-line px-3 py-1.5 text-sm text-slate-300 hover:border-accent">
-            Provider Settings
-          </a>
-          <a href="/settings/social" className="rounded-xl border border-line px-3 py-1.5 text-sm text-slate-300 hover:border-accent">
-            Social Settings
-          </a>
         </div>
       </div>
 

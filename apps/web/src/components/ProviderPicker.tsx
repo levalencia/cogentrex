@@ -101,13 +101,11 @@ export function ProviderPicker() {
       <button
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-2 rounded-xl border border-line bg-ink/50 px-3 py-2 text-sm transition hover:border-accent"
-        title={displayProvider ? `${displayProvider.name} — ${displayProvider.baseUrl}` : 'Select provider'}
+        title={displayProvider ? `Model: ${displayProvider.name} — ${displayProvider.model} — ${displayProvider.baseUrl}` : 'Select model'}
       >
-        <span className="truncate max-w-[140px] text-slate-200">
-          {displayProvider ? displayProvider.name : 'Select provider'}
-        </span>
-        <span className="text-[10px] text-slate-500">
-          {displayProvider ? displayProvider.model.slice(0, 12) : ''}
+        <span className="text-slate-500">Model:</span>
+        <span className="truncate max-w-[190px] text-slate-200">
+          {displayProvider ? `${displayProvider.name} ${displayProvider.model}` : 'Select model'}
         </span>
         <svg className="h-3 w-3 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
