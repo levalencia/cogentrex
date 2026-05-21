@@ -14,9 +14,12 @@ export interface ScrapedPage {
   description?: string | undefined;
 }
 
-export interface WebSearchClient {
-  search(query: string, limit: number): Promise<SearchResult[]>;
+export interface WebFetchClient {
   scrape(url: string): Promise<ScrapedPage | null>;
+}
+
+export interface WebSearchClient extends WebFetchClient {
+  search(query: string, limit: number): Promise<SearchResult[]>;
 }
 
 const firecrawlResponseSchema = z.object({
@@ -26,6 +29,20 @@ const firecrawlResponseSchema = z.object({
   ]).optional(),
   success: z.boolean().optional(),
 }).passthrough();
+
+const braveResponseSchema = z.object({
+  web: z.object({
+    results: z.array(z.unknown()).optional(),
+  }).passthrough().optional(),
+}).passthrough();
+
+export interface WebSearchClientEnv {
+  BRAVE_SEARCH_API_KEY?: string | undefined;
+  FIRECRAWL_API_KEY?: string | undefined;
+  SCRAPLING_BASE_URL?: string | undefined;
+  WEB_SEARCH_ADAPTER?: 'brave' | 'firecrawl' | 'scrapling' | 'fake' | undefined;
+  WEB_FETCH_ADAPTER?: 'scrapling' | 'firecrawl' | 'simple' | 'fake' | undefined;
+}
 
 function normalizeFirecrawlData(data: unknown): SearchResult[] {
   const rawItems = Array.isArray(data)
@@ -53,6 +70,26 @@ function normalizeFirecrawlData(data: unknown): SearchResult[] {
   });
 }
 
+function normalizeBraveData(data: unknown): SearchResult[] {
+  const parsed = braveResponseSchema.parse(data);
+  const rawItems = parsed.web?.results ?? [];
+
+  return rawItems.flatMap((item) => {
+    if (!item || typeof item !== 'object') return [];
+    const record = item as Record<string, unknown>;
+    const url = typeof record.url === 'string' ? record.url : '';
+    const title = typeof record.title === 'string' ? record.title : url;
+    const description = typeof record.description === 'string' ? record.description : '';
+    if (!url || !description) return [];
+    return [{
+      title,
+      url,
+      markdown: description,
+      description,
+    }];
+  });
+}
+
 const firecrawlScrapeSchema = z.object({
   success: z.boolean().optional(),
   data: z.object({
@@ -64,6 +101,108 @@ const firecrawlScrapeSchema = z.object({
     }).passthrough().optional(),
   }).passthrough().optional(),
 }).passthrough();
+
+const scraplingFetchResponseSchema = z.union([
+  z.object({
+    url: z.string().optional(),
+    title: z.string().optional(),
+    markdown: z.string().optional(),
+    description: z.string().optional(),
+  }).passthrough(),
+  z.object({
+    data: z.object({
+      url: z.string().optional(),
+      title: z.string().optional(),
+      markdown: z.string().optional(),
+      description: z.string().optional(),
+    }).passthrough().optional(),
+  }).passthrough(),
+]);
+
+function normalizeScrapedPage(data: unknown, requestedUrl: string): ScrapedPage | null {
+  const parsed = scraplingFetchResponseSchema.safeParse(data);
+  if (!parsed.success) return null;
+  const payload = ('data' in parsed.data && parsed.data.data ? parsed.data.data : parsed.data) as {
+    url?: string | undefined;
+    title?: string | undefined;
+    markdown?: string | undefined;
+    description?: string | undefined;
+  };
+  const markdown = typeof payload.markdown === 'string' ? payload.markdown : '';
+  if (!markdown) return null;
+  return {
+    url: typeof payload.url === 'string' ? payload.url : requestedUrl,
+    title: typeof payload.title === 'string' && payload.title ? payload.title : requestedUrl,
+    markdown: markdown.slice(0, 8000),
+    description: typeof payload.description === 'string' ? payload.description : undefined,
+  };
+}
+
+function sidecarEndpoint(baseUrl: string, path: string): string {
+  const normalizedBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+  return new URL(path.replace(/^\//, ''), normalizedBase).toString();
+}
+
+export class CompositeWebSearchClient implements WebSearchClient {
+  constructor(
+    private readonly searchClient: Pick<WebSearchClient, 'search'>,
+    private readonly fetchClient: WebFetchClient,
+  ) {}
+
+  search(query: string, limit: number): Promise<SearchResult[]> {
+    return this.searchClient.search(query, limit);
+  }
+
+  scrape(url: string): Promise<ScrapedPage | null> {
+    return this.fetchClient.scrape(url);
+  }
+}
+
+export class ScraplingFetchClient implements WebFetchClient {
+  constructor(protected readonly baseUrl: string) {}
+
+  async scrape(url: string): Promise<ScrapedPage | null> {
+    const response = await fetch(sidecarEndpoint(this.baseUrl, 'fetch'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    if (!response.ok) return null;
+    return normalizeScrapedPage(await response.json(), url);
+  }
+}
+
+const scraplingSearchResponseSchema = z.object({
+  results: z.array(z.object({
+    title: z.string().optional(),
+    url: z.string().optional(),
+    markdown: z.string().optional(),
+    description: z.string().optional(),
+  }).passthrough()).optional(),
+}).passthrough();
+
+export class ScraplingSearchClient extends ScraplingFetchClient implements WebSearchClient {
+  async search(query: string, limit: number): Promise<SearchResult[]> {
+    const response = await fetch(sidecarEndpoint(this.baseUrl, 'search'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, limit }),
+    });
+    if (!response.ok) {
+      throw new Error(`Scrapling search failed with ${response.status}`);
+    }
+    const parsed = scraplingSearchResponseSchema.parse(await response.json());
+    return (parsed.results ?? []).flatMap((item) => {
+      const url = item.url ?? '';
+      const title = item.title ?? url;
+      const markdown = item.markdown ?? item.description ?? '';
+      if (!url || !markdown) return [];
+      const result: SearchResult = { title, url, markdown };
+      if (item.description) result.description = item.description;
+      return [result];
+    });
+  }
+}
 
 export class FirecrawlSearchClient implements WebSearchClient {
   constructor(private readonly apiKey: string) {}
@@ -108,6 +247,32 @@ export class FirecrawlSearchClient implements WebSearchClient {
   }
 }
 
+export class BraveSearchClient implements WebSearchClient {
+  constructor(private readonly apiKey: string) {}
+
+  async search(query: string, limit: number): Promise<SearchResult[]> {
+    const url = new URL('https://api.search.brave.com/res/v1/web/search');
+    url.searchParams.set('q', query);
+    url.searchParams.set('count', String(limit));
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'X-Subscription-Token': this.apiKey,
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`Brave search failed with ${response.status}`);
+    }
+    return normalizeBraveData(await response.json());
+  }
+
+  async scrape(): Promise<ScrapedPage | null> {
+    return null;
+  }
+}
+
 export class FakeWebSearchClient implements WebSearchClient {
   constructor(
     private readonly results: SearchResult[] = [],
@@ -133,4 +298,59 @@ export class FakeWebSearchClient implements WebSearchClient {
       markdown: `Synthetic content for ${url}.`,
     };
   }
+}
+
+export function createDefaultWebSearchClient(env: WebSearchClientEnv): WebSearchClient {
+  const searchClient = createSearchClient(env);
+  const fetchClient = createFetchClient(env);
+
+  if (fetchClient && !(searchClient instanceof ScraplingSearchClient)) {
+    return new CompositeWebSearchClient(searchClient, fetchClient);
+  }
+
+  return searchClient;
+}
+
+function createSearchClient(env: WebSearchClientEnv): WebSearchClient {
+  if (env.WEB_SEARCH_ADAPTER === 'fake') {
+    return new FakeWebSearchClient();
+  }
+
+  if (env.WEB_SEARCH_ADAPTER === 'scrapling') {
+    return env.SCRAPLING_BASE_URL ? new ScraplingSearchClient(env.SCRAPLING_BASE_URL) : new FakeWebSearchClient();
+  }
+
+  if (env.WEB_SEARCH_ADAPTER === 'firecrawl') {
+    return env.FIRECRAWL_API_KEY ? new FirecrawlSearchClient(env.FIRECRAWL_API_KEY) : new FakeWebSearchClient();
+  }
+
+  if (env.BRAVE_SEARCH_API_KEY) {
+    return new BraveSearchClient(env.BRAVE_SEARCH_API_KEY);
+  }
+
+  if (env.SCRAPLING_BASE_URL) {
+    return new ScraplingSearchClient(env.SCRAPLING_BASE_URL);
+  }
+
+  if (env.FIRECRAWL_API_KEY) {
+    return new FirecrawlSearchClient(env.FIRECRAWL_API_KEY);
+  }
+
+  return new FakeWebSearchClient();
+}
+
+function createFetchClient(env: WebSearchClientEnv): WebFetchClient | undefined {
+  if (env.WEB_FETCH_ADAPTER === 'fake') {
+    return new FakeWebSearchClient();
+  }
+
+  if (env.WEB_FETCH_ADAPTER === 'firecrawl') {
+    return env.FIRECRAWL_API_KEY ? new FirecrawlSearchClient(env.FIRECRAWL_API_KEY) : new FakeWebSearchClient();
+  }
+
+  if ((env.WEB_FETCH_ADAPTER === undefined || env.WEB_FETCH_ADAPTER === 'scrapling') && env.SCRAPLING_BASE_URL) {
+    return new ScraplingFetchClient(env.SCRAPLING_BASE_URL);
+  }
+
+  return undefined;
 }

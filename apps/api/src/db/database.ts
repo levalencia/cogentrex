@@ -352,13 +352,14 @@ export class AppDatabase {
     }
 
     try {
-      const passwordColumn = await this.adapter.getOne<{ notnull: number }>(
-        "SELECT [notnull] AS notnull FROM pragma_table_info('users') WHERE name = 'password_hash'",
+      const passwordColumn = await this.adapter.getOne<{ isNotNull: number }>(
+        "SELECT \"notnull\" AS isNotNull FROM pragma_table_info('users') WHERE name = 'password_hash'",
       );
-      if (passwordColumn?.notnull !== 1) return;
+      if (passwordColumn?.isNotNull !== 1) return;
 
       await this.adapter.exec(`
         PRAGMA foreign_keys=OFF;
+        DROP TABLE IF EXISTS users_new;
         CREATE TABLE users_new (
           id TEXT PRIMARY KEY,
           email TEXT NOT NULL UNIQUE,
