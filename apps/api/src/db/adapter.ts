@@ -176,17 +176,17 @@ class SqliteAdapter implements DbAdapter {
 
   async query<T = any>(sql: string, params?: any[] | Record<string, any> | any): Promise<T[]> {
     const stmt = this.prepare(sql);
-    return stmt.all(params) as Promise<T[]>;
+    return (params === undefined ? stmt.all() : stmt.all(params)) as Promise<T[]>;
   }
 
   async getOne<T = any>(sql: string, params?: any[] | Record<string, any> | any): Promise<T | undefined> {
     const stmt = this.prepare(sql);
-    return stmt.get(params) as Promise<T | undefined>;
+    return (params === undefined ? stmt.get() : stmt.get(params)) as Promise<T | undefined>;
   }
 
   async execute(sql: string, params?: any[] | Record<string, any> | any): Promise<{ changes?: number; lastID?: number | undefined }> {
     const stmt = this.prepare(sql);
-    return stmt.run(params);
+    return params === undefined ? stmt.run() : stmt.run(params);
   }
 
   async exec(sql: string): Promise<void> {
