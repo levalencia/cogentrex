@@ -18,7 +18,7 @@ const envSchema = z.object({
   FIRECRAWL_API_KEY: z.string().optional(),
   BRAVE_SEARCH_API_KEY: z.string().optional(),
   SCRAPLING_BASE_URL: z.string().url().optional(),
-  WEB_SEARCH_ADAPTER: z.enum(['brave', 'firecrawl', 'fake']).optional(),
+  WEB_SEARCH_ADAPTER: z.enum(['brave', 'firecrawl', 'scrapling', 'fake']).optional(),
   WEB_FETCH_ADAPTER: z.enum(['scrapling', 'firecrawl', 'simple', 'fake']).optional(),
   DEFAULT_PROVIDER_NAME: z.string().default('Microsoft Foundry Kimi'),
   DEFAULT_PROVIDER_BASE_URL: z.string().url().optional(),

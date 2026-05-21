@@ -177,6 +177,8 @@ export async function createApp(env: AppEnv, deps: AppDependencies = {}) {
 
   logger.info({
     databaseKind: env.DATABASE_URL.startsWith('postgres') ? 'postgres' : 'sqlite',
+    webSearchAdapter: env.WEB_SEARCH_ADAPTER ?? 'auto',
+    webFetchAdapter: env.WEB_FETCH_ADAPTER ?? 'auto',
     braveSearchConfigured: Boolean(env.BRAVE_SEARCH_API_KEY),
     scraplingConfigured: Boolean(env.SCRAPLING_BASE_URL),
     firecrawlConfigured: Boolean(env.FIRECRAWL_API_KEY),

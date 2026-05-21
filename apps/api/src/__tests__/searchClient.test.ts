@@ -5,6 +5,7 @@ import {
   FakeWebSearchClient,
   FirecrawlSearchClient,
   ScraplingFetchClient,
+  ScraplingSearchClient,
   createDefaultWebSearchClient,
 } from '../tools/searchClient.js';
 
@@ -101,6 +102,45 @@ describe('ScraplingFetchClient', () => {
   });
 });
 
+describe('ScraplingSearchClient', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts search queries to the Scrapling sidecar and normalizes results', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        results: [
+          {
+            title: 'Artist Du Monde For Kids',
+            url: 'https://example.com/artist-du-monde-for-kids',
+            description: 'Art workshop for kids in Brussels.',
+            markdown: 'Art workshop for kids in Brussels.',
+          },
+        ],
+      }),
+    } as Response);
+
+    const results = await new ScraplingSearchClient('http://scrapling.test:8000').search('artist du monde for kids', 5);
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('http://scrapling.test:8000/search');
+    expect((init as RequestInit).method).toBe('POST');
+    expect((init as RequestInit).headers).toMatchObject({ 'Content-Type': 'application/json' });
+    expect(JSON.parse((init as RequestInit).body as string)).toEqual({ query: 'artist du monde for kids', limit: 5 });
+    expect(results).toEqual([
+      {
+        title: 'Artist Du Monde For Kids',
+        url: 'https://example.com/artist-du-monde-for-kids',
+        markdown: 'Art workshop for kids in Brussels.',
+        description: 'Art workshop for kids in Brussels.',
+      },
+    ]);
+  });
+});
+
 describe('createDefaultWebSearchClient', () => {
   it('uses Brave by default when BRAVE_SEARCH_API_KEY is configured', () => {
     const client = createDefaultWebSearchClient({
@@ -126,11 +166,11 @@ describe('createDefaultWebSearchClient', () => {
     })).toBeInstanceOf(FakeWebSearchClient);
   });
 
-  it('uses Brave search and Scrapling fetch together when both defaults are configured', async () => {
+  it('uses Scrapling for search and fetch when the Scrapling search adapter is configured', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ web: { results: [{ title: 'Brave', url: 'https://example.com', description: 'Snippet' }] } }),
+        json: async () => ({ results: [{ title: 'Scrapling result', url: 'https://example.com', description: 'Snippet' }] }),
       } as Response)
       .mockResolvedValueOnce({
         ok: true,
@@ -138,15 +178,17 @@ describe('createDefaultWebSearchClient', () => {
       } as Response);
 
     const client = createDefaultWebSearchClient({
-      BRAVE_SEARCH_API_KEY: 'brave-test-key',
+      FIRECRAWL_API_KEY: 'firecrawl-test-key',
       SCRAPLING_BASE_URL: 'http://scrapling.test:8000',
+      WEB_SEARCH_ADAPTER: 'scrapling',
+      WEB_FETCH_ADAPTER: 'scrapling',
     });
 
-    expect(client).toBeInstanceOf(CompositeWebSearchClient);
-    await expect(client.search('agent workflows', 1)).resolves.toHaveLength(1);
+    expect(client).toBeInstanceOf(ScraplingSearchClient);
+    await expect(client.search('artist du monde for kids', 1)).resolves.toHaveLength(1);
     await expect(client.scrape('https://example.com')).resolves.toEqual(expect.objectContaining({ markdown: 'Fetched body' }));
 
-    expect(fetchMock.mock.calls[0]![0]).toContain('api.search.brave.com');
+    expect(fetchMock.mock.calls[0]![0]).toBe('http://scrapling.test:8000/search');
     expect(fetchMock.mock.calls[1]![0]).toBe('http://scrapling.test:8000/fetch');
   });
 });

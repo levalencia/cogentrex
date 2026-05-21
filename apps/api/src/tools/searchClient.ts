@@ -40,7 +40,7 @@ export interface WebSearchClientEnv {
   BRAVE_SEARCH_API_KEY?: string | undefined;
   FIRECRAWL_API_KEY?: string | undefined;
   SCRAPLING_BASE_URL?: string | undefined;
-  WEB_SEARCH_ADAPTER?: 'brave' | 'firecrawl' | 'fake' | undefined;
+  WEB_SEARCH_ADAPTER?: 'brave' | 'firecrawl' | 'scrapling' | 'fake' | undefined;
   WEB_FETCH_ADAPTER?: 'scrapling' | 'firecrawl' | 'simple' | 'fake' | undefined;
 }
 
@@ -159,7 +159,7 @@ export class CompositeWebSearchClient implements WebSearchClient {
 }
 
 export class ScraplingFetchClient implements WebFetchClient {
-  constructor(private readonly baseUrl: string) {}
+  constructor(protected readonly baseUrl: string) {}
 
   async scrape(url: string): Promise<ScrapedPage | null> {
     const response = await fetch(sidecarEndpoint(this.baseUrl, 'fetch'), {
@@ -169,6 +169,38 @@ export class ScraplingFetchClient implements WebFetchClient {
     });
     if (!response.ok) return null;
     return normalizeScrapedPage(await response.json(), url);
+  }
+}
+
+const scraplingSearchResponseSchema = z.object({
+  results: z.array(z.object({
+    title: z.string().optional(),
+    url: z.string().optional(),
+    markdown: z.string().optional(),
+    description: z.string().optional(),
+  }).passthrough()).optional(),
+}).passthrough();
+
+export class ScraplingSearchClient extends ScraplingFetchClient implements WebSearchClient {
+  async search(query: string, limit: number): Promise<SearchResult[]> {
+    const response = await fetch(sidecarEndpoint(this.baseUrl, 'search'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, limit }),
+    });
+    if (!response.ok) {
+      throw new Error(`Scrapling search failed with ${response.status}`);
+    }
+    const parsed = scraplingSearchResponseSchema.parse(await response.json());
+    return (parsed.results ?? []).flatMap((item) => {
+      const url = item.url ?? '';
+      const title = item.title ?? url;
+      const markdown = item.markdown ?? item.description ?? '';
+      if (!url || !markdown) return [];
+      const result: SearchResult = { title, url, markdown };
+      if (item.description) result.description = item.description;
+      return [result];
+    });
   }
 }
 
@@ -272,7 +304,7 @@ export function createDefaultWebSearchClient(env: WebSearchClientEnv): WebSearch
   const searchClient = createSearchClient(env);
   const fetchClient = createFetchClient(env);
 
-  if (fetchClient) {
+  if (fetchClient && !(searchClient instanceof ScraplingSearchClient)) {
     return new CompositeWebSearchClient(searchClient, fetchClient);
   }
 
@@ -284,12 +316,20 @@ function createSearchClient(env: WebSearchClientEnv): WebSearchClient {
     return new FakeWebSearchClient();
   }
 
+  if (env.WEB_SEARCH_ADAPTER === 'scrapling') {
+    return env.SCRAPLING_BASE_URL ? new ScraplingSearchClient(env.SCRAPLING_BASE_URL) : new FakeWebSearchClient();
+  }
+
   if (env.WEB_SEARCH_ADAPTER === 'firecrawl') {
     return env.FIRECRAWL_API_KEY ? new FirecrawlSearchClient(env.FIRECRAWL_API_KEY) : new FakeWebSearchClient();
   }
 
   if (env.BRAVE_SEARCH_API_KEY) {
     return new BraveSearchClient(env.BRAVE_SEARCH_API_KEY);
+  }
+
+  if (env.SCRAPLING_BASE_URL) {
+    return new ScraplingSearchClient(env.SCRAPLING_BASE_URL);
   }
 
   if (env.FIRECRAWL_API_KEY) {

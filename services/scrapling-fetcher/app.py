@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import os
 import re
+from html import unescape
 from typing import Any
+from urllib.parse import parse_qs, quote_plus, unquote, urljoin, urlparse
 
 from fastapi import FastAPI, HTTPException
 from markdownify import markdownify as to_markdown
@@ -22,6 +24,22 @@ class FetchResponse(BaseModel):
     title: str
     markdown: str
     description: str | None = None
+
+
+class SearchRequest(BaseModel):
+    query: str
+    limit: int = 5
+
+
+class SearchResult(BaseModel):
+    title: str
+    url: str
+    markdown: str
+    description: str | None = None
+
+
+class SearchResponse(BaseModel):
+    results: list[SearchResult]
 
 
 @app.get("/health")
@@ -54,6 +72,27 @@ def fetch_page(request: FetchRequest) -> FetchResponse:
         markdown=markdown[:8000],
         description=_extract_description(page, html),
     )
+
+
+@app.post("/search", response_model=SearchResponse)
+def search_web(request: SearchRequest) -> SearchResponse:
+    query = request.query.strip()
+    if not query:
+        return SearchResponse(results=[])
+
+    limit = max(1, min(request.limit, 10))
+    search_url = f"https://lite.duckduckgo.com/lite/?q={quote_plus(query)}"
+    try:
+        page = Fetcher.get(search_url, timeout=FETCH_TIMEOUT_SECONDS)
+    except Exception as exc:  # pragma: no cover - depends on remote search runtime
+        raise HTTPException(status_code=502, detail="Search failed") from exc
+
+    status = getattr(page, "status", 200)
+    if isinstance(status, int) and status >= 400:
+        raise HTTPException(status_code=502, detail=f"Search upstream returned {status}")
+
+    html = _decode_body(getattr(page, "body", b""), getattr(page, "encoding", None))
+    return SearchResponse(results=_extract_search_results(html, limit))
 
 
 def _decode_body(body: Any, encoding: str | None) -> str:
@@ -98,6 +137,56 @@ def _extract_description(page: Any, html: str) -> str | None:
         flags=re.IGNORECASE,
     )
     return _clean_inline(match.group(1)) if match else None
+
+
+def _extract_search_results(html: str, limit: int) -> list[SearchResult]:
+    results: list[SearchResult] = []
+    seen: set[str] = set()
+    pattern = re.compile(
+        r'<a[^>]+href=["\'](?P<href>[^"\']+)["\'][^>]*>(?P<title>.*?)</a>',
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    for match in pattern.finditer(html):
+        href = _normalize_result_url(unescape(match.group('href')))
+        title = _clean_inline(re.sub(r'<[^>]+>', ' ', unescape(match.group('title'))))
+        if not href or not title or href in seen:
+            continue
+        if 'duckduckgo.com' in urlparse(href).netloc.lower():
+            continue
+        seen.add(href)
+        description = _extract_nearby_snippet(html, match.end()) or title
+        results.append(SearchResult(
+            title=title,
+            url=href,
+            markdown=description,
+            description=description,
+        ))
+        if len(results) >= limit:
+            break
+    return results
+
+
+def _normalize_result_url(href: str) -> str | None:
+    if href.startswith('//'):
+        href = f'https:{href}'
+    if href.startswith('/'):
+        href = urljoin('https://duckduckgo.com', href)
+    parsed = urlparse(href)
+    query = parse_qs(parsed.query)
+    if 'uddg' in query and query['uddg']:
+        href = unquote(query['uddg'][0])
+        parsed = urlparse(href)
+    if parsed.scheme not in {'http', 'https'} or not parsed.netloc:
+        return None
+    return href
+
+
+def _extract_nearby_snippet(html: str, start: int) -> str | None:
+    window = html[start:start + 700]
+    text = _clean_inline(re.sub(r'<[^>]+>', ' ', unescape(window)))
+    if not text:
+        return None
+    return text[:500]
 
 
 def _clean_markdown(value: str) -> str:
