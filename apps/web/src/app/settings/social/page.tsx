@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { AuthPanel } from '@/components/AuthPanel';
 import { api } from '@/lib/api';
+import { useAppStore } from '@/store/appStore';
 
 interface ConfigItem {
   platform: string;
@@ -72,6 +74,9 @@ interface ScheduledPost {
 }
 
 export default function SocialSettingsPage() {
+  const user = useAppStore((state) => state.user);
+  const isWarmingUp = useAppStore((state) => state.isWarmingUp);
+  const bootstrap = useAppStore((state) => state.bootstrap);
   const [configs, setConfigs] = useState<ConfigItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
@@ -86,6 +91,13 @@ export default function SocialSettingsPage() {
   const [editPostAt, setEditPostAt] = useState('');
 
   useEffect(() => {
+    void bootstrap();
+  }, [bootstrap]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    setLoading(true);
     void api.getSocialConfig()
       .then(({ configs: data }) => {
         setConfigs(data);
@@ -105,7 +117,7 @@ export default function SocialSettingsPage() {
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  }, [user]);
 
   async function loadLinkedInStatus() {
     try {
@@ -205,8 +217,24 @@ export default function SocialSettingsPage() {
   const postedPosts = platformPosts.filter((p) => p.status === 'posted');
   const failedPosts = platformPosts.filter((p) => p.status === 'failed');
 
+  if (user === undefined) {
+    return (
+      <main className="flex h-screen items-center justify-center bg-ink text-slate-100">
+        <div className="text-center">
+          <div className="inline-block h-10 w-10 animate-spin rounded-full border-4 border-accent border-t-transparent" />
+          <p className="mt-4 text-sm text-slate-400">
+            {isWarmingUp ? 'API is warming up… Please wait.' : 'Loading Cogentrex…'}
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (!user) return <AuthPanel />;
+
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
+    <main className="min-h-screen bg-ink text-slate-100">
+      <div className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-white">Social Prompts</h1>
         <a href="/" className="rounded-xl border border-line px-4 py-2 text-sm text-slate-300 hover:border-accent">← Back to Chat</a>
@@ -494,6 +522,7 @@ export default function SocialSettingsPage() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </main>
   );
 }
