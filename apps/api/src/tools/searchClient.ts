@@ -27,6 +27,18 @@ const firecrawlResponseSchema = z.object({
   success: z.boolean().optional(),
 }).passthrough();
 
+const braveResponseSchema = z.object({
+  web: z.object({
+    results: z.array(z.unknown()).optional(),
+  }).passthrough().optional(),
+}).passthrough();
+
+export interface WebSearchClientEnv {
+  BRAVE_SEARCH_API_KEY?: string | undefined;
+  FIRECRAWL_API_KEY?: string | undefined;
+  WEB_SEARCH_ADAPTER?: 'brave' | 'firecrawl' | 'fake' | undefined;
+}
+
 function normalizeFirecrawlData(data: unknown): SearchResult[] {
   const rawItems = Array.isArray(data)
     ? data
@@ -50,6 +62,26 @@ function normalizeFirecrawlData(data: unknown): SearchResult[] {
     const normalized: SearchResult = { title, url, markdown };
     if (typeof record.description === 'string') normalized.description = record.description;
     return [normalized];
+  });
+}
+
+function normalizeBraveData(data: unknown): SearchResult[] {
+  const parsed = braveResponseSchema.parse(data);
+  const rawItems = parsed.web?.results ?? [];
+
+  return rawItems.flatMap((item) => {
+    if (!item || typeof item !== 'object') return [];
+    const record = item as Record<string, unknown>;
+    const url = typeof record.url === 'string' ? record.url : '';
+    const title = typeof record.title === 'string' ? record.title : url;
+    const description = typeof record.description === 'string' ? record.description : '';
+    if (!url || !description) return [];
+    return [{
+      title,
+      url,
+      markdown: description,
+      description,
+    }];
   });
 }
 
@@ -108,6 +140,32 @@ export class FirecrawlSearchClient implements WebSearchClient {
   }
 }
 
+export class BraveSearchClient implements WebSearchClient {
+  constructor(private readonly apiKey: string) {}
+
+  async search(query: string, limit: number): Promise<SearchResult[]> {
+    const url = new URL('https://api.search.brave.com/res/v1/web/search');
+    url.searchParams.set('q', query);
+    url.searchParams.set('count', String(limit));
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'X-Subscription-Token': this.apiKey,
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`Brave search failed with ${response.status}`);
+    }
+    return normalizeBraveData(await response.json());
+  }
+
+  async scrape(): Promise<ScrapedPage | null> {
+    return null;
+  }
+}
+
 export class FakeWebSearchClient implements WebSearchClient {
   constructor(
     private readonly results: SearchResult[] = [],
@@ -133,4 +191,24 @@ export class FakeWebSearchClient implements WebSearchClient {
       markdown: `Synthetic content for ${url}.`,
     };
   }
+}
+
+export function createDefaultWebSearchClient(env: WebSearchClientEnv): WebSearchClient {
+  if (env.WEB_SEARCH_ADAPTER === 'fake') {
+    return new FakeWebSearchClient();
+  }
+
+  if (env.WEB_SEARCH_ADAPTER === 'firecrawl') {
+    return env.FIRECRAWL_API_KEY ? new FirecrawlSearchClient(env.FIRECRAWL_API_KEY) : new FakeWebSearchClient();
+  }
+
+  if (env.BRAVE_SEARCH_API_KEY) {
+    return new BraveSearchClient(env.BRAVE_SEARCH_API_KEY);
+  }
+
+  if (env.FIRECRAWL_API_KEY) {
+    return new FirecrawlSearchClient(env.FIRECRAWL_API_KEY);
+  }
+
+  return new FakeWebSearchClient();
 }

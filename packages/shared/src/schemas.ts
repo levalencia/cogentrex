@@ -47,8 +47,37 @@ export const sendMessageSchema = z.object({
   mode: z.enum(['CHAT', 'DEEP_RESEARCH']).default('CHAT'),
 });
 
+export const workflowIdSchema = z.enum([
+  'CHAT',
+  'IMAGE_GENERATION',
+  'SOCIAL_WRITING',
+  'DEEP_RESEARCH',
+]);
+
+export const providerCapabilitySchema = z.enum([
+  'text',
+  'streaming',
+  'vision',
+  'tool-calling',
+  'provider-search',
+  'image',
+  'video',
+]);
+
+export const toolCapabilitySchema = z.enum([
+  'web.search',
+  'web.fetch',
+  'web.extract',
+]);
+
+export const capabilityStatusSchema = z.enum(['ready', 'degraded', 'missing']);
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateProviderInput = z.infer<typeof createProviderSchema>;
 export type UpdateProviderInput = z.infer<typeof updateProviderSchema>;
 export type SendMessageInput = z.infer<typeof sendMessageSchema>;
+export type WorkflowIdInput = z.infer<typeof workflowIdSchema>;
+export type ProviderCapabilityInput = z.infer<typeof providerCapabilitySchema>;
+export type ToolCapabilityInput = z.infer<typeof toolCapabilitySchema>;
+export type CapabilityStatusInput = z.infer<typeof capabilityStatusSchema>;
