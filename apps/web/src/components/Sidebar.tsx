@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AccountMenu } from '@/components/AccountMenu';
 import { useAppStore } from '@/store/appStore';
 
 function modeLabel(mode: string): string {
@@ -17,8 +18,6 @@ export function Sidebar() {
   const projects = useAppStore((state) => state.projects);
   const activeProjectId = useAppStore((state) => state.activeProjectId);
   const activeConversationId = useAppStore((state) => state.activeConversationId);
-  const logout = useAppStore((state) => state.logout);
-  const user = useAppStore((state) => state.user);
   const renameConversation = useAppStore((state) => state.renameConversation);
   const togglePinConversation = useAppStore((state) => state.togglePinConversation);
   const deleteConversation = useAppStore((state) => state.deleteConversation);
@@ -75,19 +74,7 @@ export function Sidebar() {
 
   return (
     <aside className="hidden h-full w-72 shrink-0 flex-col border-r border-line bg-panel/80 lg:flex">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-line p-4">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-sm">
-            <img src="/logo" alt="Cogentrex" className="h-7 w-7 object-contain" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold tracking-[0.12em] text-accent">Cogentrex</p>
-            <p className="mt-0.5 truncate text-xs text-slate-500">{user?.email}</p>
-          </div>
-        </div>
-        <button onClick={() => void logout()} className="rounded-lg border border-line px-2 py-1 text-xs text-slate-400 hover:border-accent">Logout</button>
-      </div>
+      <AccountMenu />
 
       {/* New Chat */}
       <div className="p-3">
@@ -227,14 +214,6 @@ export function Sidebar() {
             })}
           </div>
         )}
-      </div>
-
-      {/* Footer */}
-      <div className="border-t border-line p-3">
-        <div className="flex flex-col gap-1.5">
-          <a href="/settings/providers" className="rounded-lg px-3 py-1.5 text-xs text-slate-400 hover:bg-white/5 hover:text-slate-200">Provider Settings</a>
-          <a href="/settings/social" className="rounded-lg px-3 py-1.5 text-xs text-slate-400 hover:bg-white/5 hover:text-slate-200">Social Writing Settings</a>
-        </div>
       </div>
     </aside>
   );
