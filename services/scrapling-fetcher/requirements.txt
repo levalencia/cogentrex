@@ -1,0 +1,5 @@
+fastapi==0.136.1
+uvicorn[standard]==0.38.0
+pydantic==2.12.5
+scrapling[fetchers]==0.4.8
+markdownify==1.2.2
