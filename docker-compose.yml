@@ -10,7 +10,7 @@ services:
       API_PORT: 3001
       API_PUBLIC_BASE_URL: ${API_PUBLIC_BASE_URL:-http://localhost:3001}
       WEB_ORIGIN: http://localhost:3000
-      DATABASE_URL: ${DATABASE_URL:-sqlite:///data/cogentrex.sqlite}
+      DATABASE_URL: sqlite:///data/cogentrex.sqlite
       JWT_SECRET: ${JWT_SECRET}
       APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY}
       LOG_LEVEL: ${LOG_LEVEL:-info}
