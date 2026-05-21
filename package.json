@@ -9,7 +9,7 @@
     "build": "pnpm -r --if-present run build",
     "start:api": "pnpm --filter @cogentrex/api start",
     "start:web": "pnpm --filter @cogentrex/web start",
-    "typecheck": "pnpm -r --if-present run typecheck",
+    "typecheck": "pnpm --filter @cogentrex/shared build && pnpm -r --if-present run typecheck",
     "test": "pnpm --filter @cogentrex/shared build && pnpm -r --if-present run test",
     "test:api": "pnpm --filter @cogentrex/api test",
     "db:reset": "rm -f data/cogentrex.sqlite data/cogentrex.sqlite-*"
