@@ -17,45 +17,19 @@ import { api } from '@/lib/api';
 import { ArtifactsPanel } from '@/components/ArtifactsPanel';
 import { MessageReasoningBlock } from '@/components/MessageReasoningBlock';
 import { toDisplayReasoningEntries } from '@/lib/reasoningEvents';
+import {
+  getDefaultLauncherIdForMode,
+  getLauncherItems,
+  getLauncherPlaceholder,
+  getLauncherToneClasses,
+  type LauncherItem,
+} from '@/lib/workflowLauncher';
 
 // ── Helper ──────────────────────────────────────────
 function extractImageFilenameFromMarkdown(content: string): string | null {
   const match = content.match(/\!\[.*?\]\(\s*(.*\/)?([^\/\s)]+)\s*\)/);
   return match && match[2] ? match[2] : null;
 }
-
-const WORKFLOW_META: Record<AppMode, { label: string; eyebrow: string; description: string; activeClass: string }> = {
-  CHAT: {
-    label: 'Chat',
-    eyebrow: 'Fast answer',
-    description: 'Provider-routed answers, files, and image context for quick work.',
-    activeClass: 'bg-slate-100 text-ink',
-  },
-  DEEP_RESEARCH: {
-    label: 'Deep Research',
-    eyebrow: 'Evidence loop',
-    description: 'Plan searches, gather sources, show reasoning, and synthesize citations.',
-    activeClass: 'bg-emerald-500/20 text-emerald-200 border-emerald-500/30',
-  },
-  SOCIAL_WRITING: {
-    label: 'Social',
-    eyebrow: 'Drafting',
-    description: 'Create platform-aware posts with optional mini research and image context.',
-    activeClass: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-  },
-  IMAGE_GENERATION: {
-    label: 'Image',
-    eyebrow: 'Visual',
-    description: 'Generate or edit images with the configured image-capable provider.',
-    activeClass: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
-  },
-  VIDEO_GENERATION: {
-    label: 'Video',
-    eyebrow: 'Motion',
-    description: 'Generate short videos with the configured video-capable provider.',
-    activeClass: 'bg-pink-500/20 text-pink-300 border-pink-500/30',
-  },
-};
 
 // ── MessageItem (memoised) ──────────────────────────
 interface MessageItemProps {
@@ -210,11 +184,11 @@ function MessageList({ onEditImage }: { onEditImage: (content: string) => void }
               Route quick answers, deep research, social drafts, and media generation through the same provider-aware workspace.
             </p>
             <div className="mt-8 grid gap-3 md:grid-cols-2">
-              {(['CHAT', 'DEEP_RESEARCH', 'SOCIAL_WRITING', 'IMAGE_GENERATION'] as AppMode[]).map((workflow) => (
-                <div key={workflow} className="rounded-2xl border border-line bg-panel/70 p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{WORKFLOW_META[workflow].eyebrow}</p>
-                  <h2 className="mt-2 text-base font-semibold text-white">{WORKFLOW_META[workflow].label}</h2>
-                  <p className="mt-1 text-sm leading-6 text-slate-400">{WORKFLOW_META[workflow].description}</p>
+              {getLauncherItems().slice(0, 4).map((workflow) => (
+                <div key={workflow.id} className="rounded-2xl border border-line bg-panel/70 p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{workflow.eyebrow}</p>
+                  <h2 className="mt-2 text-base font-semibold text-white">{workflow.label}</h2>
+                  <p className="mt-1 text-sm leading-6 text-slate-400">{workflow.description}</p>
                 </div>
               ))}
             </div>
@@ -260,29 +234,49 @@ const PLATFORM_OPTIONS = [
   { key: 'substack', label: 'Substack' },
 ];
 
-function WorkflowModeRail({ mode, setMode }: { mode: AppMode; setMode: (mode: AppMode) => void }) {
-  const workflows: AppMode[] = ['CHAT', 'DEEP_RESEARCH', 'SOCIAL_WRITING', 'IMAGE_GENERATION', 'VIDEO_GENERATION'];
+function WorkflowLauncher({
+  selectedLauncherId,
+  mode,
+  onSelect,
+}: {
+  selectedLauncherId: string;
+  mode: AppMode;
+  onSelect: (item: LauncherItem) => void;
+}) {
+  const workflows = getLauncherItems();
 
   return (
-    <div className="grid w-full gap-2 lg:grid-cols-5">
-      {workflows.map((workflow) => {
-        const meta = WORKFLOW_META[workflow];
-        const active = mode === workflow;
-        return (
-          <button
-            key={workflow}
-            type="button"
-            onClick={() => setMode(workflow)}
-            className={`rounded-2xl border px-3 py-2 text-left transition ${
-              active ? meta.activeClass : 'border-line bg-panel/40 text-slate-400 hover:border-slate-600 hover:text-slate-200'
-            }`}
-          >
-            <span className="block text-[10px] uppercase tracking-[0.18em] opacity-70">{meta.eyebrow}</span>
-            <span className="mt-1 block text-sm font-semibold">{meta.label}</span>
-          </button>
-        );
-      })}
-    </div>
+    <section className="rounded-2xl border border-line bg-ink/40 p-2">
+      <div className="mb-2 flex items-center justify-between px-1">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.22em] text-accent">Skill launcher</p>
+          <p className="text-xs text-slate-500">Pick a focused workflow. No marketplace sprawl.</p>
+        </div>
+        <span className="hidden rounded-full border border-line px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-500 sm:inline-flex">Chat-first</span>
+      </div>
+      <div className="grid w-full gap-2 md:grid-cols-2 xl:grid-cols-3">
+        {workflows.map((workflow) => {
+          const active = selectedLauncherId === workflow.id || (selectedLauncherId === '' && mode === workflow.mode);
+          return (
+            <button
+              key={workflow.id}
+              type="button"
+              onClick={() => onSelect(workflow)}
+              className={`rounded-2xl border px-3 py-2 text-left transition ${getLauncherToneClasses(workflow.tone, active)}`}
+            >
+              <span className="block text-[10px] uppercase tracking-[0.18em] opacity-70">{workflow.eyebrow}</span>
+              <span className="mt-1 flex items-center justify-between gap-2 text-sm font-semibold">
+                {workflow.label}
+                {workflow.status === 'near_existing' ? (
+                  <span className="rounded-full border border-current/20 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.12em] opacity-75">Soon</span>
+                ) : null}
+              </span>
+              <span className="mt-1 block text-xs leading-5 opacity-75">{workflow.description}</span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -301,6 +295,7 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string) => 
   const removeEditingImage = useAppStore((state) => state.removeEditingImage);
 
   const [input, setInput] = useState('');
+  const [selectedLauncherId, setSelectedLauncherId] = useState(() => getDefaultLauncherIdForMode(mode));
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -321,6 +316,13 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string) => 
   const containerRef = useRef<HTMLDivElement>(null);
 
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001';
+
+  useEffect(() => {
+    const selected = getLauncherItems().find((item) => item.id === selectedLauncherId);
+    if (!selected || selected.mode !== mode) {
+      setSelectedLauncherId(getDefaultLauncherIdForMode(mode));
+    }
+  }, [mode, selectedLauncherId]);
 
   // Auto-switch provider for social mode: plain social = chat default, research = deep research default
   useEffect(() => {
@@ -418,6 +420,11 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string) => 
       await addImageFiles(imageFiles, 'edit');
     }
   }, [mode, extractImageFilesFromEvent, addImageFiles]);
+
+  const selectLauncherItem = useCallback((item: LauncherItem) => {
+    setSelectedLauncherId(item.id);
+    setMode(item.mode);
+  }, [setMode]);
 
   const submit = useCallback(async () => {
     const value = input.trim();
@@ -703,7 +710,7 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string) => 
               ? 'Describe the video you want to generate...'
               : mode === 'SOCIAL_WRITING'
               ? 'Topic or idea for your social posts...'
-              : 'Ask Cogentrex... (Press Enter to send)'
+              : getLauncherPlaceholder(selectedLauncherId)
           }
           disabled={isStreaming || providers.length === 0 || !!pendingPlan || analyzing}
           className="min-h-24 resize-none rounded-2xl bg-transparent px-3 py-2 text-slate-100 outline-none placeholder:text-slate-500"
@@ -712,7 +719,7 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string) => 
           <ImageOptionsPanel options={imageOptions} onChange={setImageOptions} />
         ) : null}
         <div className="flex flex-col gap-3">
-          <WorkflowModeRail mode={mode} setMode={setMode} />
+          <WorkflowLauncher selectedLauncherId={selectedLauncherId} mode={mode} onSelect={selectLauncherItem} />
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 flex-wrap">
               <ProviderPicker />
