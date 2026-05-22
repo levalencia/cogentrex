@@ -53,6 +53,26 @@ describe('capability API', () => {
     database.close();
   });
 
+  it('reports Scrapling search as ready when explicitly configured', async () => {
+    const { agent, database } = await makeTestApp({
+      NODE_ENV: 'production',
+      SCRAPLING_BASE_URL: 'http://scrapling.test:8000',
+      WEB_SEARCH_ADAPTER: 'scrapling',
+      WEB_FETCH_ADAPTER: 'scrapling',
+    } as never);
+    await registerAndLogin(agent);
+    await createProvider(agent);
+
+    const response = await agent.get('/api/capabilities').expect(200);
+
+    const deepResearch = workflowById(response.body, 'DEEP_RESEARCH');
+    expect(deepResearch.status).toBe('ready');
+    expect(deepResearch.tools).toContainEqual(expect.objectContaining({ id: 'web.search', status: 'ready', adapterId: 'scrapling.search' }));
+    expect(deepResearch.tools).toContainEqual(expect.objectContaining({ id: 'web.fetch', status: 'ready', adapterId: 'scrapling.fetch' }));
+
+    database.close();
+  });
+
   it('marks image generation ready when an image-capable provider exists', async () => {
     const { agent, database } = await makeTestApp();
     await registerAndLogin(agent);
