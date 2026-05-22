@@ -19,6 +19,11 @@ export const providerKindSchema = z.enum([
   'VIDEO_GENERATION',
 ]);
 
+export const appModeSchema = z.enum(['CHAT', 'DEEP_RESEARCH', 'SOCIAL_WRITING', 'IMAGE_GENERATION', 'VIDEO_GENERATION']);
+export const skillStatusSchema = z.enum(['DRAFT', 'STAGED', 'PUBLISHED', 'DISABLED']);
+export const skillVisibilitySchema = z.enum(['ADMIN_ONLY', 'USER_VISIBLE']);
+export const skillKindSchema = z.enum(['NATIVE', 'IMPORTED']);
+
 export const createProviderSchema = z.object({
   name: z.string().trim().min(1).max(120),
   baseUrl: z.string().trim().url().max(1000),
@@ -27,7 +32,7 @@ export const createProviderSchema = z.object({
   kind: providerKindSchema.default('OPENAI_COMPATIBLE'),
   isDefault: z.boolean().default(false),
   isGlobal: z.boolean().default(false),
-  defaultForMode: z.enum(['CHAT', 'DEEP_RESEARCH', 'SOCIAL_WRITING', 'IMAGE_GENERATION', 'VIDEO_GENERATION']).optional().nullable(),
+  defaultForMode: appModeSchema.optional().nullable(),
   supportsStreaming: z.boolean().default(true),
   supportsVision: z.boolean().default(false),
   supportsTools: z.boolean().default(false),
@@ -72,6 +77,32 @@ export const toolCapabilitySchema = z.enum([
 
 export const capabilityStatusSchema = z.enum(['ready', 'degraded', 'missing']);
 
+export const skillToolRequirementSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  required: z.boolean(),
+  description: z.string().trim().max(500).optional(),
+});
+
+export const updateSkillSchema = z.object({
+  name: z.string().trim().min(1).max(120).optional(),
+  description: z.string().trim().min(1).max(1000).optional(),
+  status: skillStatusSchema.optional(),
+  visibility: skillVisibilitySchema.optional(),
+  category: z.string().trim().min(1).max(80).nullable().optional(),
+  icon: z.string().trim().min(1).max(80).nullable().optional(),
+  inputSchema: z.record(z.string(), z.unknown()).nullable().optional(),
+  outputContract: z.record(z.string(), z.unknown()).nullable().optional(),
+  toolRequirements: z.array(skillToolRequirementSchema).max(20).optional(),
+});
+
+export const updateSkillRouteSchema = z.object({
+  mode: appModeSchema,
+  defaultProviderId: z.string().trim().min(1).nullable().optional(),
+  searchProfile: z.string().trim().min(1).max(120).nullable().optional(),
+  maxBudgetCents: z.number().int().min(0).max(100000).nullable().optional(),
+  config: z.record(z.string(), z.unknown()).nullable().optional(),
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateProviderInput = z.infer<typeof createProviderSchema>;
@@ -81,3 +112,5 @@ export type WorkflowIdInput = z.infer<typeof workflowIdSchema>;
 export type ProviderCapabilityInput = z.infer<typeof providerCapabilitySchema>;
 export type ToolCapabilityInput = z.infer<typeof toolCapabilitySchema>;
 export type CapabilityStatusInput = z.infer<typeof capabilityStatusSchema>;
+export type UpdateSkillInput = z.infer<typeof updateSkillSchema>;
+export type UpdateSkillRouteInput = z.infer<typeof updateSkillRouteSchema>;

@@ -9,6 +9,10 @@ export interface PublicUser {
 
 export type AppMode = 'CHAT' | 'DEEP_RESEARCH' | 'SOCIAL_WRITING' | 'IMAGE_GENERATION' | 'VIDEO_GENERATION';
 
+export type SkillStatus = 'DRAFT' | 'STAGED' | 'PUBLISHED' | 'DISABLED';
+export type SkillVisibility = 'ADMIN_ONLY' | 'USER_VISIBLE';
+export type SkillKind = 'NATIVE' | 'IMPORTED';
+
 export type WorkflowId = 'CHAT' | 'IMAGE_GENERATION' | 'SOCIAL_WRITING' | 'DEEP_RESEARCH';
 export type ProviderCapabilityId = 'text' | 'streaming' | 'vision' | 'tool-calling' | 'provider-search' | 'image' | 'video';
 export type ToolCapabilityId = 'web.search' | 'web.fetch' | 'web.extract';
@@ -26,6 +30,45 @@ export interface SkillDefinition {
   requiredToolCapabilities: ToolCapabilityId[];
   optionalToolCapabilities: ToolCapabilityId[];
   systemPromptModule?: string | undefined;
+}
+
+export interface SkillToolRequirement {
+  name: string;
+  required: boolean;
+  description?: string | undefined;
+}
+
+export interface SkillProviderRoute {
+  id: string;
+  skillId: string;
+  mode: AppMode;
+  defaultProviderId: string | null;
+  searchProfile: string | null;
+  maxBudgetCents: number | null;
+  config: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SkillSummary {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  kind: SkillKind;
+  status: SkillStatus;
+  visibility: SkillVisibility;
+  category: string | null;
+  icon: string | null;
+  route: SkillProviderRoute | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SkillDetail extends SkillSummary {
+  inputSchema: Record<string, unknown> | null;
+  outputContract: Record<string, unknown> | null;
+  toolRequirements: SkillToolRequirement[];
 }
 
 export interface WorkflowDefinition {

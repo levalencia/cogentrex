@@ -52,6 +52,9 @@ import { artifactRoutes } from './artifacts/artifactRoutes.js';
 import { RealGoogleOAuthClient, type GoogleOAuthClient } from './auth/googleOAuthClient.js';
 import { CapabilityService } from './capabilities/capabilityService.js';
 import { capabilityRoutes } from './capabilities/capabilityRoutes.js';
+import { SkillRepository } from './skills/skillRepository.js';
+import { SkillService } from './skills/skillService.js';
+import { adminSkillRoutes, skillRoutes } from './skills/skillRoutes.js';
 
 export interface AppDependencies {
   database?: AppDatabase;
@@ -74,6 +77,9 @@ export async function createApp(env: AppEnv, deps: AppDependencies = {}) {
   const providerRepository = new ProviderRepository(database.adapter);
   const providerService = new ProviderService(providerRepository, encryption, logger.child({ component: 'ProviderService' }));
   const capabilityService = new CapabilityService(providerService, env);
+  const skillRepository = new SkillRepository(database.adapter);
+  const skillService = new SkillService(skillRepository, logger.child({ component: 'SkillService' }));
+  await skillService.seedNativeSkills();
   const conversationRepository = new ConversationRepository(database.adapter);
   const llm = deps.llm ?? new OpenAICompatibleClient();
   const search = deps.search ?? createDefaultWebSearchClient(env);
@@ -162,7 +168,9 @@ export async function createApp(env: AppEnv, deps: AppDependencies = {}) {
     webOrigin: env.WEB_ORIGIN,
   }));
   app.use('/api/providers', providerRoutes(authService, providerService));
+  app.use('/api/skills', skillRoutes(authService, skillService));
   app.use('/api/capabilities', capabilityRoutes(authService, capabilityService));
+  app.use('/api/admin/skills', adminSkillRoutes(authService, skillService));
   app.use('/api/admin', adminRoutes(authService, providerService));
   app.use('/api/chat', chatRoutes(authService, chatService, researchService, metricsRepository, artifactService, logger.child({ component: 'ChatRoutes' })));
   app.use('/api/media', mediaRoutes(authService, mediaService, apiBaseUrl));

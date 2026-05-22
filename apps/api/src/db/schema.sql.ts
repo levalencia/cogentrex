@@ -63,6 +63,41 @@ CREATE TABLE IF NOT EXISTS projects (
 
 CREATE INDEX IF NOT EXISTS projects_user ON projects(user_id);
 
+CREATE TABLE IF NOT EXISTS skills (
+  id TEXT PRIMARY KEY,
+  slug TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  status TEXT NOT NULL,
+  visibility TEXT NOT NULL,
+  category TEXT,
+  icon TEXT,
+  input_schema_json TEXT,
+  output_contract_json TEXT,
+  tool_requirements_json TEXT NOT NULL DEFAULT '[]',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS skills_status_visibility ON skills(status, visibility);
+
+CREATE TABLE IF NOT EXISTS skill_routes (
+  id TEXT PRIMARY KEY,
+  skill_id TEXT NOT NULL UNIQUE,
+  mode TEXT NOT NULL,
+  default_provider_id TEXT,
+  search_profile TEXT,
+  max_budget_cents INTEGER,
+  config_json TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE CASCADE,
+  FOREIGN KEY (default_provider_id) REFERENCES providers(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS skill_routes_skill ON skill_routes(skill_id);
+
 CREATE TABLE IF NOT EXISTS conversations (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
