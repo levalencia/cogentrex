@@ -111,14 +111,8 @@ jobs:
             secrets+=("brave-search-api-key=$BRAVE_SEARCH_API_KEY")
             env_vars+=("WEB_SEARCH_ADAPTER=brave" "BRAVE_SEARCH_API_KEY=secretref:brave-search-api-key")
           else
-            echo "BRAVE_SEARCH_API_KEY is not set; falling back to Firecrawl search adapter for DEV."
-            env_vars+=("WEB_SEARCH_ADAPTER=firecrawl")
-            if [ -n "$FIRECRAWL_API_KEY" ]; then
-              secrets+=("firecrawl-api-key=$FIRECRAWL_API_KEY")
-              env_vars+=("FIRECRAWL_API_KEY=secretref:firecrawl-api-key")
-            else
-              echo "::warning::FIRECRAWL_API_KEY GitHub secret is not set. DEV will rely on any existing Container App Firecrawl configuration."
-            fi
+            echo "BRAVE_SEARCH_API_KEY is not set; falling back to Scrapling search adapter for DEV."
+            env_vars+=("WEB_SEARCH_ADAPTER=scrapling")
           fi
 
           az containerapp secret set \

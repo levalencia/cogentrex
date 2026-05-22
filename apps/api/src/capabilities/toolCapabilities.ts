@@ -27,6 +27,16 @@ function resolveWebSearch(env: AppEnv): CapabilityReadinessItem {
       message: 'Firecrawl is configured as a fallback search adapter. Brave is the preferred default.',
     };
   }
+  if ((adapter === undefined || adapter === 'scrapling') && env.SCRAPLING_BASE_URL) {
+    return {
+      id: 'web.search',
+      status: adapter === 'scrapling' ? 'ready' : 'degraded',
+      adapterId: 'scrapling.search',
+      message: adapter === 'scrapling'
+        ? 'Scrapling sidecar is configured for web search.'
+        : 'Scrapling sidecar is available as a fallback search adapter. Brave is the preferred default.',
+    };
+  }
   if (adapter === 'fake' || env.NODE_ENV !== 'production') {
     return {
       id: 'web.search',
