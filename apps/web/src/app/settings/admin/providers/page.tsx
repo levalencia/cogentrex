@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import type { ProviderConfigView } from '@cogentrex/shared';
 import { api } from '@/lib/api';
+import { getProtectedRouteState } from '@/lib/protectedRoute';
 import { useAppStore } from '@/store/appStore';
 
 interface FormState {
@@ -25,6 +27,7 @@ function emptyForm(): FormState {
 }
 
 export default function AdminProvidersPage() {
+  const router = useRouter();
   const user = useAppStore((state) => state.user);
   const bootstrap = useAppStore((state) => state.bootstrap);
   const [providers, setProviders] = useState<ProviderConfigView[]>([]);
@@ -33,11 +36,20 @@ export default function AdminProvidersPage() {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [error, setError] = useState<string>();
   const [success, setSuccess] = useState<string>();
+  const routeState = getProtectedRouteState(user, { requireAdmin: true });
+  const redirectHref = routeState.status === 'redirect' ? routeState.href : undefined;
 
   useEffect(() => {
     void bootstrap();
-    loadProviders();
   }, [bootstrap]);
+
+  useEffect(() => {
+    if (redirectHref) router.replace(redirectHref);
+  }, [router, redirectHref]);
+
+  useEffect(() => {
+    if (routeState.status === 'authorized') loadProviders();
+  }, [routeState.status]);
 
   async function loadProviders() {
     setLoading(true);
@@ -128,7 +140,18 @@ export default function AdminProvidersPage() {
     }
   }
 
-  if (user && user.role !== 'ADMIN') {
+  if (routeState.status === 'loading' || routeState.status === 'redirect') {
+    return (
+      <main className="flex h-screen items-center justify-center bg-ink text-slate-100">
+        <div className="text-center">
+          <div className="inline-block h-10 w-10 animate-spin rounded-full border-4 border-accent border-t-transparent" />
+          <p className="mt-4 text-sm text-slate-400">Checking access…</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (routeState.status === 'forbidden') {
     return (
       <main className="min-h-screen bg-ink text-slate-100">
         <div className="mx-auto max-w-5xl px-4 py-8">
