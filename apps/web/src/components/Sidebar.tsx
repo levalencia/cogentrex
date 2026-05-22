@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { AccountMenu } from '@/components/AccountMenu';
 import { useAppStore } from '@/store/appStore';
 
@@ -28,6 +28,7 @@ export function Sidebar() {
   const createProject = useAppStore((state) => state.createProject);
   const deleteProject = useAppStore((state) => state.deleteProject);
   const router = useRouter();
+  const pathname = usePathname();
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -83,8 +84,14 @@ export function Sidebar() {
       <AccountMenu />
 
       {/* New Chat */}
-      <div className="p-3">
+      <div className="space-y-2 p-3">
         <button onClick={handleNewChat} className="w-full rounded-2xl bg-accent px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-white">New chat</button>
+        <button
+          onClick={() => router.push('/library')}
+          className={`w-full rounded-2xl border px-4 py-2.5 text-left text-sm transition ${pathname?.startsWith('/library') ? 'border-accent bg-accent/10 text-accent' : 'border-line text-slate-300 hover:border-accent'}`}
+        >
+          Library / Outputs
+        </button>
       </div>
 
       {/* Project Filter */}

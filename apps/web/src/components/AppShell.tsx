@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useParams, usePathname } from 'next/navigation';
 import { AuthPanel } from './AuthPanel';
 import { ChatView } from './ChatView';
+import { LibraryView } from './LibraryView';
 import { Sidebar } from './Sidebar';
 import { useAppStore } from '@/store/appStore';
 
@@ -16,6 +17,7 @@ export function AppShell() {
   const params = useParams();
   const pathname = usePathname();
   const conversationId = params?.id as string | undefined;
+  const isLibraryRoute = pathname?.startsWith('/library') ?? false;
 
   useEffect(() => {
     void bootstrap();
@@ -47,7 +49,7 @@ export function AppShell() {
   return (
     <div className="flex h-screen overflow-hidden bg-ink text-slate-100">
       <Sidebar />
-      <ChatView />
+      {isLibraryRoute ? <LibraryView /> : <ChatView />}
     </div>
   );
 }
