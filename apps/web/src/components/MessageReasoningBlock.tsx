@@ -4,8 +4,8 @@ import { useState } from 'react';
 
 interface ReasoningEntry {
   step: string;
-  detail?: string;
-  iteration?: number;
+  detail?: string | undefined;
+  iteration?: number | undefined;
 }
 
 const STEP_ICONS: Record<string, string> = {
