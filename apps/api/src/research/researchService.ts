@@ -8,6 +8,7 @@ import type { MetricsRepository } from '../observability/metricsRepository.js';
 import type { ConversationRepository } from '../chat/conversationRepository.js';
 import type { LanguageModelClient } from '../chat/languageModel.js';
 import type { WebSearchClient, ScrapedPage } from '../tools/searchClient.js';
+import { describeSearchClient, describeFetchClient } from '../tools/searchClient.js';
 import type { ChannelRegistry } from '../tools/channels/channelRegistry.js';
 import type { AppLogger } from '../observability/logger.js';
 import { hashForLog } from '../observability/logger.js';
@@ -30,6 +31,22 @@ export function buildSeedContext(pages: ScrapedPage[]): string | undefined {
 }
 
 type StreamSink = (event: StreamEvent) => void;
+type ResearchDiagnosticMetadata = Record<string, string | number | boolean | null | undefined>;
+
+function createDiagnosticEvent(
+  name: string,
+  message: string,
+  metadata: ResearchDiagnosticMetadata,
+  iteration?: number,
+): StreamEvent {
+  return {
+    type: 'diagnostic',
+    name,
+    message,
+    ...(iteration !== undefined ? { iteration } : {}),
+    metadata,
+  };
+}
 
 interface JobEntry {
   emitter: EventEmitter;
@@ -214,23 +231,39 @@ export class ResearchService {
       // Non-critical: if index doesn't exist yet, continue with fresh search
     }
 
-    const emit =async  (event: StreamEvent) => {
-      reasoningLog.push(event);
+    const emitLive = (event: StreamEvent) => {
       entry.buffer.push(event);
       emitter.emit('event', event);
+    };
+    const emit = async (event: StreamEvent) => {
+      reasoningLog.push(event);
+      emitLive(event);
       await this.jobsRepo.updateStatus(jobId, 'running', nowIso(), { reasoning: reasoningLog.map((e) => ({ ...e })) });
+    };
+    const emitDiagnostic = async (name: string, message: string, metadata: ResearchDiagnosticMetadata, iteration?: number) => {
+      await emit(createDiagnosticEvent(name, message, metadata, iteration));
     };
 
     // Fire background work without awaiting at the call site
     void (async () => {
       const startedAt = performance.now();
-      emit({ type: 'start', conversationId: conversation.id, messageId: assistantMessageId, mode: 'DEEP_RESEARCH' });
+      await emit({ type: 'start', conversationId: conversation.id, messageId: assistantMessageId, mode: 'DEEP_RESEARCH' });
+      await emitDiagnostic('research_started', 'Deep research job started', {
+        jobId,
+        conversationId: conversation.id,
+        providerId: provider.id,
+        providerKind: provider.kind,
+        model: provider.model,
+        searchProvider: describeSearchClient(this.search),
+        fetchProvider: describeFetchClient(this.search),
+        availableChannels: this.channels.names().join(','),
+      });
       try {
         for (const [index, rawQuery] of plan.entries()) {
           const item = parsePlanItem(rawQuery);
           const iteration = index + 1;
           const iterationStarted = performance.now();
-          emit({ type: 'reasoning', step: `Searching ${item.channel}`, detail: item.query, iteration });
+          await emit({ type: 'reasoning', step: `Searching ${item.channel}`, detail: item.query, iteration });
           this.logger.info({ jobId, iteration, channel: item.channel, queryHash: hashForLog(item.query), queryLength: item.query.length }, 'research_search_started');
           let results;
           try {
@@ -240,16 +273,41 @@ export class ResearchService {
             this.logger.error({ jobId, iteration, channel: item.channel, errorMessage: message }, 'research_search_failed');
             continue;
           }
+          const resultCount = results.length;
+          let uniqueAdded = 0;
           for (const result of results) {
             if (seenUrls.has(result.url)) continue;
             seenUrls.add(result.url);
+            uniqueAdded += 1;
             const id = sources.length + 1;
             const source: ResearchSource = { id, title: result.title, url: result.url, snippet: result.description ?? result.markdown.slice(0, 240), channel: result.channel };
             sources.push(source);
             excerpts.set(id, result.markdown.slice(0, 3500));
-            emit({ type: 'source', source, iteration, channel: item.channel });
+            await emit({ type: 'source', source, iteration, channel: item.channel });
           }
           const iterationDuration = Math.round(performance.now() - iterationStarted);
+          const searchProvider = item.channel === 'web' ? describeSearchClient(this.search) : item.channel;
+          await emitDiagnostic('search_completed', `Search completed for ${item.channel}`, {
+            channel: item.channel,
+            searchProvider,
+            requestedLimit: 5,
+            resultCount,
+            uniqueAdded,
+            totalSources: sources.length,
+            durationMs: iterationDuration,
+          }, iteration);
+          this.logger.info({
+            jobId,
+            conversationId: conversation.id,
+            iteration,
+            channel: item.channel,
+            searchProvider,
+            requestedLimit: 5,
+            resultCount,
+            uniqueAdded,
+            totalSources: sources.length,
+            durationMs: iterationDuration,
+          }, 'research_search_completed');
           await this.metrics.record({
             userId,
             conversationId: conversation.id,
@@ -261,10 +319,10 @@ export class ResearchService {
             durationMs: iterationDuration,
             metadata: { iteration, query: item.query, sourceCount: results.length },
           });
-          emit({ type: 'reasoning', step: 'Reviewing findings', detail: `${sources.length} unique sources collected`, iteration });
+          await emit({ type: 'reasoning', step: 'Reviewing findings', detail: `${sources.length} unique sources collected`, iteration });
         }
 
-        emit({ type: 'reasoning', step: 'Synthesizing answer', detail: 'Writing final response with citations', iteration: plan.length });
+        await emit({ type: 'reasoning', step: 'Synthesizing answer', detail: 'Writing final response with citations', iteration: plan.length });
 
         // Merge prior sources with new ones for synthesis (deduplicate by URL)
         const allSources: ResearchSource[] = [...priorSources];
@@ -287,24 +345,29 @@ export class ResearchService {
         for await (const delta of this.llm.streamChat(provider, createSynthesisMessages(job.question, sourceNotes))) {
           if (!firstTokenAt) firstTokenAt = performance.now();
           content += delta;
-          emit({ type: 'delta', content: delta });
+          await emit({ type: 'delta', content: delta });
         }
         const synthesisDuration = Math.round(performance.now() - synthesisStarted);
         const ttftMs = firstTokenAt ? Math.round(firstTokenAt - synthesisStarted) : undefined;
         const estimatedTokens = Math.round(content.length / 4);
         const tps = synthesisDuration > 0 ? Math.round((estimatedTokens / synthesisDuration) * 1000 * 10) / 10 : undefined;
 
-        await this.conversations.addMessage({
-          id: assistantMessageId,
+        const totalDuration = Math.round(performance.now() - startedAt);
+        const finishedDiagnostic = createDiagnosticEvent('research_finished', 'Deep research job finished', {
+          jobId,
           conversationId: conversation.id,
-          role: 'assistant',
-          content,
-          metadata: { sources: allSources, reasoning: reasoningLog.map((e) => ({ ...e })) },
-          now: nowIso(),
+          providerId: provider.id,
+          model: provider.model,
+          sourceCount: allSources.length,
+          newSourceCount: sources.length,
+          planLength: plan.length,
+          durationMs: totalDuration,
+          synthesisDurationMs: synthesisDuration,
+          estimatedTokens,
         });
-        emit({ type: 'done', content, sources: allSources });
-        await this.jobsRepo.updateStatus(jobId, 'completed', nowIso(), { answer: content, sources: allSources, reasoning: reasoningLog.map((e) => ({ ...e })) });
-        // Persist merged sources to per-conversation research index for follow-ups
+        const completedReasoning = [...reasoningLog.map((e) => ({ ...e })), finishedDiagnostic];
+
+        // Persist merged sources to per-conversation research index for follow-ups before marking the stream as finished.
         await this.sourceRepo.replaceAll(conversation.id, allSources.map((s) => ({ ...s, excerpt: allExcerpts.get(s.id) })), nowIso());
         const tokenCount = Math.round(content.length / 4);
         await this.usage.record(userId, provider.id, tokenCount);
@@ -325,7 +388,6 @@ export class ResearchService {
           metadata: { sourceCount: sources.length, planLength: plan.length },
         });
 
-        const totalDuration = Math.round(performance.now() - startedAt);
         await this.metrics.record({
           userId,
           conversationId: conversation.id,
@@ -338,10 +400,23 @@ export class ResearchService {
           metadata: { sourceCount: sources.length, planLength: plan.length },
         });
 
+        await this.conversations.addMessage({
+          id: assistantMessageId,
+          conversationId: conversation.id,
+          role: 'assistant',
+          content,
+          metadata: { sources: allSources, reasoning: completedReasoning },
+          now: nowIso(),
+        });
+        await this.jobsRepo.updateStatus(jobId, 'completed', nowIso(), { answer: content, sources: allSources, reasoning: completedReasoning });
+        reasoningLog.push(finishedDiagnostic);
+        emitLive(finishedDiagnostic);
+        emitLive({ type: 'done', content, sources: allSources });
+
         this.logger.info({ jobId, responseLength: content.length, sourceCount: sources.length, durationMs: totalDuration }, 'research_finished');
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Research failed';
-        emit({ type: 'error', code: 'RESEARCH_ERROR', message });
+        await emit({ type: 'error', code: 'RESEARCH_ERROR', message });
         await this.jobsRepo.updateStatus(jobId, 'failed', nowIso(), { errorMessage: message });
         this.logger.error({ jobId, errorMessage: message }, 'research_job_failed');
       } finally {
@@ -420,22 +495,49 @@ export class ResearchService {
 
     const reasoningLog: StreamEvent[] = [];
     const provider = await this.providers.resolve(input.userId, input.providerId);
+    const emitDiagnostic = (name: string, message: string, metadata: ResearchDiagnosticMetadata, iteration?: number) => {
+      const event = createDiagnosticEvent(name, message, metadata, iteration);
+      input.emit(event);
+      reasoningLog.push(event);
+    };
+    emitDiagnostic('research_started', 'Deep research run started', {
+      conversationId: conversation.id,
+      providerId: provider.id,
+      providerKind: provider.kind,
+      model: provider.model,
+      searchProvider: describeSearchClient(this.search),
+      fetchProvider: describeFetchClient(this.search),
+      availableChannels: this.channels.names().join(','),
+    });
     input.emit({ type: 'reasoning', step: 'Planning research', detail: 'Creating focused search queries', iteration: 0 });
     reasoningLog.push({ type: 'reasoning', step: 'Planning research', detail: 'Creating focused search queries', iteration: 0 });
     let queries: string[];
     try {
       const urls = extractUrls(input.question);
       const scrapedPages: ScrapedPage[] = [];
+      const failedUrls: string[] = [];
+      const scrapeStarted = performance.now();
       if (urls.length) {
         for (const url of urls) {
           try {
-            const page = await await this.search.scrape(url);
-            if (page) scrapedPages.push(page);
+            const page = await this.search.scrape(url);
+            if (page) {
+              scrapedPages.push(page);
+            } else {
+              failedUrls.push(url);
+            }
           } catch {
-            // ignore scrape failures in legacy flow
+            failedUrls.push(url);
           }
         }
       }
+      emitDiagnostic('fetch_completed', 'Input URL fetch completed', {
+        fetchProvider: describeFetchClient(this.search),
+        urlCount: urls.length,
+        fetchedCount: scrapedPages.length,
+        failedCount: failedUrls.length,
+        durationMs: Math.round(performance.now() - scrapeStarted),
+      });
       const seedContext = buildSeedContext(scrapedPages);
       const planItems = (await this.planner.plan(provider, input.question, seedContext)).slice(0, 10);
       queries = planItems.map((item) => `${item.channel}:${item.query}`);
@@ -476,9 +578,12 @@ export class ResearchService {
         this.logger.error({ conversationId: conversation.id, iteration, channel: item.channel, errorMessage: message }, 'research_search_failed');
         continue;
       }
+      const resultCount = results.length;
+      let uniqueAdded = 0;
       for (const result of results) {
         if (seenUrls.has(result.url)) continue;
         seenUrls.add(result.url);
+        uniqueAdded += 1;
         const id = sources.length + 1;
         const source: ResearchSource = { id, title: result.title, url: result.url, snippet: result.description ?? result.markdown.slice(0, 240) };
         sources.push(source);
@@ -486,6 +591,27 @@ export class ResearchService {
         input.emit({ type: 'source', source, iteration, channel: item.channel });
       }
       const iterationDuration = Math.round(performance.now() - iterationStarted);
+      const searchProvider = item.channel === 'web' ? describeSearchClient(this.search) : item.channel;
+      emitDiagnostic('search_completed', `Search completed for ${item.channel}`, {
+        channel: item.channel,
+        searchProvider,
+        requestedLimit: 5,
+        resultCount,
+        uniqueAdded,
+        totalSources: sources.length,
+        durationMs: iterationDuration,
+      }, iteration);
+      this.logger.info({
+        conversationId: conversation.id,
+        iteration,
+        channel: item.channel,
+        searchProvider,
+        requestedLimit: 5,
+        resultCount,
+        uniqueAdded,
+        totalSources: sources.length,
+        durationMs: iterationDuration,
+      }, 'research_search_completed');
       await this.metrics.record({
         userId: input.userId,
         conversationId: conversation.id,
@@ -540,19 +666,24 @@ export class ResearchService {
     const estimatedTokens = Math.round(content.length / 4);
     const tps = synthesisDuration > 0 ? Math.round((estimatedTokens / synthesisDuration) * 1000 * 10) / 10 : undefined;
 
-    await this.conversations.addMessage({
-      id: assistantMessageId,
+    const totalDuration = Math.round(performance.now() - startedAt);
+    const finishedDiagnostic = createDiagnosticEvent('research_finished', 'Deep research run finished', {
       conversationId: conversation.id,
-      role: 'assistant',
-      content,
-      metadata: { sources: allSources, reasoning: reasoningLog },
-      now: nowIso(),
+      providerId: provider.id,
+      model: provider.model,
+      sourceCount: allSources.length,
+      newSourceCount: sources.length,
+      planLength: queries.length,
+      durationMs: totalDuration,
+      synthesisDurationMs: synthesisDuration,
+      estimatedTokens,
     });
-    input.emit({ type: 'done', content, sources: allSources });
+    const completedReasoning = [...reasoningLog, finishedDiagnostic];
+
     const tokenCount = Math.round(content.length / 4);
     await this.usage.record(input.userId, provider.id, tokenCount);
 
-    // Persist merged sources to per-conversation research index
+    // Persist merged sources to per-conversation research index before marking the stream as finished.
     await this.sourceRepo.replaceAll(conversation.id, allSources.map((s) => ({ ...s, excerpt: allExcerpts.get(s.id) })), nowIso());
 
     await this.metrics.record({
@@ -571,7 +702,6 @@ export class ResearchService {
       metadata: { sourceCount: sources.length, planLength: queries.length },
     });
 
-    const totalDuration = Math.round(performance.now() - startedAt);
     await this.metrics.record({
       userId: input.userId,
       conversationId: conversation.id,
@@ -583,6 +713,18 @@ export class ResearchService {
       durationMs: totalDuration,
       metadata: { sourceCount: sources.length, planLength: queries.length },
     });
+
+    await this.conversations.addMessage({
+      id: assistantMessageId,
+      conversationId: conversation.id,
+      role: 'assistant',
+      content,
+      metadata: { sources: allSources, reasoning: completedReasoning },
+      now: nowIso(),
+    });
+    reasoningLog.push(finishedDiagnostic);
+    input.emit(finishedDiagnostic);
+    input.emit({ type: 'done', content, sources: allSources });
 
     this.logger.info({
       userId: input.userId,

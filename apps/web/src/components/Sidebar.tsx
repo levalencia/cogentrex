@@ -22,6 +22,7 @@ export function Sidebar() {
   const togglePinConversation = useAppStore((state) => state.togglePinConversation);
   const deleteConversation = useAppStore((state) => state.deleteConversation);
   const deleteAllConversations = useAppStore((state) => state.deleteAllConversations);
+  const clearChat = useAppStore((state) => state.clearChat);
   const setActiveProject = useAppStore((state) => state.setActiveProject);
   const assignConversationToProject = useAppStore((state) => state.assignConversationToProject);
   const createProject = useAppStore((state) => state.createProject);
@@ -68,6 +69,11 @@ export function Sidebar() {
     setCreatingProject(false);
   }
 
+  function handleNewChat() {
+    clearChat();
+    router.push('/');
+  }
+
   function handleConversationClick(id: string) {
     router.push(`/chats/${id}`);
   }
@@ -78,7 +84,7 @@ export function Sidebar() {
 
       {/* New Chat */}
       <div className="p-3">
-        <button onClick={() => router.push('/')} className="w-full rounded-2xl bg-accent px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-white">New chat</button>
+        <button onClick={handleNewChat} className="w-full rounded-2xl bg-accent px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-white">New chat</button>
       </div>
 
       {/* Project Filter */}

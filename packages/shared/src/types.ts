@@ -105,6 +105,7 @@ export type StreamEvent =
   | { type: 'start'; conversationId: string; messageId: string; mode: 'CHAT' | 'DEEP_RESEARCH' | 'SOCIAL_WRITING' }
   | { type: 'delta'; content: string }
   | { type: 'reasoning'; step: string; detail?: string; iteration?: number }
+  | { type: 'diagnostic'; name: string; message?: string; iteration?: number; metadata?: Record<string, unknown> }
   | { type: 'source'; source: ResearchSource; iteration?: number; channel?: string }
   | { type: 'artifact'; filename: string; language?: string; artifactType: string; content: string }
   | { type: 'done'; content: string; sources?: ResearchSource[]; title?: string }

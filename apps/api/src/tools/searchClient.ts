@@ -149,6 +149,14 @@ export class CompositeWebSearchClient implements WebSearchClient {
     private readonly fetchClient: WebFetchClient,
   ) {}
 
+  get searchProviderName(): string {
+    return describeSearchClient(this.searchClient);
+  }
+
+  get fetchProviderName(): string {
+    return describeFetchClient(this.fetchClient);
+  }
+
   search(query: string, limit: number): Promise<SearchResult[]> {
     return this.searchClient.search(query, limit);
   }
@@ -298,6 +306,23 @@ export class FakeWebSearchClient implements WebSearchClient {
       markdown: `Synthetic content for ${url}.`,
     };
   }
+}
+
+export function describeSearchClient(client: Pick<WebSearchClient, 'search'>): string {
+  if (client instanceof CompositeWebSearchClient) return client.searchProviderName;
+  if (client instanceof ScraplingSearchClient) return 'scrapling';
+  if (client instanceof FirecrawlSearchClient) return 'firecrawl';
+  if (client instanceof BraveSearchClient) return 'brave';
+  if (client instanceof FakeWebSearchClient) return 'fake';
+  return 'custom';
+}
+
+export function describeFetchClient(client: WebFetchClient): string {
+  if (client instanceof CompositeWebSearchClient) return client.fetchProviderName;
+  if (client instanceof ScraplingFetchClient) return 'scrapling';
+  if (client instanceof FirecrawlSearchClient) return 'firecrawl';
+  if (client instanceof FakeWebSearchClient) return 'fake';
+  return 'custom';
 }
 
 export function createDefaultWebSearchClient(env: WebSearchClientEnv): WebSearchClient {
