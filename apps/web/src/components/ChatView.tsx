@@ -16,6 +16,7 @@ import { PostCards, tryParsePosts } from '@/components/PostCards';
 import { api } from '@/lib/api';
 import { ArtifactsPanel } from '@/components/ArtifactsPanel';
 import { MessageReasoningBlock } from '@/components/MessageReasoningBlock';
+import { toDisplayReasoningEntries } from '@/lib/reasoningEvents';
 
 // ── Helper ──────────────────────────────────────────
 function extractImageFilenameFromMarkdown(content: string): string | null {
@@ -117,7 +118,7 @@ const MessageItem = memo(function MessageItem({ message, onEditImage }: MessageI
   const messageSources = message.metadata?.sources as ResearchSource[] | undefined;
   const citedSources = getCitedSources(message.content, messageSources);
   const processedContent = citedSources.length ? processCitations(message.content, citedSources) : message.content;
-  const messageReasoning = message.metadata?.reasoning as Array<{ step: string; detail?: string; iteration?: number }> | undefined;
+  const messageReasoning = toDisplayReasoningEntries(message.metadata?.reasoning);
 
   return (
     <article className="flex justify-start">
