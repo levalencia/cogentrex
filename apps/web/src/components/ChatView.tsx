@@ -24,6 +24,7 @@ import {
   getLauncherToneClasses,
   type LauncherItem,
 } from '@/lib/workflowLauncher';
+import { buildResearchWorkspaceCards, type ResearchWorkspaceStatus } from '@/lib/researchWorkspace';
 
 // ── Helper ──────────────────────────────────────────
 function extractImageFilenameFromMarkdown(content: string): string | null {
@@ -280,11 +281,66 @@ function WorkflowLauncher({
   );
 }
 
+function researchStatusClasses(status: ResearchWorkspaceStatus): string {
+  if (status === 'active') return 'border-accent/50 bg-accent/10 text-accent';
+  if (status === 'done') return 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300';
+  return 'border-line bg-ink/50 text-slate-500';
+}
+
+function ResearchWorkspacePreview({
+  hasPendingPlan,
+  isStreaming,
+  reasoningCount,
+  sourceCount,
+  searchIterationCount,
+}: {
+  hasPendingPlan: boolean;
+  isStreaming: boolean;
+  reasoningCount: number;
+  sourceCount: number;
+  searchIterationCount: number;
+}) {
+  const cards = buildResearchWorkspaceCards({
+    hasPendingPlan,
+    isStreaming,
+    reasoningCount,
+    sourceCount,
+    searchIterationCount,
+  });
+
+  return (
+    <section className="rounded-2xl border border-accent/20 bg-accent/5 p-3">
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.22em] text-accent">Deep research workspace</p>
+          <p className="mt-1 text-xs text-slate-400">Plan → search → evidence → cited synthesis, visible before the answer lands.</p>
+        </div>
+        <span className="rounded-full border border-accent/25 bg-ink/50 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-accent">Research mode</span>
+      </div>
+      <div className="grid gap-2 md:grid-cols-4">
+        {cards.map((card) => (
+          <div key={card.id} className={`rounded-2xl border p-3 ${researchStatusClasses(card.status)}`}>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold text-white">{card.label}</span>
+              <span className="text-[10px] uppercase tracking-[0.14em] opacity-80">{card.status}</span>
+            </div>
+            <p className="mt-2 text-sm font-semibold">{card.metric}</p>
+            <p className="mt-1 text-[11px] leading-5 text-slate-400">{card.description}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string) => void; onGenerateSocial: (input: { topic: string; platforms: string[]; imageUrls?: string[]; useResearch?: boolean }) => void }) {
   const mode = useAppStore((state) => state.mode);
   const providers = useAppStore((state) => state.providers);
   const isStreaming = useAppStore((state) => state.isStreaming);
   const pendingPlan = useAppStore((state) => state.pendingPlan);
+  const reasoning = useAppStore((state) => state.reasoning);
+  const sources = useAppStore((state) => state.sources);
+  const searchIterations = useAppStore((state) => state.searchIterations);
   const imageOptions = useAppStore((state) => state.imageOptions);
   const setImageOptions = useAppStore((state) => state.setImageOptions);
   const setMode = useAppStore((state) => state.setMode);
@@ -645,6 +701,16 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string) => 
         ) : null}
 
         {/* Social writing platform selector */}
+        {mode === 'DEEP_RESEARCH' ? (
+          <ResearchWorkspacePreview
+            hasPendingPlan={!!pendingPlan}
+            isStreaming={isStreaming}
+            reasoningCount={reasoning.length}
+            sourceCount={sources.length}
+            searchIterationCount={searchIterations.length}
+          />
+        ) : null}
+
         {mode === 'SOCIAL_WRITING' ? (
           <>
             <div className="flex flex-wrap gap-2 px-2">
