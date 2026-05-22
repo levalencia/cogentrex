@@ -126,7 +126,11 @@ GitHub Actions will build Docker images, push to ACR, and deploy to Azure Contai
 | `DATABASE_URL` | Key Vault reference | `postgresql://cogentrex:<pwd>@psql-cogentrex-dev.postgres.database.azure.com:5432/cogentrex?sslmode=require` |
 | `JWT_SECRET` | Key Vault reference | Signing secret |
 | `APP_ENCRYPTION_KEY` | Key Vault reference | AES-256 key for provider API keys |
-| `FIRECRAWL_API_KEY` | Key Vault reference | Firecrawl API key |
+| `BRAVE_SEARCH_API_KEY` | Key Vault reference | Preferred web search API key |
+| `SCRAPLING_BASE_URL` | plain env / internal URL | Preferred web fetch/extract sidecar URL |
+| `WEB_SEARCH_ADAPTER` | plain env | `brave`, `scrapling`, `firecrawl`, or `fake` |
+| `WEB_FETCH_ADAPTER` | plain env | `scrapling`, `firecrawl`, `simple`, or `fake` |
+| `FIRECRAWL_API_KEY` | Key Vault reference | Optional fallback search/fetch API key |
 | `DEFAULT_PROVIDER_BASE_URL` | Key Vault reference | Foundry/OpenAI base URL |
 | `DEFAULT_PROVIDER_API_KEY` | Key Vault reference | Default provider API key |
 | `DEFAULT_PROVIDER_MODEL` | Key Vault reference | Default model name |
@@ -136,7 +140,7 @@ GitHub Actions will build Docker images, push to ACR, and deploy to Azure Contai
 
 ## Scaling
 
-For DEV, containers use `minReplicas: 0` (scales to zero) and `maxReplicas: 1` to minimize cost (~$27-32/month including DB, ACR, and Log Analytics).
+For DEV, containers currently use `minReplicas: 1` and `maxReplicas: 1` to avoid cold-start login behavior. Earlier scale-to-zero settings caused transient `502`/`503` responses during API warmup, which made the frontend appear logged out after idle periods.
 
 For PROD, increase to `minReplicas: 1` and `maxReplicas: 3` and use a larger PostgreSQL SKU.
 

@@ -5,7 +5,7 @@ Self-hosted multi-provider AI research cockpit with deep research, provider rout
 ## Features
 
 - **Multi-Provider Chat**: Streamed chat with any OpenAI-compatible endpoint. Per-mode default providers for Chat, Deep Research, Social Writing, Image Generation, and Video Generation.
-- **Deep Research V2**: Autonomous web research with up to 10 iterations, multi-channel search (Web, Reddit, RSS, YouTube), visible reasoning trace, source cards with citations, and export to Markdown/PDF.
+- **Deep Research V2**: Autonomous research with planned query expansion, multi-channel search (Web, Reddit, RSS, YouTube), visible reasoning trace, source cards with citations, and export to Markdown/PDF. Web search and page fetch are separate adapters, so Brave can power search while Scrapling handles extraction.
 - **Image Generation & Editing**: Generate images with FLUX (Azure BFL) and gpt-image-2. Edit images with natural language descriptions.
 - **Social Writing**: Generate platform-specific posts for LinkedIn, X (Twitter), Medium, Reddit, and Substack. Optional mini deep research with configurable source count.
 - **LinkedIn Integration**: OAuth posting and scheduling with text + images.
@@ -38,7 +38,11 @@ openssl rand -base64 32
 ```bash
 JWT_SECRET=<your-secret>
 APP_ENCRYPTION_KEY=<your-encryption-key>
-FIRECRAWL_API_KEY=fc-...      # optional for chat, required for real deep research
+BRAVE_SEARCH_API_KEY=<optional-for-web-search>
+SCRAPLING_BASE_URL=http://localhost:8000
+WEB_SEARCH_ADAPTER=brave
+WEB_FETCH_ADAPTER=scrapling
+FIRECRAWL_API_KEY=<optional-fallback>
 DEFAULT_PROVIDER_BASE_URL=https://YOUR-FOUNDRY-ENDPOINT.openai.azure.com/openai/v1
 DEFAULT_PROVIDER_MODEL=gpt-5.5
 LOG_LEVEL=info
@@ -79,6 +83,12 @@ The web app runs on `http://localhost:3000`; the API on `http://localhost:3001`.
 ## Deployment
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for Azure Container Apps DEV/PROD deployment instructions.
+
+## Operations and Configuration
+
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — backend boundaries, deep research flow, security and observability decisions.
+- [docs/PROVIDERS.md](docs/PROVIDERS.md) — model providers, search/fetch adapters, Brave/Scrapling/Firecrawl behavior.
+- [docs/RUNBOOK.md](docs/RUNBOOK.md) — local/dev operations, smoke checks, common issues, and troubleshooting.
 
 ## License
 
