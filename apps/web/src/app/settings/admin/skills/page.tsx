@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import type { ProviderConfigView, SkillStatus, SkillSummary, SkillVisibility } from '@cogentrex/shared';
 import { api } from '@/lib/api';
+import { getProtectedRouteState } from '@/lib/protectedRoute';
 import {
   appModeOptions,
   buildSkillRoutePayload,
@@ -30,6 +32,7 @@ const visibilityOptions: { value: SkillVisibility; label: string }[] = [
 ];
 
 export default function AdminSkillsPage() {
+  const router = useRouter();
   const user = useAppStore((state) => state.user);
   const bootstrap = useAppStore((state) => state.bootstrap);
   const [skills, setSkills] = useState<SkillSummary[]>([]);
@@ -41,11 +44,20 @@ export default function AdminSkillsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const [success, setSuccess] = useState<string>();
+  const routeState = getProtectedRouteState(user, { requireAdmin: true });
+  const redirectHref = routeState.status === 'redirect' ? routeState.href : undefined;
 
   useEffect(() => {
     void bootstrap();
-    void loadAdminData();
   }, [bootstrap]);
+
+  useEffect(() => {
+    if (redirectHref) router.replace(redirectHref);
+  }, [router, redirectHref]);
+
+  useEffect(() => {
+    if (routeState.status === 'authorized') void loadAdminData();
+  }, [routeState.status]);
 
   async function loadAdminData() {
     setLoading(true);
@@ -114,7 +126,18 @@ export default function AdminSkillsPage() {
     }
   }
 
-  if (user && user.role !== 'ADMIN') {
+  if (routeState.status === 'loading' || routeState.status === 'redirect') {
+    return (
+      <main className="flex h-screen items-center justify-center bg-ink text-slate-100">
+        <div className="text-center">
+          <div className="inline-block h-10 w-10 animate-spin rounded-full border-4 border-accent border-t-transparent" />
+          <p className="mt-4 text-sm text-slate-400">Checking access…</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (routeState.status === 'forbidden') {
     return (
       <main className="min-h-screen bg-ink text-slate-100">
         <div className="mx-auto max-w-6xl px-4 py-8">
