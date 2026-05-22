@@ -103,6 +103,10 @@ export const updateSkillRouteSchema = z.object({
   config: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
+export const createArtifactFromMessageSchema = z.object({
+  messageId: z.string().trim().min(1),
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateProviderInput = z.infer<typeof createProviderSchema>;
@@ -114,3 +118,4 @@ export type ToolCapabilityInput = z.infer<typeof toolCapabilitySchema>;
 export type CapabilityStatusInput = z.infer<typeof capabilityStatusSchema>;
 export type UpdateSkillInput = z.infer<typeof updateSkillSchema>;
 export type UpdateSkillRouteInput = z.infer<typeof updateSkillRouteSchema>;
+export type CreateArtifactFromMessageInput = z.infer<typeof createArtifactFromMessageSchema>;

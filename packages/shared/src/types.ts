@@ -164,6 +164,8 @@ export interface ArtifactItem {
   content: string;
   sizeBytes: number;
   createdAt: string;
+  conversationTitle?: string | undefined;
+  conversationMode?: AppMode | undefined;
 }
 
 export interface ResearchSource {

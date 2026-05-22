@@ -60,6 +60,9 @@ function getCitedSources(content: string, sources: ResearchSource[] | undefined)
 }
 
 const MessageItem = memo(function MessageItem({ message, onEditImage }: MessageItemProps) {
+  const saveMessageAsArtifact = useAppStore((state) => state.saveMessageAsArtifact);
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
+
   if (message.role === 'user') {
     // Detect if this user message was for social generation
     const state = useAppStore.getState();
@@ -94,6 +97,26 @@ const MessageItem = memo(function MessageItem({ message, onEditImage }: MessageI
   const citedSources = getCitedSources(message.content, messageSources);
   const processedContent = citedSources.length ? processCitations(message.content, citedSources) : message.content;
   const messageReasoning = toDisplayReasoningEntries(message.metadata?.reasoning);
+  const canSaveArtifact = Boolean(
+    message.id
+    && message.content
+    && !message.id.startsWith('local-')
+    && !message.content.startsWith('Thinking')
+    && !isError
+    && !isLoading,
+  );
+
+  const handleSaveArtifact = async () => {
+    if (!canSaveArtifact || saveState === 'saving') return;
+    setSaveState('saving');
+    try {
+      await saveMessageAsArtifact(message.id);
+      setSaveState('saved');
+      setTimeout(() => setSaveState('idle'), 2500);
+    } catch {
+      setSaveState('idle');
+    }
+  };
 
   return (
     <article className="flex justify-start">
@@ -129,6 +152,16 @@ const MessageItem = memo(function MessageItem({ message, onEditImage }: MessageI
         ) : null}
         {message.id && !message.content?.startsWith('Thinking') ? (
           <ViewDiagnosticsButton conversationId={message.conversationId} messageId={message.id} />
+        ) : null}
+        {canSaveArtifact ? (
+          <button
+            type="button"
+            onClick={handleSaveArtifact}
+            disabled={saveState === 'saving'}
+            className="mt-2 rounded-lg border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-medium text-accent transition hover:bg-accent/20 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? '✓ Saved to Library' : 'Save to Library'}
+          </button>
         ) : null}
         {hasGeneratedImage ? (
           <button

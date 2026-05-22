@@ -55,6 +55,7 @@ interface AppState {
   logout: () => Promise<void>;
   loadMessages: (conversationId: string) => Promise<void>;
   loadArtifacts: (conversationId: string) => Promise<void>;
+  saveMessageAsArtifact: (messageId: string) => Promise<void>;
   createProvider: (input: { name: string; baseUrl: string; apiKey: string; model: string; kind: ProviderConfigView['kind']; isDefault: boolean; defaultForMode?: 'CHAT' | 'DEEP_RESEARCH'; supportsStreaming?: boolean; supportsVision?: boolean; supportsTools?: boolean; supportsSearch?: boolean; supportsImage?: boolean; supportsVideo?: boolean }) => Promise<void>;
   send: (content: string) => Promise<void>;
   generateSocialPosts: (input: { topic: string; platforms: string[]; imageUrls?: string[] | undefined; useResearch?: boolean | undefined; researchSources?: number | undefined }) => Promise<void>;
@@ -189,6 +190,22 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
     } catch {
       // Non-critical: silently fail if artifacts endpoint isn't available
+    }
+  },
+  async saveMessageAsArtifact(messageId) {
+    try {
+      const { artifact } = await api.saveArtifactFromMessage(messageId);
+      set((current) => ({
+        artifacts: current.artifacts.some((item) => item.id === artifact.id)
+          ? current.artifacts
+          : [...current.artifacts, artifact],
+        artifactPanelOpen: true,
+        selectedArtifactId: artifact.id,
+        error: undefined,
+      }));
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Could not save artifact' });
+      throw error;
     }
   },
   async createProvider(input) {
