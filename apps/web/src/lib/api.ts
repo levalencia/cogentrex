@@ -1,4 +1,4 @@
-import type { ArtifactItem, ChatMessage, ConversationSummary, MediaArtifact, ProjectSummary, ProviderConfigView, PublicUser, RequestMetric, StreamEvent, ImageGenerationOptions, GeneratedPost, SocialPlatformConfig, WorkflowReadiness } from '@cogentrex/shared';
+import type { ArtifactItem, ChatMessage, ConversationSummary, MediaArtifact, ProjectSummary, ProviderConfigView, PublicUser, RequestMetric, StreamEvent, ImageGenerationOptions, GeneratedPost, SocialPlatformConfig, WorkflowReadiness, SkillSummary, UpdateSkillInput, UpdateSkillRouteInput } from '@cogentrex/shared';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001';
 
@@ -71,6 +71,11 @@ export const api = {
   updateAdminProvider: (id: string, input: Record<string, unknown>) =>
     jsonRequest<{ provider: ProviderConfigView }>(`/api/admin/providers/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
   deleteAdminProvider: (id: string) => jsonRequest<void>(`/api/admin/providers/${id}`, { method: 'DELETE' }),
+  listAdminSkills: () => jsonRequest<{ skills: SkillSummary[]; admin: PublicUser }>('/api/admin/skills'),
+  updateAdminSkill: (slug: string, input: UpdateSkillInput) =>
+    jsonRequest<{ skill: SkillSummary }>(`/api/admin/skills/${slug}`, { method: 'PATCH', body: JSON.stringify(input) }),
+  updateAdminSkillRoute: (slug: string, input: UpdateSkillRouteInput) =>
+    jsonRequest<{ route: SkillSummary['route'] }>(`/api/admin/skills/${slug}/route`, { method: 'PUT', body: JSON.stringify(input) }),
   // Media
   generateMedia: (input: { prompt: string; type: 'image' | 'video'; conversationId?: string | undefined; providerId?: string | undefined; options?: ImageGenerationOptions }) =>
     jsonRequest<{ messages: ChatMessage[]; conversationId: string; artifact: MediaArtifact }>('/api/media/generate', { method: 'POST', body: JSON.stringify(input) }),

@@ -152,9 +152,14 @@ export default function AdminProvidersPage() {
             <h1 className="text-3xl font-semibold">Admin — Global Providers</h1>
             <p className="mt-2 text-slate-400">Manage shared providers available to all users</p>
           </div>
-          <a href="/settings/providers" className="rounded-xl border border-line bg-panel px-4 py-2 text-sm hover:border-accent">
-            Back to Providers
-          </a>
+          <div className="flex flex-wrap gap-2">
+            <a href="/settings/admin/skills" className="rounded-xl border border-line bg-panel px-4 py-2 text-sm text-accent hover:border-accent">
+              Skills registry
+            </a>
+            <a href="/settings/providers" className="rounded-xl border border-line bg-panel px-4 py-2 text-sm hover:border-accent">
+              Back to Providers
+            </a>
+          </div>
         </div>
 
         {error ? <p className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</p> : null}
