@@ -121,6 +121,17 @@ Check configured adapters:
 
 If local `.env` has a Brave key and Scrapling sidecar URL, Deep Research should not need Firecrawl credits for normal search/fetch.
 
+Research adapter smoke checklist:
+
+1. Verify API health: `curl -fsS http://localhost:3001/health` or `curl -fsS https://api.cogentrex.com/health`.
+2. In the app, open provider settings and check Deep Research readiness.
+3. Confirm `web.search` is ready with Brave or Scrapling.
+4. Confirm `web.fetch` / `web.extract` are ready with Scrapling when `SCRAPLING_BASE_URL` is configured.
+5. Run a small Deep Research query and inspect diagnostics/sources.
+6. If sources are mostly snippets, focus on fetch/extract health before changing the model provider.
+
+Do not paste `.env`, Azure app settings, provider keys, cookies, or database URLs into issue comments or chats while debugging this.
+
 ## Logs
 
 Container App logs:

@@ -23,6 +23,14 @@ Deep Research needs two different capabilities:
 
 These are intentionally separate. A good search provider is not always a good page extractor.
 
+Treat this as the source-of-truth boundary when debugging Deep Research:
+
+- Model provider selection answers: “which LLM writes/plans/synthesizes?”
+- Search adapter selection answers: “which service finds candidate URLs?”
+- Fetch adapter selection answers: “which service turns selected URLs into markdown?”
+
+Do not force a model-provider change when the symptom is weak URLs or empty extracted content. Start by checking the search/fetch adapter state.
+
 ## Current adapter priority
 
 ### Search
@@ -60,6 +68,8 @@ If `WEB_SEARCH_ADAPTER` is unset, the API chooses in this order:
 4. Fake search fallback.
 
 If `WEB_FETCH_ADAPTER` is unset, the API uses Scrapling when `SCRAPLING_BASE_URL` exists.
+
+Forced adapter settings win over automatic detection. For example, `WEB_SEARCH_ADAPTER=firecrawl` will keep using Firecrawl even if `BRAVE_SEARCH_API_KEY` is present. Remove the forced adapter value when returning to automatic priority.
 
 ## Local setup patterns
 
@@ -100,14 +110,41 @@ The API exposes tool/capability readiness so the UI can show whether web search/
 
 Relevant code:
 
+- `GET /api/capabilities` — authenticated readiness endpoint
 - `apps/api/src/capabilities/toolCapabilities.ts`
 - `apps/api/src/tools/searchClient.ts`
+- `apps/web/src/components/CapabilityReadinessPanel.tsx`
 
 Expected readiness for the preferred setup:
 
 - `web.search`: ready with `brave.search`
 - `web.fetch`: ready with `scrapling.fetch`
 - `web.extract`: ready with `scrapling.extract`
+
+Practical verification path:
+
+1. Log in locally or in DEV.
+2. Open provider settings and inspect the capability readiness panel.
+3. Confirm Deep Research has both model-provider readiness and tool readiness.
+4. If readiness disagrees with expected env vars, restart the API/container after changing env configuration.
+
+Do not expose API keys while debugging readiness. Report adapter names and statuses only.
+
+## Scrapling sidecar contract
+
+When `SCRAPLING_BASE_URL` is configured, the API expects the sidecar to expose:
+
+- `POST /search` with JSON `{ "query": string, "limit": number }`, returning `{ "results": [...] }`.
+- `POST /fetch` with JSON `{ "url": string }`, returning either a page object or `{ "data": page }`.
+
+Normalized page objects should include at least:
+
+- `url`
+- `title`
+- `markdown`
+- optional `description`
+
+If Scrapling fetch returns no `markdown`, Deep Research may still show search snippets but synthesis quality will be weaker.
 
 ## Deep Research flow
 
@@ -136,6 +173,13 @@ Check:
 3. Whether the Scrapling sidecar is running and reachable from the API container/process.
 4. Whether the query planner is producing useful queries.
 5. Whether source fetch/extract is returning markdown or only snippets.
+
+Useful evidence to collect:
+
+- active `WEB_SEARCH_ADAPTER` / `WEB_FETCH_ADAPTER` names, without secrets
+- capability readiness status for `web.search`, `web.fetch`, and `web.extract`
+- number of sources collected
+- whether sources contain full markdown excerpts or only snippets
 
 ### Local works but DEV does not
 

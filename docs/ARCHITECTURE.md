@@ -61,6 +61,8 @@ Troubleshooting should capture:
 - Service logs avoid raw user prompts and raw emails by logging SHA-256 short hashes and content lengths.
 - Provider API keys, cookies, authorization headers, tokens, and password fields are redacted.
 - Deep Research emits both user-visible SSE trace events and backend logs for the same lifecycle: plan, search, source collection, synthesis, finish.
+- Stream completion events should mean critical persistence has completed. Do not emit a final “done” state before sources, usage, metrics, assistant message metadata, and job status are saved.
+- Diagnostics should expose adapter names, counts, durations, and statuses — never raw provider secrets, request headers, cookies, or full private payloads.
 
 ## Design Principles
 
