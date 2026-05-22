@@ -7,17 +7,17 @@ export function scheduledPostRoutes(auth: AuthService, service: ScheduledPostSer
   const router = Router();
   router.use(requireAuth(auth));
 
-  router.get('/', (req, res, next) => {
+  router.get('/', async (req, res, next) => {
     try {
       const user = currentUser(req);
-      const posts = service.listForUser(user.id);
+      const posts = await service.listForUser(user.id);
       res.json({ posts });
     } catch (error) {
       next(error);
     }
   });
 
-  router.post('/', (req, res, next) => {
+  router.post('/', async (req, res, next) => {
     try {
       const user = currentUser(req);
       const { platform, content, imageArtifactId, postAt } = req.body as {
@@ -30,7 +30,7 @@ export function scheduledPostRoutes(auth: AuthService, service: ScheduledPostSer
         res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'platform, content, and postAt are required' } });
         return;
       }
-      service.schedule(user.id, platform, content, imageArtifactId ?? null, postAt);
+      await service.schedule(user.id, platform, content, imageArtifactId ?? null, postAt);
       res.status(201).json({ scheduled: true });
     } catch (error) {
       next(error);
@@ -61,10 +61,10 @@ export function scheduledPostRoutes(auth: AuthService, service: ScheduledPostSer
     }
   });
 
-  router.delete('/:id', (req, res, next) => {
+  router.delete('/:id', async (req, res, next) => {
     try {
       const user = currentUser(req);
-      service.cancel(user.id, req.params.id);
+      await service.cancel(user.id, req.params.id);
       res.status(204).end();
     } catch (error) {
       next(error);
