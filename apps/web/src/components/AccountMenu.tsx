@@ -116,6 +116,13 @@ export function AccountMenu() {
               >
                 Admin provider settings
               </a>
+              <a
+                role="menuitem"
+                href="/settings/admin/skills"
+                className="block rounded-xl px-3 py-2 text-sm text-accent hover:bg-accent/10"
+              >
+                Admin skills registry
+              </a>
             </div>
           ) : null}
 
