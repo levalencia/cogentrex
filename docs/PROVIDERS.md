@@ -14,6 +14,35 @@ Examples:
 
 Provider secrets must be encrypted at rest and never printed in logs.
 
+## Admin/global provider setup
+
+Admins manage shared provider configuration from `/settings/admin/providers`. User-level provider settings live under `/settings/providers` when a user needs personal routing.
+
+Use the admin route for defaults that should be available to the whole app:
+
+1. Add or update the provider endpoint, model/deployment name, and API key.
+2. Assign mode defaults deliberately: Chat, Deep Research, Social Writing, Image Generation, and Video Generation can have different defaults.
+3. Save and then verify with a real request in the target mode. A provider can be valid for chat but invalid for image generation.
+4. If a provider is disabled or rotated, verify existing mode defaults do not point at the disabled config.
+
+Operational rules:
+
+- Never paste raw provider keys in logs, issues, screenshots, or PR descriptions.
+- Report provider names, model names, adapter names, and status codes; redact keys and full connection strings.
+- Keep `@cogentrex/shared` schemas synchronized with API/web when provider config contracts change.
+- Admin pages are protected routes. Unauthenticated users should be redirected before admin-only APIs are called; signed-in non-admin users should see Access Denied.
+
+## Mode routing checklist
+
+When a mode fails, first confirm which provider was actually selected:
+
+- **Chat**: selected chat provider/model and streaming response health.
+- **Deep Research**: selected synthesis model plus search/fetch adapter readiness.
+- **Social Writing**: selected writing model, optional research source count, and LinkedIn connection state if publishing.
+- **Image Generation**: selected image provider/model, provider-specific timeout, quota, and whether another image provider succeeds.
+
+Do not fix a model-routing bug by changing research adapter settings, and do not fix weak source collection by changing the chat model.
+
 ## Research adapter model
 
 Deep Research needs two different capabilities:
@@ -103,6 +132,16 @@ FIRECRAWL_API_KEY=<set locally or in Key Vault>
 ```
 
 Use this only when Firecrawl credits and API health are acceptable. Firecrawl is not required for the preferred Brave+Scrapling path.
+
+## DEV defaults and deployment notes
+
+Current DEV deployment expects:
+
+- `WEB_SEARCH_ADAPTER=brave` when `BRAVE_SEARCH_API_KEY` is available.
+- `WEB_FETCH_ADAPTER=scrapling` with `SCRAPLING_BASE_URL` pointing at the internal Scrapling Container App URL.
+- Firecrawl as optional fallback only.
+
+The deploy workflow sets adapter env vars on the API Container App. Changing GitHub secrets or Container App env vars requires a redeploy or explicit Container App update before the API process sees them.
 
 ## Capability readiness
 

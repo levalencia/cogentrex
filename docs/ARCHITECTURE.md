@@ -7,6 +7,16 @@
 - Repositories own SQL access and use parameterized queries only.
 - API keys are decrypted only when resolving a provider for a model call.
 
+## Runtime Topology
+
+- Web: Next.js app served from Azure Container Apps in standalone mode.
+- API: Express app served from Azure Container Apps.
+- Shared contracts: `@cogentrex/shared` Zod schemas/types consumed by API and web.
+- Research sidecar: Scrapling fetcher Container App for web fetch/extraction and optional search.
+- Data: SQLite for default local development; PostgreSQL Flexible Server in cloud.
+
+The frontend should not call admin-only APIs until auth bootstrap resolves. Protected admin pages must distinguish loading, unauthenticated redirect, non-admin forbidden, and authorized states.
+
 ## Deep Research Flow
 
 1. Create or reuse a conversation.

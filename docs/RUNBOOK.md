@@ -14,10 +14,12 @@ Operational notes for local development, DEV deployment, and common production-s
 ### DEV
 
 - Web: `https://cogentrex.com`
+- Web fallback: `https://ca-cogentrex-web-dev.blacksmoke-54283d14.centralus.azurecontainerapps.io`
 - API: `https://api.cogentrex.com`
 - Azure Container Apps:
   - API: `ca-cogentrex-api-dev`
   - Web: `ca-cogentrex-web-dev`
+  - Scrapling sidecar: `ca-cogentrex-scrapling-dev`
 - Azure Container Registry: `acrcogentrexdev.azurecr.io`
 - PostgreSQL Flexible Server: `psql-cogentrex-dev`
 - Branch `dev` triggers `.github/workflows/deploy-dev.yml`.
@@ -56,6 +58,27 @@ curl -I -fsS https://cogentrex.com
 ```
 
 For authenticated pages, verify in browser with a real session.
+
+Admin protected-route smoke checks:
+
+1. Without a session, open `/settings/admin/skills` or `/settings/admin/providers`; the app should redirect/show login, not an empty admin UI.
+2. With a signed-in non-admin user, the page should show Access Denied.
+3. With an admin user, the page should load data and avoid console/page errors.
+
+## Domains and ingress
+
+Current DEV public domains:
+
+- Web custom domain: `https://cogentrex.com`
+- API custom domain: `https://api.cogentrex.com`
+- Web Container App fallback: `https://ca-cogentrex-web-dev.blacksmoke-54283d14.centralus.azurecontainerapps.io`
+
+Troubleshooting order:
+
+1. Check the custom domain first, then the Container App fallback URL.
+2. Verify API health directly: `curl -fsS https://api.cogentrex.com/health`.
+3. If the custom domain fails but fallback works, inspect DNS/custom-domain binding/certificate status.
+4. If both custom and fallback fail, inspect Container App revision health and logs.
 
 ## Azure Container Apps notes
 
@@ -105,11 +128,33 @@ Check:
 2. API logs for timeout, provider status, and request duration.
 3. Azure Foundry deployment health/quota if using `gpt-image-2`.
 4. Whether FLUX or another image provider still works.
+5. Whether the API timeout is lower than the provider's expected image generation latency.
+
+Evidence to capture without secrets:
+
+- provider name and model/deployment name
+- request duration and HTTP status/error class
+- Container App revision SHA (`DEPLOY_SHA`) if available
+- whether another configured image provider succeeds
 
 Recommended product behavior:
 
 - Show provider-specific errors.
 - Do not silently imply all image generation is down if only one provider times out.
+- Prefer a fallback provider only when the user can see which provider produced the image.
+
+### GitHub Actions runtime warnings
+
+If GitHub warns that Node.js 20 actions are deprecated, inspect `.github/workflows/*.yml` and update actions to versions whose `action.yml` declares `node24`.
+
+Current expected action major versions:
+
+- `actions/checkout@v6`
+- `pnpm/action-setup@v5`
+- `actions/setup-node@v6`
+- `azure/login@v3`
+
+Validate with PR CI and the next `Deploy to DEV` run.
 
 ### Search/research quality looks weak
 
@@ -144,6 +189,13 @@ WEB_APP=ca-cogentrex-web-$ENV
 
 az containerapp logs show --name $API_APP --resource-group $RG --follow
 az containerapp logs show --name $WEB_APP --resource-group $RG --follow
+```
+
+Revision and app state:
+
+```bash
+az containerapp show --name $API_APP --resource-group $RG --query '{fqdn:properties.configuration.ingress.fqdn, latestRevision:properties.latestRevisionName, provisioningState:properties.provisioningState}'
+az containerapp revision list --name $API_APP --resource-group $RG --query '[].{name:name, active:properties.active, trafficWeight:properties.trafficWeight, healthState:properties.healthState}'
 ```
 
 Do not paste secrets from logs into chat, issues, docs, or PRs.

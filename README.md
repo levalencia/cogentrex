@@ -15,9 +15,27 @@ Self-hosted multi-provider AI research cockpit with deep research, provider rout
 
 ## Architecture
 
-- `apps/api`: Node.js 24, Express, TypeScript. Local dev uses SQLite (better-sqlite3). Cloud uses PostgreSQL Flexible Server.
-- `apps/web`: Next.js 16, React, Tailwind CSS, Zustand.
-- `packages/shared`: Shared TypeScript contracts and Zod schemas.
+- `apps/api`: Node.js 24, Express, TypeScript. Local dev uses SQLite by default; cloud uses PostgreSQL Flexible Server.
+- `apps/web`: Next.js 16 App Router, React, Tailwind CSS, Zustand.
+- `packages/shared`: Shared TypeScript contracts and Zod schemas. Build this package after schema/type changes before relying on API/web imports.
+- `services/scrapling-fetcher`: optional research sidecar used for page fetch/extraction and, when configured, search.
+
+## Product Workflow
+
+Cogentrex is organized around a few operator loops:
+
+1. **Configure providers** — admins set global encrypted provider configs and per-mode defaults; users can also manage their own provider settings where allowed.
+2. **Chat or Deep Research** — users choose a model mode, ask a question, inspect visible reasoning, sources, citations, and artifacts.
+3. **Turn research into output** — export findings, create artifacts, generate images, or draft social posts.
+4. **Publish or schedule** — LinkedIn OAuth supports posting/scheduling once the callback is configured.
+
+Keep model-provider routing separate from research adapters: model providers synthesize answers; search/fetch adapters collect source material.
+
+## Development Workflow
+
+- Work from feature branches, open PRs against `dev`, and merge only after checks pass.
+- Pushes to `dev` trigger the Azure Container Apps DEV deployment.
+- Before PRs, run the smallest meaningful checks for the touched package. For shared contracts, rebuild `@cogentrex/shared` or run a root command that does it.
 
 ## Local Setup
 
