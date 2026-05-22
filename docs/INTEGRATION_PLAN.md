@@ -2,6 +2,7 @@
 
 **Status:** Planning / Not yet implemented  
 **Date:** 2026-05-04  
+**Last reviewed:** 2026-05-22 against upstream Agent Reach README
 **Author:** Session analysis  
 
 ---
@@ -16,7 +17,9 @@ Neither **Agent Reach** nor **Agent God Mode** are currently integrated into Cog
 
 ### 1.1 What Agent Reach Actually Is
 
-Agent Reach is a **Python CLI scaffolding tool** (github.com/Panniantong/Agent-Reach) designed for **local AI coding agents** (Claude Code, OpenClaw, Cursor). It installs upstream open-source tools on a developer's machine and provides a unified SKILL.md that tells the agent how to invoke them.
+Agent Reach is a **Python CLI scaffolding tool** (github.com/Panniantong/Agent-Reach) designed for **local AI coding agents** (Claude Code, OpenClaw, Cursor, Windsurf). It installs upstream open-source tools on a developer's machine and provides a unified SKILL.md that tells the agent how to invoke them.
+
+Upstream explicitly describes Agent Reach as **scaffolding, not a framework**: after installation, agents call tools like `gh`, `yt-dlp`, `twitter-cli`, `rdt-cli`, Jina Reader, and MCP servers directly. That makes it useful inspiration for Cogentrex channel coverage, but weak as a direct server-side dependency unless Cogentrex builds and owns a proper HTTP sidecar boundary.
 
 **Core pattern:**
 ```
@@ -28,16 +31,25 @@ User prompt → Agent reads SKILL.md → Runs shell commands (twitter-cli, yt-dl
 | Platform | Tool | Works in Container? | Blocker | Value for Cogentrex |
 |----------|------|---------------------|---------|---------------------|
 | **Web** | Jina Reader | ✅ Yes | None | Low — Firecrawl already covers this |
-| **Reddit** | `rdt-cli` | ⚠️ Partial | Auth/cookies required; datacenter IPs may 403 | Medium — enhance existing Reddit channel |
+| **Reddit** | `rdt-cli` | ⚠️ Partial | Cookie/auth setup required; server behavior still needs validation | Medium — enhance existing Reddit channel |
 | **YouTube** | `yt-dlp` | ✅ Yes | None | Low — native caption scraper already works |
 | **Twitter/X** | `twitter-cli` | ❌ No | Requires browser cookie export | High — but needs proxy infrastructure |
 | **XiaoHongShu** | `xhs-cli` | ❌ No | Requires login cookies | Low — niche for current user base |
 | **Bilibili** | `yt-dlp` + proxy | ❌ No | Blocks server IPs | Low — niche |
 | **GitHub** | `gh CLI` | ✅ Yes | Public repos work without auth | **High** — code/repos/issues search |
 | **LinkedIn** | `linkedin-mcp` | ❌ No | Browser automation required | Medium — but LinkedIn API already exists |
-| **Exa Search** | `mcporter` | ✅ Yes | Free API key | **High** — semantic web search alternative |
+| **Exa Search** | `mcporter` | ✅ Yes | Free Exa key / MCP setup depending install path | **High** — semantic web search alternative |
 | **WeChat** | Exa + Camoufox | ⚠️ Partial | Optional browser automation | Low |
 | **RSS** | `feedparser` | ✅ Yes | None | Low — native RSS client already works |
+| **Weibo / V2EX / Xueqiu / Douyin / Xiaoyuzhou** | mixed CLI/MCP tools | ⚠️ Mixed | Some need cookies, MCP setup, or region/proxy handling | Low — monitor, do not prioritize for Cogentrex MVP |
+
+### 1.2.1 Upstream Updates Reviewed 2026-05-22
+
+Current Agent Reach docs broaden the platform list beyond the original analysis: Weibo, V2EX, Xueqiu, Douyin, Xiaoyuzhou podcast transcription, WeChat articles, and LinkedIn public-page reading are now documented. This does **not** change the Cogentrex recommendation:
+
+- High-value, cloud-friendly surfaces should become native TypeScript channels: GitHub, Exa, arXiv, Hacker News.
+- Cookie/browser/proxy-heavy surfaces should stay out of the main API until there is clear user demand.
+- If those surfaces become important, wrap them behind a narrow HTTP sidecar with health/readiness endpoints. Do not let arbitrary local CLI execution leak into the hosted API process.
 
 ### 1.3 Recommended Approach: Native Channel Expansion
 
@@ -103,6 +115,14 @@ If Twitter/X or XiaoHongShu content becomes critical:
 4. Expose HTTP endpoints that Cogentrex API calls
 
 **Verdict:** Not needed for MVP. GitHub + Exa + arXiv covers 90% of valuable research surfaces.
+
+**Sidecar requirements if reopened:**
+
+- expose a stable HTTP API per channel instead of letting the Node API run arbitrary shell commands
+- provide `/health` and `/ready` endpoints with per-platform status similar to `agent-reach doctor`
+- keep cookies/proxy credentials outside Git and out of logs
+- return normalized `ChannelResult` records so the existing `ChannelRegistry` can deduplicate and cite sources
+- degrade cleanly when cookies expire, proxy blocks, or upstream CLIs change output format
 
 ---
 
