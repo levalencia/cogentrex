@@ -7,6 +7,10 @@ on:
 env:
   REGISTRY_LOGIN_SERVER: ${{ secrets.REGISTRY_LOGIN_SERVER }}
   IMAGE_PREFIX: ${{ secrets.REGISTRY_LOGIN_SERVER }}/cogentrex
+  DEV_RESOURCE_GROUP: rg-cogentrex-dev
+  DEV_API_APP: ca-cogentrex-api-dev
+  DEV_WEB_APP: ca-cogentrex-web-dev
+  DEV_SCRAPLING_APP: ca-cogentrex-scrapling-dev
   DEV_API_BASE_URL: https://api.cogentrex.com
   DEV_WEB_ORIGIN: https://cogentrex.com,https://www.cogentrex.com,https://ca-cogentrex-web-dev.blacksmoke-54283d14.centralus.azurecontainerapps.io
 
@@ -37,23 +41,79 @@ jobs:
             -t $IMAGE_PREFIX-web:dev .
           docker push $IMAGE_PREFIX-web:dev
 
-      - name: Deploy API to Container Apps
+      - name: Build and push Scrapling fetcher
         run: |
+          docker build --platform linux/amd64 \
+            -f services/scrapling-fetcher/Dockerfile \
+            -t $IMAGE_PREFIX-scrapling-fetcher:dev .
+          docker push $IMAGE_PREFIX-scrapling-fetcher:dev
+
+      - name: Deploy Scrapling fetcher to Container Apps
+        env:
+          ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
+        run: |
+          ENVIRONMENT_ID=$(az containerapp show \
+            --name $DEV_API_APP \
+            --resource-group $DEV_RESOURCE_GROUP \
+            --query "properties.environmentId" \
+            -o tsv)
+
+          if az containerapp show --name $DEV_SCRAPLING_APP --resource-group $DEV_RESOURCE_GROUP >/dev/null 2>&1; then
+            az containerapp update \
+              --name $DEV_SCRAPLING_APP \
+              --resource-group $DEV_RESOURCE_GROUP \
+              --image $IMAGE_PREFIX-scrapling-fetcher:dev \
+              --set-env-vars DEPLOY_SHA=${{ github.sha }}
+          else
+            az containerapp create \
+              --name $DEV_SCRAPLING_APP \
+              --resource-group $DEV_RESOURCE_GROUP \
+              --environment "$ENVIRONMENT_ID" \
+              --image $IMAGE_PREFIX-scrapling-fetcher:dev \
+              --registry-server $REGISTRY_LOGIN_SERVER \
+              --registry-username "$ACR_USERNAME" \
+              --registry-password "$ACR_PASSWORD" \
+              --ingress internal \
+              --target-port 8000 \
+              --min-replicas 1 \
+              --max-replicas 2 \
+              --env-vars DEPLOY_SHA=${{ github.sha }}
+          fi
+
+      - name: Deploy API to Container Apps
+        env:
+          BRAVE_SEARCH_API_KEY: ${{ secrets.BRAVE_SEARCH_API_KEY }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+        run: |
+          if [ -z "$BRAVE_SEARCH_API_KEY" ]; then
+            echo "::error::BRAVE_SEARCH_API_KEY GitHub secret is required for DEV research search."
+            exit 1
+          fi
+
+          SCRAPLING_FQDN=$(az containerapp show \
+            --name $DEV_SCRAPLING_APP \
+            --resource-group $DEV_RESOURCE_GROUP \
+            --query "properties.configuration.ingress.fqdn" \
+            -o tsv)
+          SCRAPLING_BASE_URL="https://$SCRAPLING_FQDN"
+
           az containerapp secret set \
-            --name ca-cogentrex-api-dev \
-            --resource-group rg-cogentrex-dev \
-            --secrets google-client-id=${{ secrets.GOOGLE_CLIENT_ID }} google-client-secret=${{ secrets.GOOGLE_CLIENT_SECRET }}
+            --name $DEV_API_APP \
+            --resource-group $DEV_RESOURCE_GROUP \
+            --secrets "google-client-id=$GOOGLE_CLIENT_ID" "google-client-secret=$GOOGLE_CLIENT_SECRET" "brave-search-api-key=$BRAVE_SEARCH_API_KEY"
 
           az containerapp update \
-            --name ca-cogentrex-api-dev \
-            --resource-group rg-cogentrex-dev \
+            --name $DEV_API_APP \
+            --resource-group $DEV_RESOURCE_GROUP \
             --image $IMAGE_PREFIX-api:dev \
-            --set-env-vars WEB_ORIGIN=$DEV_WEB_ORIGIN API_PUBLIC_BASE_URL=$DEV_API_BASE_URL GOOGLE_CLIENT_ID=secretref:google-client-id GOOGLE_CLIENT_SECRET=secretref:google-client-secret DEPLOY_SHA=${{ github.sha }}
+            --set-env-vars WEB_ORIGIN=$DEV_WEB_ORIGIN API_PUBLIC_BASE_URL=$DEV_API_BASE_URL GOOGLE_CLIENT_ID=secretref:google-client-id GOOGLE_CLIENT_SECRET=secretref:google-client-secret WEB_SEARCH_ADAPTER=brave WEB_FETCH_ADAPTER=scrapling BRAVE_SEARCH_API_KEY=secretref:brave-search-api-key SCRAPLING_BASE_URL=$SCRAPLING_BASE_URL DEPLOY_SHA=${{ github.sha }}
 
       - name: Deploy Web to Container Apps
         run: |
           az containerapp update \
-            --name ca-cogentrex-web-dev \
-            --resource-group rg-cogentrex-dev \
+            --name $DEV_WEB_APP \
+            --resource-group $DEV_RESOURCE_GROUP \
             --image $IMAGE_PREFIX-web:dev \
             --set-env-vars NEXT_PUBLIC_API_BASE_URL=$DEV_API_BASE_URL DEPLOY_SHA=${{ github.sha }}
