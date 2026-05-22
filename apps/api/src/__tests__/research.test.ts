@@ -9,7 +9,14 @@ function parseSse(text: string) {
   return text
     .split('\n\n')
     .filter(Boolean)
-    .map((line) => JSON.parse(line.replace(/^data: /, '')) as { type: string; step?: string; sources?: unknown[] });
+    .map((line) => JSON.parse(line.replace(/^data: /, '')) as {
+      type: string;
+      step?: string;
+      name?: string;
+      sources?: unknown[];
+      metadata?: Record<string, unknown>;
+      conversationId?: string;
+    });
 }
 
 describe('deep research API', () => {
@@ -25,9 +32,23 @@ describe('deep research API', () => {
 
     const events = parseSse(response.text);
     expect(events.some((event) => event.type === 'reasoning' && event.step === 'Planning research')).toBe(true);
+    expect(events.some((event) => event.type === 'diagnostic' && event.name === 'research_started')).toBe(true);
+    expect(events.some((event) => event.type === 'diagnostic' && event.name === 'search_completed')).toBe(true);
     expect(events.some((event) => event.type === 'source')).toBe(true);
     expect(events.at(-1)?.type).toBe('done');
     expect(events.at(-1)?.sources).toHaveLength(1);
+
+    const conversationId = events.find((event) => event.type === 'start')?.conversationId;
+    expect(conversationId).toBeTruthy();
+    const diagnosticsResponse = await agent.get(`/api/chat/conversations/${conversationId}/diagnostics`).expect(200);
+    const diagnostics = diagnosticsResponse.body as { reasoning: Array<{ type: string; name?: string; metadata?: Record<string, unknown> }> };
+    expect(diagnostics.reasoning.some((event) => event.type === 'diagnostic' && event.name === 'research_finished')).toBe(true);
+    expect(diagnostics.reasoning.find((event) => event.name === 'search_completed')?.metadata).toMatchObject({
+      searchProvider: 'fake',
+      requestedLimit: 5,
+      resultCount: 1,
+      uniqueAdded: 1,
+    });
 
     database.close();
   });

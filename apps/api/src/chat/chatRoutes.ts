@@ -70,6 +70,12 @@ export function chatRoutes(auth: AuthService, chat: ChatService, research: Resea
         const job = jobs[0];
         if (job && job.reasoning) {
           reasoning = job.reasoning as StreamEvent[];
+        } else {
+          const messages = await chat.listMessages(user.id, req.params.id);
+          const assistantMessage = [...messages]
+            .reverse()
+            .find((message) => message.role === 'assistant' && Array.isArray(message.metadata?.reasoning));
+          reasoning = assistantMessage?.metadata?.reasoning as StreamEvent[] | undefined;
         }
       }
       res.json({ metrics: metricsData, reasoning });

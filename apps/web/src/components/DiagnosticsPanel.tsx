@@ -41,8 +41,39 @@ function MetricCard({ metric }: { metric: RequestMetric }) {
   );
 }
 
+function formatDiagnosticValue(value: unknown): string {
+  if (value === undefined || value === null) return '—';
+  if (typeof value === 'number') return Number.isInteger(value) ? String(value) : value.toFixed(1);
+  if (typeof value === 'boolean') return value ? 'yes' : 'no';
+  return String(value);
+}
+
+function DiagnosticCard({ event }: { event: Extract<StreamEvent, { type: 'diagnostic' }> }) {
+  const metadata = Object.entries(event.metadata ?? {}).filter(([, value]) => value !== undefined);
+  return (
+    <div className="rounded-xl border border-line bg-panel/40 p-3 text-xs">
+      <div className="flex items-center justify-between gap-3">
+        <span className="font-medium text-accent capitalize">{event.name.replace(/_/g, ' ')}</span>
+        {event.iteration !== undefined ? <span className="text-[10px] text-slate-500">Iteration {event.iteration}</span> : null}
+      </div>
+      {event.message ? <p className="mt-1 text-slate-400">{event.message}</p> : null}
+      {metadata.length ? (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {metadata.map(([key, value]) => (
+            <span key={key} className="rounded-lg border border-line/70 bg-ink/40 px-2 py-1 text-[10px] text-slate-400">
+              <span className="text-slate-500">{key.replace(/([A-Z])/g, ' $1').toLowerCase()}:</span>{' '}
+              <span className="text-slate-300">{formatDiagnosticValue(value)}</span>
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function ResearchTraceSummary({ reasoning }: { reasoning: StreamEvent[] }) {
   const reasoningEvents = reasoning.filter((r): r is Extract<StreamEvent, { type: 'reasoning' }> => r.type === 'reasoning');
+  const diagnosticEvents = reasoning.filter((r): r is Extract<StreamEvent, { type: 'diagnostic' }> => r.type === 'diagnostic');
   const planning = reasoningEvents.find((r) => r.step === 'Planning research');
   const searches = reasoningEvents.filter((r) => r.step?.startsWith('Searching '));
   const reviews = reasoningEvents.filter((r) => r.step === 'Reviewing findings');
@@ -75,6 +106,14 @@ function ResearchTraceSummary({ reasoning }: { reasoning: StreamEvent[] }) {
           <span className="text-green-400">●</span>
           <span className="text-slate-200">Synthesis:</span>
           <span className="text-slate-400">Writing final response</span>
+        </div>
+      ) : null}
+      {diagnosticEvents.length ? (
+        <div className="mt-3 space-y-2">
+          <h5 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Provider / fetch diagnostics</h5>
+          {diagnosticEvents.map((event, index) => (
+            <DiagnosticCard key={`${event.name}-${event.iteration ?? 'run'}-${index}`} event={event} />
+          ))}
         </div>
       ) : null}
     </div>
