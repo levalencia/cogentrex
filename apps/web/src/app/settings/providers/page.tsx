@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import type { ProviderConfigView } from '@cogentrex/shared';
 import { api } from '@/lib/api';
 import { useAppStore } from '@/store/appStore';
+import { CapabilityReadinessPanel } from '@/components/CapabilityReadinessPanel';
 
 interface FormState {
   name: string;
@@ -212,6 +213,8 @@ export default function ProvidersPage() {
 
         {error ? <p className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</p> : null}
         {success ? <p className="mb-4 rounded-xl border border-green-500/30 bg-green-500/10 p-3 text-sm text-green-200">{success}</p> : null}
+
+        <CapabilityReadinessPanel />
 
         {/* Provider Catalog */}
         <div className="mb-6 rounded-3xl border border-line bg-panel/70 p-6">
