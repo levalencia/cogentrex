@@ -113,8 +113,8 @@ export class ScheduledPostService {
     this.logger.info({ userId, postId: id }, 'scheduled_post_updated');
   }
 
-  cancel(userId: string, id: string): void {
-    void this.posts.deleteForUser(userId, id);
+  async cancel(userId: string, id: string): Promise<void> {
+    await this.posts.deleteForUser(userId, id);
     this.logger.info({ userId, postId: id }, 'post_cancelled');
   }
 }
