@@ -1,7 +1,15 @@
-import type { AppMode } from '@cogentrex/shared';
+import type { AppMode, ArtifactItem } from '@cogentrex/shared';
 
 interface ConversationLike {
   mode: AppMode;
+}
+
+export interface LibraryArtifactRow {
+  id: string;
+  filename: string;
+  subtitle: string;
+  sizeLabel: string;
+  conversationHref: string;
 }
 
 export interface LibraryModeCard {
@@ -43,4 +51,23 @@ export function buildLibraryModeCards(conversations: ConversationLike[]): Librar
       description: 'General answers and reusable notes that do not fit a specialist workflow.',
     },
   ];
+}
+
+function modeLabel(mode: AppMode | undefined): string {
+  return mode ? mode.replace('_', ' ') : 'UNKNOWN MODE';
+}
+
+function sizeLabel(sizeBytes: number): string {
+  if (sizeBytes < 1024) return `${sizeBytes} B`;
+  return `${(sizeBytes / 1024).toFixed(1)} KB`;
+}
+
+export function buildLibraryArtifactRows(artifacts: ArtifactItem[]): LibraryArtifactRow[] {
+  return artifacts.map((artifact) => ({
+    id: artifact.id,
+    filename: artifact.filename,
+    subtitle: `${artifact.conversationTitle ?? 'Untitled output'} · ${modeLabel(artifact.conversationMode)}`,
+    sizeLabel: sizeLabel(artifact.sizeBytes),
+    conversationHref: `/chats/${artifact.conversationId}`,
+  }));
 }

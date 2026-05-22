@@ -54,6 +54,9 @@ export const api = {
   listConversations: (projectId?: string | null) => jsonRequest<{ conversations: ConversationSummary[] }>(`/api/chat/conversations${projectId !== undefined ? `?projectId=${projectId ?? 'null'}` : ''}`),
   listMessages: (conversationId: string) => jsonRequest<{ messages: ChatMessage[] }>(`/api/chat/conversations/${conversationId}/messages`),
   listArtifacts: (conversationId: string) => jsonRequest<{ artifacts: ArtifactItem[] }>(`/api/artifacts/conversation/${conversationId}`),
+  listLibraryArtifacts: () => jsonRequest<{ artifacts: ArtifactItem[] }>('/api/artifacts'),
+  saveArtifactFromMessage: (messageId: string) =>
+    jsonRequest<{ artifact: ArtifactItem }>('/api/artifacts/from-message', { method: 'POST', body: JSON.stringify({ messageId }) }),
   renameConversation: (conversationId: string, title: string) => jsonRequest<void>(`/api/chat/conversations/${conversationId}`, { method: 'PATCH', body: JSON.stringify({ title }) }),
   setPinned: (conversationId: string, pinned: boolean) => jsonRequest<void>(`/api/chat/conversations/${conversationId}`, { method: 'PATCH', body: JSON.stringify({ isPinned: pinned }) }),
   deleteConversation: (conversationId: string) => jsonRequest<void>(`/api/chat/conversations/${conversationId}`, { method: 'DELETE' }),

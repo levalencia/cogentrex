@@ -1,8 +1,11 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import type { ArtifactItem } from '@cogentrex/shared';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/store/appStore';
-import { buildLibraryModeCards } from '@/lib/libraryOutputs';
+import { buildLibraryArtifactRows, buildLibraryModeCards } from '@/lib/libraryOutputs';
+import { api } from '@/lib/api';
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
@@ -11,9 +14,29 @@ function formatDate(value: string): string {
 export function LibraryView() {
   const router = useRouter();
   const conversations = useAppStore((state) => state.conversations);
-  const artifacts = useAppStore((state) => state.artifacts);
+  const [libraryArtifacts, setLibraryArtifacts] = useState<ArtifactItem[]>([]);
+  const [isLoadingArtifacts, setIsLoadingArtifacts] = useState(true);
   const cards = buildLibraryModeCards(conversations);
+  const artifactRows = buildLibraryArtifactRows(libraryArtifacts);
   const recent = conversations.slice(0, 6);
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoadingArtifacts(true);
+    api.listLibraryArtifacts()
+      .then(({ artifacts }) => {
+        if (!cancelled) setLibraryArtifacts(artifacts);
+      })
+      .catch(() => {
+        if (!cancelled) setLibraryArtifacts([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingArtifacts(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <main className="flex h-full flex-1 flex-col overflow-hidden bg-[radial-gradient(circle_at_top_right,#17213b,#0b0f19_45%)]">
@@ -80,19 +103,29 @@ export function LibraryView() {
 
           <aside className="rounded-3xl border border-accent/20 bg-accent/5 p-5">
             <p className="text-xs uppercase tracking-[0.2em] text-accent">Artifact shelf</p>
-            <h2 className="mt-2 text-lg font-semibold text-white">Current conversation artifacts</h2>
+            <h2 className="mt-2 text-lg font-semibold text-white">Saved artifacts across conversations</h2>
             <p className="mt-2 text-sm leading-6 text-slate-400">
-              This preview reuses the existing artifact panel data. The next backend slice should expose a global artifact feed across all conversations.
+              Persisted assistant outputs and generated artifacts that can be reused without digging through individual chat threads.
             </p>
             <div className="mt-4 space-y-2">
-              {artifacts.length ? artifacts.map((artifact) => (
-                <div key={artifact.id} className="rounded-2xl border border-line bg-ink/50 px-4 py-3">
-                  <p className="truncate text-sm font-medium text-white">{artifact.filename}</p>
-                  <p className="mt-1 text-xs text-slate-500">{artifact.type} · {(artifact.sizeBytes / 1024).toFixed(1)} KB</p>
+              {isLoadingArtifacts ? (
+                <div className="rounded-2xl border border-dashed border-line p-5 text-sm text-slate-500">
+                  Loading saved artifacts…
                 </div>
+              ) : artifactRows.length ? artifactRows.map((artifact) => (
+                <button
+                  key={artifact.id}
+                  type="button"
+                  onClick={() => router.push(artifact.conversationHref)}
+                  className="w-full rounded-2xl border border-line bg-ink/50 px-4 py-3 text-left transition hover:border-accent/60 hover:bg-accent/5"
+                >
+                  <p className="truncate text-sm font-medium text-white">{artifact.filename}</p>
+                  <p className="mt-1 truncate text-xs text-slate-500">{artifact.subtitle}</p>
+                  <p className="mt-1 text-xs text-slate-600">{artifact.sizeLabel}</p>
+                </button>
               )) : (
                 <div className="rounded-2xl border border-dashed border-line p-5 text-sm text-slate-500">
-                  No artifacts loaded in the active conversation.
+                  No saved artifacts yet. Use “Save to Library” on an assistant answer to pin it here.
                 </div>
               )}
             </div>
