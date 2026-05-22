@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback, memo } from 'react';
-import type { ResearchSource } from '@cogentrex/shared';
+import type { AppMode, ConversationSummary, ProjectSummary, ResearchSource } from '@cogentrex/shared';
 import { useAppStore } from '@/store/appStore';
 import { ReasoningPanel } from '@/components/ReasoningPanel';
 import { MarkdownMessage } from '@/components/MarkdownMessage';
@@ -22,6 +22,39 @@ function extractImageFilenameFromMarkdown(content: string): string | null {
   const match = content.match(/\!\[.*?\]\(\s*(.*\/)?([^\/\s)]+)\s*\)/);
   return match && match[2] ? match[2] : null;
 }
+
+const WORKFLOW_META: Record<AppMode, { label: string; eyebrow: string; description: string; activeClass: string }> = {
+  CHAT: {
+    label: 'Chat',
+    eyebrow: 'Fast answer',
+    description: 'Provider-routed answers, files, and image context for quick work.',
+    activeClass: 'bg-slate-100 text-ink',
+  },
+  DEEP_RESEARCH: {
+    label: 'Deep Research',
+    eyebrow: 'Evidence loop',
+    description: 'Plan searches, gather sources, show reasoning, and synthesize citations.',
+    activeClass: 'bg-emerald-500/20 text-emerald-200 border-emerald-500/30',
+  },
+  SOCIAL_WRITING: {
+    label: 'Social',
+    eyebrow: 'Drafting',
+    description: 'Create platform-aware posts with optional mini research and image context.',
+    activeClass: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+  },
+  IMAGE_GENERATION: {
+    label: 'Image',
+    eyebrow: 'Visual',
+    description: 'Generate or edit images with the configured image-capable provider.',
+    activeClass: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+  },
+  VIDEO_GENERATION: {
+    label: 'Video',
+    eyebrow: 'Motion',
+    description: 'Generate short videos with the configured video-capable provider.',
+    activeClass: 'bg-pink-500/20 text-pink-300 border-pink-500/30',
+  },
+};
 
 // ── MessageItem (memoised) ──────────────────────────
 interface MessageItemProps {
@@ -165,17 +198,25 @@ function MessageList({ onEditImage }: { onEditImage: (content: string) => void }
   // Find the index of the last user message (for positioning reasoning panel)
   const lastUserIndex = messages.map((m, i) => m.role === 'user' ? i : -1).filter((i) => i >= 0).pop();
 
-  // Wider layout for social writing mode
-  const isSocialMode = mode === 'SOCIAL_WRITING';
-
   return (
     <div ref={scrollRef} className="flex-1 overflow-y-auto">
-      <div className={`mx-auto flex w-full flex-col gap-5 px-4 py-6 md:px-8 ${isSocialMode ? 'max-w-7xl' : 'max-w-5xl'}`}>
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-6 md:px-8">
         {!messages.length ? (
           <section className="my-auto py-16">
-            <p className="text-sm uppercase tracking-[0.3em] text-accent">Multi-Provider AI Assistant</p>
-            <h1 className="mt-5 max-w-3xl text-5xl font-semibold tracking-tight text-white md:text-7xl">What should we investigate?</h1>
-            <p className="mt-5 max-w-2xl text-lg text-slate-300">Use Chat for fast answers or Deep Research for autonomous multi-step web research with visible trace and citations.</p>
+            <p className="text-sm uppercase tracking-[0.3em] text-accent">Research & workflow cockpit</p>
+            <h1 className="mt-5 max-w-3xl text-5xl font-semibold tracking-tight text-white md:text-7xl">What should Cogentrex operate?</h1>
+            <p className="mt-5 max-w-2xl text-lg text-slate-300">
+              Route quick answers, deep research, social drafts, and media generation through the same provider-aware workspace.
+            </p>
+            <div className="mt-8 grid gap-3 md:grid-cols-2">
+              {(['CHAT', 'DEEP_RESEARCH', 'SOCIAL_WRITING', 'IMAGE_GENERATION'] as AppMode[]).map((workflow) => (
+                <div key={workflow} className="rounded-2xl border border-line bg-panel/70 p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{WORKFLOW_META[workflow].eyebrow}</p>
+                  <h2 className="mt-2 text-base font-semibold text-white">{WORKFLOW_META[workflow].label}</h2>
+                  <p className="mt-1 text-sm leading-6 text-slate-400">{WORKFLOW_META[workflow].description}</p>
+                </div>
+              ))}
+            </div>
           </section>
         ) : null}
         <div className="space-y-5">
@@ -218,6 +259,32 @@ const PLATFORM_OPTIONS = [
   { key: 'substack', label: 'Substack' },
 ];
 
+function WorkflowModeRail({ mode, setMode }: { mode: AppMode; setMode: (mode: AppMode) => void }) {
+  const workflows: AppMode[] = ['CHAT', 'DEEP_RESEARCH', 'SOCIAL_WRITING', 'IMAGE_GENERATION', 'VIDEO_GENERATION'];
+
+  return (
+    <div className="grid w-full gap-2 lg:grid-cols-5">
+      {workflows.map((workflow) => {
+        const meta = WORKFLOW_META[workflow];
+        const active = mode === workflow;
+        return (
+          <button
+            key={workflow}
+            type="button"
+            onClick={() => setMode(workflow)}
+            className={`rounded-2xl border px-3 py-2 text-left transition ${
+              active ? meta.activeClass : 'border-line bg-panel/40 text-slate-400 hover:border-slate-600 hover:text-slate-200'
+            }`}
+          >
+            <span className="block text-[10px] uppercase tracking-[0.18em] opacity-70">{meta.eyebrow}</span>
+            <span className="mt-1 block text-sm font-semibold">{meta.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string) => void; onGenerateSocial: (input: { topic: string; platforms: string[]; imageUrls?: string[]; useResearch?: boolean }) => void }) {
   const mode = useAppStore((state) => state.mode);
   const providers = useAppStore((state) => state.providers);
@@ -253,9 +320,6 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string) => 
   const containerRef = useRef<HTMLDivElement>(null);
 
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001';
-
-  // Wider container for social writing mode
-  const isSocialMode = mode === 'SOCIAL_WRITING';
 
   // Auto-switch provider for social mode: plain social = chat default, research = deep research default
   useEffect(() => {
@@ -448,7 +512,7 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string) => 
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`relative mx-auto flex flex-col gap-3 rounded-3xl border border-line bg-panel p-3 shadow-2xl shadow-black/30 transition-colors ${isSocialMode ? 'max-w-7xl' : 'max-w-5xl'} ${isDragOver ? 'border-accent bg-accent/5' : ''}`}
+        className={`relative mx-auto flex w-full max-w-6xl flex-col gap-3 rounded-3xl border border-line bg-panel p-3 shadow-2xl shadow-black/30 transition-colors ${isDragOver ? 'border-accent bg-accent/5' : ''}`}
       >
         {/* Drag overlay */}
         {isDragOver ? (
@@ -646,48 +710,120 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string) => 
         {mode === 'IMAGE_GENERATION' ? (
           <ImageOptionsPanel options={imageOptions} onChange={setImageOptions} />
         ) : null}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2 flex-wrap">
-            <ProviderPicker />
-            <div className="flex rounded-2xl border border-line p-1 text-sm">
-              <button type="button" onClick={() => setMode('CHAT')} className={`rounded-xl px-3 py-2 ${mode === 'CHAT' ? 'bg-slate-100 text-ink' : 'text-slate-300'}`}>Chat</button>
-              <button type="button" onClick={() => setMode('DEEP_RESEARCH')} className={`rounded-xl px-3 py-2 ${mode === 'DEEP_RESEARCH' ? 'bg-slate-100 text-ink' : 'text-slate-300'}`}>Deep Research</button>
+        <div className="flex flex-col gap-3">
+          <WorkflowModeRail mode={mode} setMode={setMode} />
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <ProviderPicker />
+              {mode !== 'IMAGE_GENERATION' && mode !== 'VIDEO_GENERATION' && mode !== 'SOCIAL_WRITING' ? (
+                <>
+                  <input ref={fileInputRef} type="file" multiple accept=".txt,.md,.json,.pdf,.doc,.docx" onChange={handleFileUpload} className="hidden" />
+                  <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isStreaming} className="rounded-xl border border-line px-3 py-2 text-sm text-slate-300 hover:border-accent disabled:opacity-50">📎 Attach Files</button>
+                </>
+              ) : null}
             </div>
-            <div className="flex rounded-2xl border border-line p-1 text-sm">
-              <button type="button" onClick={() => setMode('IMAGE_GENERATION')} className={`rounded-xl px-3 py-2 ${mode === 'IMAGE_GENERATION' ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' : 'text-slate-300'}`}>Image</button>
-              <button type="button" onClick={() => setMode('VIDEO_GENERATION')} className={`rounded-xl px-3 py-2 ${mode === 'VIDEO_GENERATION' ? 'bg-pink-500/20 text-pink-300 border-pink-500/30' : 'text-slate-300'}`}>Video</button>
+            {mode === 'SOCIAL_WRITING' ? (
+              <button
+                onClick={submitSocial}
+                disabled={isStreaming || !input.trim() || selectedPlatforms.length === 0 || providers.length === 0}
+                className="rounded-2xl bg-accent px-5 py-2 font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isStreaming ? 'Generating...' : 'Generate Posts'}
+              </button>
+            ) : (
+              <button
+                onClick={submit}
+                disabled={isStreaming || (!input.trim() && uploadedFiles.length === 0 && chatImages.length === 0) || providers.length === 0 || !!pendingPlan || analyzing}
+                className="rounded-2xl bg-accent px-5 py-2 font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {analyzing ? 'Analyzing images...' : pendingPlan ? 'Reviewing Plan...' : isStreaming ? 'Working...' : editingImages.length > 0 ? 'Edit Image' : mode === 'IMAGE_GENERATION' ? 'Generate Image' : mode === 'VIDEO_GENERATION' ? 'Generate Video' : 'Send'}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CockpitHeader({
+  activeProject,
+  activeConversation,
+  artifactCount,
+  artifactPanelOpen,
+  toggleArtifactPanel,
+  shareUrl,
+  isSharing,
+  handleShare,
+  handleUnshare,
+}: {
+  activeProject: ProjectSummary | undefined;
+  activeConversation: ConversationSummary | undefined;
+  artifactCount: number;
+  artifactPanelOpen: boolean;
+  toggleArtifactPanel: () => void;
+  shareUrl: string | null;
+  isSharing: boolean;
+  handleShare: () => void;
+  handleUnshare: () => void;
+}) {
+  const contextLabel = activeProject ? `Project: ${activeProject.name}` : 'All conversations';
+  const sessionLabel = activeConversation ? activeConversation.title : 'New session';
+
+  return (
+    <div className="border-b border-line bg-panel/70 px-4 py-3">
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white shadow-sm">
+              <img src="/logo" alt="Cogentrex" className="h-5 w-5 object-contain" />
             </div>
-            <button
-              type="button"
-              onClick={() => setMode('SOCIAL_WRITING')}
-              className={`rounded-xl px-3 py-2 text-sm ${mode === 'SOCIAL_WRITING' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'text-slate-300 border border-line'}`}
-            >
-              Social
-            </button>
-            {mode !== 'IMAGE_GENERATION' && mode !== 'VIDEO_GENERATION' && mode !== 'SOCIAL_WRITING' ? (
-              <>
-                <input ref={fileInputRef} type="file" multiple accept=".txt,.md,.json,.pdf,.doc,.docx" onChange={handleFileUpload} className="hidden" />
-                <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isStreaming} className="rounded-xl border border-line px-3 py-2 text-sm text-slate-300 hover:border-accent disabled:opacity-50">📎 Attach Files</button>
-              </>
+            <div>
+              <span className="text-sm font-semibold tracking-[0.12em] text-accent">Cogentrex</span>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Research cockpit</p>
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+            <span className="rounded-full border border-line bg-ink/50 px-3 py-1 text-slate-300">{contextLabel}</span>
+            <span className="max-w-md truncate rounded-full border border-line bg-ink/50 px-3 py-1 text-slate-400">{sessionLabel}</span>
+            {artifactCount > 0 ? (
+              <span className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent">{artifactCount} artifact{artifactCount === 1 ? '' : 's'}</span>
             ) : null}
           </div>
-          {mode === 'SOCIAL_WRITING' ? (
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {artifactCount > 0 && !artifactPanelOpen ? (
             <button
-              onClick={submitSocial}
-              disabled={isStreaming || !input.trim() || selectedPlatforms.length === 0 || providers.length === 0}
-              className="rounded-2xl bg-accent px-5 py-2 font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={toggleArtifactPanel}
+              className="flex items-center gap-1.5 rounded-xl border border-line bg-accent/10 px-3 py-1.5 text-sm text-accent transition-colors hover:border-accent"
             >
-              {isStreaming ? 'Generating...' : 'Generate Posts'}
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              Artifacts
+              <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-bold text-ink">{artifactCount}</span>
             </button>
-          ) : (
-            <button
-              onClick={submit}
-              disabled={isStreaming || (!input.trim() && uploadedFiles.length === 0 && chatImages.length === 0) || providers.length === 0 || !!pendingPlan || analyzing}
-              className="rounded-2xl bg-accent px-5 py-2 font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {analyzing ? 'Analyzing images...' : pendingPlan ? 'Reviewing Plan...' : isStreaming ? 'Working...' : editingImages.length > 0 ? 'Edit Image' : mode === 'IMAGE_GENERATION' ? 'Generate Image' : mode === 'VIDEO_GENERATION' ? 'Generate Video' : 'Send'}
-            </button>
-          )}
+          ) : null}
+          {activeConversation ? (
+            shareUrl || activeConversation.shareToken ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-green-400">Link copied!</span>
+                <button
+                  onClick={handleUnshare}
+                  disabled={isSharing}
+                  className="rounded-xl border border-red-500/30 px-3 py-1.5 text-xs text-red-300 hover:bg-red-500/10 disabled:opacity-50"
+                >
+                  Revoke
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleShare}
+                disabled={isSharing}
+                className="rounded-xl border border-line px-3 py-1.5 text-sm text-slate-300 hover:border-accent disabled:opacity-50"
+              >
+                {isSharing ? '...' : 'Share'}
+              </button>
+            )
+          ) : null}
         </div>
       </div>
     </div>
@@ -762,53 +898,17 @@ export function ChatView() {
     <div className="flex flex-1 overflow-hidden">
       <main className="flex h-full flex-1 flex-col overflow-hidden bg-[radial-gradient(circle_at_top_right,#152238,#0b0f19_45%)]">
       <PlanEditor />
-      <div className="flex items-center justify-between border-b border-line bg-panel/70 px-4 py-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-white shadow-sm">
-              <img src="/logo" alt="Cogentrex" className="h-5 w-5 object-contain" />
-            </div>
-            <span className="text-sm font-semibold tracking-[0.12em] text-accent">Cogentrex</span>
-          </div>
-          <p className="mt-1 truncate text-xs text-slate-500">
-            {activeProject ? `Project: ${activeProject.name}` : activeConversation ? activeConversation.title : 'Project: All conversations'}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {artifacts.length > 0 && !artifactPanelOpen ? (
-            <button
-              onClick={toggleArtifactPanel}
-              className="flex items-center gap-1.5 rounded-xl border border-line bg-accent/10 px-3 py-1.5 text-sm text-accent hover:border-accent transition-colors"
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-              Artifacts
-              <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-bold text-ink">{artifacts.length}</span>
-            </button>
-          ) : null}
-          {activeConversation ? (
-            shareUrl || activeConversation.shareToken ? (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-green-400">Link copied!</span>
-                <button
-                  onClick={handleUnshare}
-                  disabled={isSharing}
-                  className="rounded-xl border border-red-500/30 px-3 py-1.5 text-xs text-red-300 hover:bg-red-500/10 disabled:opacity-50"
-                >
-                  Revoke
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={handleShare}
-                disabled={isSharing}
-                className="rounded-xl border border-line px-3 py-1.5 text-sm text-slate-300 hover:border-accent disabled:opacity-50"
-              >
-                {isSharing ? '...' : 'Share'}
-              </button>
-            )
-          ) : null}
-        </div>
-      </div>
+      <CockpitHeader
+        activeProject={activeProject}
+        activeConversation={activeConversation}
+        artifactCount={artifacts.length}
+        artifactPanelOpen={artifactPanelOpen}
+        toggleArtifactPanel={toggleArtifactPanel}
+        shareUrl={shareUrl}
+        isSharing={isSharing}
+        handleShare={() => void handleShare()}
+        handleUnshare={() => void handleUnshare()}
+      />
 
       <MessageList onEditImage={handleEditImage} />
       <ChatInput onSend={handleSend} onGenerateSocial={handleGenerateSocial} />
