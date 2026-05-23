@@ -13,12 +13,12 @@ export type SkillStatus = 'DRAFT' | 'STAGED' | 'PUBLISHED' | 'DISABLED';
 export type SkillVisibility = 'ADMIN_ONLY' | 'USER_VISIBLE';
 export type SkillKind = 'NATIVE' | 'IMPORTED';
 
-export type WorkflowId = 'CHAT' | 'IMAGE_GENERATION' | 'SOCIAL_WRITING' | 'DEEP_RESEARCH';
+export type WorkflowId = 'CHAT' | 'IMAGE_GENERATION' | 'VIDEO_GENERATION' | 'SOCIAL_WRITING' | 'DEEP_RESEARCH';
 export type ProviderCapabilityId = 'text' | 'streaming' | 'vision' | 'tool-calling' | 'provider-search' | 'image' | 'video';
 export type ToolCapabilityId = 'web.search' | 'web.fetch' | 'web.extract';
 export type CapabilityStatus = 'ready' | 'degraded' | 'missing';
 
-export type SkillId = 'chat-general' | 'deep-research-default' | 'social-writing-default' | 'image-prompt-default';
+export type SkillId = 'chat-general' | 'deep-research-default' | 'social-writing-default' | 'image-prompt-default' | 'video-prompt-default';
 
 export interface SkillDefinition {
   id: SkillId;
@@ -69,6 +69,22 @@ export interface SkillDetail extends SkillSummary {
   inputSchema: Record<string, unknown> | null;
   outputContract: Record<string, unknown> | null;
   toolRequirements: SkillToolRequirement[];
+}
+
+export interface SkillReadinessDependency {
+  kind: 'provider' | 'tool';
+  id: ProviderCapabilityId | ToolCapabilityId;
+  label: string;
+  required: boolean;
+  status: CapabilityStatus;
+  adapterId?: string | undefined;
+  message?: string | undefined;
+}
+
+export interface SkillReadiness {
+  skill: SkillSummary;
+  status: CapabilityStatus;
+  dependencies: SkillReadinessDependency[];
 }
 
 export interface WorkflowDefinition {

@@ -197,6 +197,15 @@ export class SkillRepository {
     return rows.map(mapSummary);
   }
 
+  async listVisibleDetails(): Promise<SkillDetail[]> {
+    const rows = await this.db.prepare(
+      `${SELECT_SKILL_WITH_ROUTE}
+       WHERE s.status = 'PUBLISHED' AND s.visibility = 'USER_VISIBLE'
+       ORDER BY s.category ASC, s.name ASC`,
+    ).all() as SkillRow[];
+    return rows.map(mapDetail);
+  }
+
   async findVisibleBySlug(slug: string): Promise<SkillDetail | null> {
     const row = await this.db.prepare(
       `${SELECT_SKILL_WITH_ROUTE}

@@ -2,15 +2,31 @@ import { Router } from 'express';
 import { updateSkillRouteSchema, updateSkillSchema } from '@cogentrex/shared';
 import { currentUser, requireAuth, requireAdmin } from '../auth/authMiddleware.js';
 import type { AuthService } from '../auth/authService.js';
+import type { AppEnv } from '../config/env.js';
+import type { ProviderService } from '../providers/providerService.js';
 import type { SkillService } from './skillService.js';
+import { buildSkillReadiness } from './skillReadiness.js';
 
-export function skillRoutes(auth: AuthService, skills: SkillService): Router {
+export function skillRoutes(auth: AuthService, skills: SkillService, providers: ProviderService, env: AppEnv): Router {
   const router = Router();
   router.use(requireAuth(auth));
 
   router.get('/', async (_req, res, next) => {
     try {
       res.json({ skills: await skills.listVisible() });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get('/readiness', async (req, res, next) => {
+    try {
+      const user = currentUser(req);
+      const [visibleSkills, availableProviders] = await Promise.all([
+        skills.listVisibleDetails(),
+        providers.list(user.id),
+      ]);
+      res.json({ skills: buildSkillReadiness(visibleSkills, availableProviders, env) });
     } catch (error) {
       next(error);
     }

@@ -1,5 +1,7 @@
+import type { SkillReadiness } from '@cogentrex/shared';
 import { describe, expect, it } from 'vitest';
 import {
+  applyLauncherReadiness,
   getLauncherItems,
   getLauncherPlaceholder,
   getPrimaryLauncherItems,
@@ -36,4 +38,56 @@ describe('workflow launcher helpers', () => {
     expect(getLauncherPlaceholder('artifact-brief')).toBe('What brief, memo, or artifact should Cogentrex draft?');
     expect(getLauncherPlaceholder('missing')).toBe('Ask Cogentrex... (Press Enter to send)');
   });
+
+  it('overlays backend skill readiness onto launcher cards with setup copy', () => {
+    const readiness: SkillReadiness[] = [
+      skillReadiness('chat', 'ready'),
+      skillReadiness('deep-research', 'missing', 'Configure BRAVE_SEARCH_API_KEY to enable web search.'),
+      skillReadiness('image-studio', 'degraded', 'Optional provider capability vision is not configured.'),
+    ];
+
+    const items = applyLauncherReadiness(getLauncherItems(), readiness);
+
+    expect(items.find((item) => item.id === 'ask-chat')?.readiness).toEqual({
+      status: 'ready',
+      label: 'Ready',
+      message: 'Ready to launch.',
+    });
+    expect(items.find((item) => item.id === 'deep-research')?.readiness).toEqual({
+      status: 'missing',
+      label: 'Needs setup',
+      message: 'Configure BRAVE_SEARCH_API_KEY to enable web search.',
+    });
+    expect(items.find((item) => item.id === 'image-studio')?.readiness).toEqual({
+      status: 'degraded',
+      label: 'Limited',
+      message: 'Optional provider capability vision is not configured.',
+    });
+    expect(items.find((item) => item.id === 'video-studio')?.readiness).toEqual({
+      status: 'unconfigured',
+      label: 'Not enabled',
+      message: 'This skill is not published in the registry yet.',
+    });
+  });
 });
+
+function skillReadiness(slug: string, status: SkillReadiness['status'], message?: string): SkillReadiness {
+  return {
+    skill: {
+      id: `skl_${slug}`,
+      slug,
+      name: slug,
+      description: slug,
+      kind: 'NATIVE',
+      status: 'PUBLISHED',
+      visibility: 'USER_VISIBLE',
+      category: null,
+      icon: null,
+      route: null,
+      createdAt: '2026-05-23T00:00:00.000Z',
+      updatedAt: '2026-05-23T00:00:00.000Z',
+    },
+    status,
+    dependencies: message ? [{ kind: 'tool', id: 'web.search', label: 'Web search', required: true, status, message }] : [],
+  };
+}

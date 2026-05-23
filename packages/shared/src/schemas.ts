@@ -55,6 +55,7 @@ export const sendMessageSchema = z.object({
 export const workflowIdSchema = z.enum([
   'CHAT',
   'IMAGE_GENERATION',
+  'VIDEO_GENERATION',
   'SOCIAL_WRITING',
   'DEEP_RESEARCH',
 ]);

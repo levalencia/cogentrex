@@ -127,6 +127,10 @@ export class SkillService {
     return this.repository.listVisible();
   }
 
+  listVisibleDetails() {
+    return this.repository.listVisibleDetails();
+  }
+
   async getVisible(slug: string) {
     const skill = await this.repository.findVisibleBySlug(slug);
     if (!skill) throw notFound('Skill not found');

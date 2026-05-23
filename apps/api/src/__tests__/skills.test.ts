@@ -44,6 +44,59 @@ describe('skill registry API', () => {
     database.close();
   });
 
+  it('returns visible skill readiness with provider and tool dependency status', async () => {
+    const { agent, database } = await makeTestApp();
+    await registerAndLogin(agent);
+    await agent.post('/api/providers').send({
+      name: 'Text Model',
+      baseUrl: 'https://llm.example.com/v1',
+      apiKey: 'test-api-key',
+      model: 'text-model',
+      kind: 'OPENAI_COMPATIBLE',
+      isDefault: true,
+      defaultForMode: 'CHAT',
+      supportsStreaming: true,
+    }).expect(201);
+    await agent.post('/api/providers').send({
+      name: 'Image Model',
+      baseUrl: 'https://image.example.com/v1',
+      apiKey: 'test-api-key',
+      model: 'image-model',
+      kind: 'IMAGE_GENERATION',
+      isDefault: false,
+      defaultForMode: 'IMAGE_GENERATION',
+      supportsImage: true,
+    }).expect(201);
+
+    const res = await agent.get('/api/skills/readiness').expect(200);
+
+    const bySlug = new Map(res.body.skills.map((item: { skill: { slug: string } }) => [item.skill.slug, item]));
+    const visibleSlugs = Array.from(bySlug.keys());
+    expect(visibleSlugs).toContain('chat');
+    expect(visibleSlugs).toContain('deep-research');
+    expect(visibleSlugs).not.toContain('video-lab');
+
+    const chat = bySlug.get('chat') as { status: string; dependencies: Array<{ kind: string; id: string; status: string; required: boolean; label: string }> };
+    expect(chat.status).toBe('ready');
+    expect(chat.dependencies).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'provider', id: 'text', status: 'ready', required: true }),
+    ]));
+
+    const research = bySlug.get('deep-research') as { status: string; dependencies: Array<{ kind: string; id: string; status: string; required: boolean; label: string }> };
+    expect(research.status).toBe('degraded');
+    expect(research.dependencies).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'tool', id: 'web.search', status: 'degraded', required: true }),
+    ]));
+
+    const image = bySlug.get('image-studio') as { status: string; dependencies: Array<{ kind: string; id: string; status: string; required: boolean; label: string }> };
+    expect(image.status).toBe('ready');
+    expect(image.dependencies).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'provider', id: 'image', status: 'ready', required: true }),
+    ]));
+
+    database.close();
+  });
+
   it('allows admins to list all skills and blocks non-admin users', async () => {
     const userApp = await makeTestApp();
     await registerAndLogin(userApp.agent);

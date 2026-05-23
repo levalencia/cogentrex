@@ -17,6 +17,48 @@
 
 The frontend should not call admin-only APIs until auth bootstrap resolves. Protected admin pages must distinguish loading, unauthenticated redirect, non-admin forbidden, and authorized states.
 
+## Skill / Workflow / Capability Model
+
+Cogentrex keeps these concepts separate:
+
+- **Skill**: user-facing curated job card or reusable prompt/profile, e.g. Deep Research, Image Studio, LinkedIn Writer, Artifact Writer.
+- **Workflow**: runtime execution mode the app understands, e.g. `CHAT`, `DEEP_RESEARCH`, `SOCIAL_WRITING`, `IMAGE_GENERATION`, `VIDEO_GENERATION`.
+- **Capability**: normalized requirement that a skill/workflow needs, e.g. provider capability `text`, `vision`, `image`, or tool capability `web.search`, `web.fetch`, `web.extract`.
+- **Tool adapter**: concrete implementation of a tool capability, e.g. `brave.search`, `scrapling.fetch`, `firecrawl.fetch`.
+- **Provider**: concrete model backend satisfying provider capabilities, e.g. a text provider, image provider, or vision-capable provider.
+
+A user-facing skill should route to a workflow and declare required/optional capabilities. Providers and tool adapters satisfy those capabilities at runtime. Avoid user-visible skill-to-skill dependency chains in the first version; model prompt enhancement, source synthesis, and similar helpers as optional stages/capabilities inside the parent skill.
+
+Example dependencies:
+
+- Deep Research: requires `text` provider capability and `web.search`; `web.fetch` is optional but recommended.
+- Image Studio: requires `image`; prompt enhancement is optional `text`; image/context editing can require optional `vision`.
+- Social Writer: requires `text`; `web.search`/`web.fetch` are optional for research and URL enrichment.
+
+Readiness should be derived from real provider/tool configuration and surfaced as `ready`, `degraded`, or `missing` before a run starts. Do not hardcode green dashboard states.
+
+### Admin-managed configuration vs code-first runtime
+
+```mermaid
+flowchart LR
+  Admin[Admin Console] -->|curates metadata| SkillRegistry[(skills + skill_routes)]
+  Admin -->|adds encrypted provider config| Providers[(providers)]
+  Env[Environment variables] -->|selects concrete adapters| ToolAdapters[Tool adapters]
+  SkillRegistry --> Readiness[Skill readiness resolver]
+  Providers --> Readiness
+  ToolAdapters --> Readiness
+  Readiness --> Launcher[User Skill Launcher]
+  Launcher -->|starts selected mode| Runtime[Workflow runtime]
+  Runtime --> Providers
+  Runtime --> ToolAdapters
+```
+
+The admin UI owns operational configuration: which native skills are published, which route/mode each skill uses, optional search/budget/config hints, and which providers are available globally or per user. This keeps the product adjustable without redeploying for copy, visibility, route defaults, and provider selection.
+
+The codebase remains the source of truth for runtime behavior: supported `AppMode` values, normalized provider/tool capability IDs, workflow definitions, adapter implementations, safety checks, and startup schema compatibility. Admin config can select and parameterize these primitives, but it should not invent new execution modes or arbitrary tool code at runtime.
+
+Practical rule: **admin config chooses among shipped capabilities; code defines what those capabilities mean.** If a new capability needs new network behavior, security review, schema changes, or provider-specific logic, implement it code-first with tests, then expose it to admin configuration.
+
 ## Deep Research Flow
 
 1. Create or reuse a conversation.
