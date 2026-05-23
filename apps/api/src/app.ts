@@ -168,7 +168,7 @@ export async function createApp(env: AppEnv, deps: AppDependencies = {}) {
     webOrigin: env.WEB_ORIGIN,
   }));
   app.use('/api/providers', providerRoutes(authService, providerService));
-  app.use('/api/skills', skillRoutes(authService, skillService));
+  app.use('/api/skills', skillRoutes(authService, skillService, providerService, env));
   app.use('/api/capabilities', capabilityRoutes(authService, capabilityService));
   app.use('/api/admin/skills', adminSkillRoutes(authService, skillService));
   app.use('/api/admin', adminRoutes(authService, providerService));

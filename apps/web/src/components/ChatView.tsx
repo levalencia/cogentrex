@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback, memo } from 'react';
-import type { AppMode, ConversationSummary, ProjectSummary, ResearchSource } from '@cogentrex/shared';
+import type { AppMode, ConversationSummary, ProjectSummary, ResearchSource, SkillReadiness } from '@cogentrex/shared';
 import { useAppStore } from '@/store/appStore';
 import { ReasoningPanel } from '@/components/ReasoningPanel';
 import { MarkdownMessage } from '@/components/MarkdownMessage';
@@ -18,10 +18,12 @@ import { ArtifactsPanel } from '@/components/ArtifactsPanel';
 import { MessageReasoningBlock } from '@/components/MessageReasoningBlock';
 import { toDisplayReasoningEntries } from '@/lib/reasoningEvents';
 import {
+  applyLauncherReadiness,
   getDefaultLauncherIdForMode,
   getLauncherItems,
   getLauncherPlaceholder,
   getLauncherToneClasses,
+  getReadinessBadgeClasses,
   type LauncherItem,
 } from '@/lib/workflowLauncher';
 import { buildResearchWorkspaceCards, type ResearchWorkspaceStatus } from '@/lib/researchWorkspace';
@@ -251,13 +253,15 @@ const PLATFORM_OPTIONS = [
 function WorkflowLauncher({
   selectedLauncherId,
   mode,
+  skillReadiness,
   onSelect,
 }: {
   selectedLauncherId: string;
   mode: AppMode;
+  skillReadiness: SkillReadiness[] | null;
   onSelect: (item: LauncherItem) => void;
 }) {
-  const workflows = getLauncherItems();
+  const workflows = skillReadiness ? applyLauncherReadiness(getLauncherItems(), skillReadiness) : getLauncherItems();
 
   return (
     <section className="rounded-2xl border border-line bg-ink/40 p-2">
@@ -281,11 +285,21 @@ function WorkflowLauncher({
               <span className="block text-[10px] uppercase tracking-[0.18em] opacity-70">{workflow.eyebrow}</span>
               <span className="mt-1 flex items-center justify-between gap-2 text-sm font-semibold">
                 {workflow.label}
-                {workflow.status === 'near_existing' ? (
-                  <span className="rounded-full border border-current/20 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.12em] opacity-75">Soon</span>
-                ) : null}
+                <span className="flex shrink-0 items-center gap-1">
+                  {workflow.readiness ? (
+                    <span className={`rounded-full border px-1.5 py-0.5 text-[9px] uppercase tracking-[0.12em] ${getReadinessBadgeClasses(workflow.readiness.status)}`}>
+                      {workflow.readiness.label}
+                    </span>
+                  ) : null}
+                  {workflow.status === 'near_existing' ? (
+                    <span className="rounded-full border border-current/20 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.12em] opacity-75">Soon</span>
+                  ) : null}
+                </span>
               </span>
               <span className="mt-1 block text-xs leading-5 opacity-75">{workflow.description}</span>
+              {workflow.readiness ? (
+                <span className="mt-2 block text-[11px] leading-4 opacity-70">{workflow.readiness.message}</span>
+              ) : null}
             </button>
           );
         })}
@@ -365,6 +379,7 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string) => 
 
   const [input, setInput] = useState('');
   const [selectedLauncherId, setSelectedLauncherId] = useState(() => getDefaultLauncherIdForMode(mode));
+  const [skillReadiness, setSkillReadiness] = useState<SkillReadiness[] | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -392,6 +407,20 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string) => 
       setSelectedLauncherId(getDefaultLauncherIdForMode(mode));
     }
   }, [mode, selectedLauncherId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.getSkillReadiness()
+      .then((res) => {
+        if (!cancelled) setSkillReadiness(res.skills);
+      })
+      .catch(() => {
+        if (!cancelled) setSkillReadiness([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Auto-switch provider for social mode: plain social = chat default, research = deep research default
   useEffect(() => {
@@ -798,7 +827,7 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string) => 
           <ImageOptionsPanel options={imageOptions} onChange={setImageOptions} />
         ) : null}
         <div className="flex flex-col gap-3">
-          <WorkflowLauncher selectedLauncherId={selectedLauncherId} mode={mode} onSelect={selectLauncherItem} />
+          <WorkflowLauncher selectedLauncherId={selectedLauncherId} mode={mode} skillReadiness={skillReadiness} onSelect={selectLauncherItem} />
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 flex-wrap">
               <ProviderPicker />

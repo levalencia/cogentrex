@@ -1,7 +1,13 @@
-import type { AppMode } from '@cogentrex/shared';
+import type { AppMode, CapabilityStatus, SkillReadiness } from '@cogentrex/shared';
 
 export type LauncherItemStatus = 'available' | 'near_existing';
 export type LauncherItemTone = 'slate' | 'emerald' | 'blue' | 'purple' | 'pink' | 'amber';
+
+export interface LauncherReadinessBadge {
+  status: CapabilityStatus | 'unconfigured';
+  label: string;
+  message: string;
+}
 
 export interface LauncherItem {
   id: string;
@@ -12,6 +18,7 @@ export interface LauncherItem {
   status: LauncherItemStatus;
   tone: LauncherItemTone;
   placeholder: string;
+  readiness?: LauncherReadinessBadge | undefined;
 }
 
 const launcherItems: LauncherItem[] = [
@@ -77,6 +84,15 @@ const launcherItems: LauncherItem[] = [
   },
 ];
 
+const launcherSkillSlugs: Record<string, string> = {
+  'ask-chat': 'chat',
+  'deep-research': 'deep-research',
+  'social-writer': 'linkedin-writer',
+  'image-studio': 'image-studio',
+  'video-studio': 'video-lab',
+  'artifact-brief': 'artifact-writer',
+};
+
 export function getLauncherItems(): LauncherItem[] {
   return launcherItems.map((item) => ({ ...item }));
 }
@@ -108,4 +124,46 @@ export function getLauncherToneClasses(tone: LauncherItemTone, active: boolean):
     amber: 'border-amber-500/30 bg-amber-500/20 text-amber-100',
   };
   return activeClasses[tone];
+}
+
+export function applyLauncherReadiness(items: LauncherItem[], readiness: SkillReadiness[]): LauncherItem[] {
+  const readinessBySlug = new Map(readiness.map((item) => [item.skill.slug, item]));
+  return items.map((item) => {
+    const skillSlug = launcherSkillSlugs[item.id];
+    const skillReadiness = skillSlug ? readinessBySlug.get(skillSlug) : undefined;
+    return {
+      ...item,
+      readiness: skillReadiness ? summarizeReadiness(skillReadiness) : unconfiguredReadiness(),
+    };
+  });
+}
+
+export function getReadinessBadgeClasses(status: LauncherReadinessBadge['status']): string {
+  const classes: Record<LauncherReadinessBadge['status'], string> = {
+    ready: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200',
+    degraded: 'border-amber-400/30 bg-amber-400/10 text-amber-200',
+    missing: 'border-red-400/30 bg-red-400/10 text-red-200',
+    unconfigured: 'border-slate-500/30 bg-slate-500/10 text-slate-300',
+  };
+  return classes[status];
+}
+
+function summarizeReadiness(readiness: SkillReadiness): LauncherReadinessBadge {
+  if (readiness.status === 'ready') {
+    return { status: 'ready', label: 'Ready', message: 'Ready to launch.' };
+  }
+  const dependencyMessage = readiness.dependencies.find((dependency) => dependency.status !== 'ready' && dependency.message)?.message;
+  return {
+    status: readiness.status,
+    label: readiness.status === 'missing' ? 'Needs setup' : 'Limited',
+    message: dependencyMessage ?? (readiness.status === 'missing' ? 'Required provider or tool configuration is missing.' : 'Some optional capability is unavailable.'),
+  };
+}
+
+function unconfiguredReadiness(): LauncherReadinessBadge {
+  return {
+    status: 'unconfigured',
+    label: 'Not enabled',
+    message: 'This skill is not published in the registry yet.',
+  };
 }

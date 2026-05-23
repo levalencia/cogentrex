@@ -23,9 +23,10 @@ describe('capability API', () => {
 
     const response = await agent.get('/api/capabilities').expect(200);
 
-    expect(response.body.workflows).toHaveLength(4);
+    expect(response.body.workflows).toHaveLength(5);
     expect(workflowById(response.body, 'CHAT').status).toBe('ready');
     expect(workflowById(response.body, 'IMAGE_GENERATION').status).toBe('missing');
+    expect(workflowById(response.body, 'VIDEO_GENERATION').status).toBe('missing');
     expect(workflowById(response.body, 'SOCIAL_WRITING').status).toBe('degraded');
 
     const deepResearch = workflowById(response.body, 'DEEP_RESEARCH');
