@@ -3,6 +3,7 @@ import {
   buildArtifactDownload,
   buildLibraryArtifactRows,
   buildLibraryModeCards,
+  buildLibraryOverviewStats,
   buildRecentActivityItems,
   filterLibraryArtifacts,
 } from './libraryOutputs';
@@ -23,6 +24,36 @@ describe('buildLibraryModeCards', () => {
       ['media', 1],
       ['chat', 1],
     ]);
+  });
+});
+
+describe('buildLibraryOverviewStats', () => {
+  it('summarizes workflow/artifact health for the library header', () => {
+    const stats = buildLibraryOverviewStats(
+      [
+        { id: 'conv-1', mode: 'DEEP_RESEARCH', updatedAt: '2026-05-22T20:01:00.000Z' },
+        { id: 'conv-2', mode: 'CHAT', updatedAt: '2026-05-22T20:03:00.000Z' },
+      ],
+      [
+        {
+          id: 'art-1',
+          filename: 'brief.md',
+          type: 'text/markdown',
+          sizeBytes: 100,
+          conversationId: 'conv-1',
+          messageId: 'msg-1',
+          content: 'Brief',
+          createdAt: '2026-05-22T20:05:00.000Z',
+        },
+      ],
+    );
+
+    expect(stats).toEqual({
+      totalWorkflows: 2,
+      savedArtifacts: 1,
+      savedPerWorkflowLabel: '0.5',
+      latestActivityAt: '2026-05-22T20:05:00.000Z',
+    });
   });
 });
 

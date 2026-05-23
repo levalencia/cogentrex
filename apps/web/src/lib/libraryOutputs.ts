@@ -23,6 +23,13 @@ export interface LibraryModeCard {
   description: string;
 }
 
+export interface LibraryOverviewStats {
+  totalWorkflows: number;
+  savedArtifacts: number;
+  savedPerWorkflowLabel: string;
+  latestActivityAt: string | null;
+}
+
 export interface ArtifactDownload {
   filename: string;
   content: string;
@@ -72,6 +79,22 @@ export function buildLibraryModeCards(conversations: ConversationLike[]): Librar
       description: 'General answers and reusable notes that do not fit a specialist workflow.',
     },
   ];
+}
+
+export function buildLibraryOverviewStats(conversations: ConversationLike[], artifacts: ArtifactItem[]): LibraryOverviewStats {
+  const timestampValues = [
+    ...conversations.map((conversation) => conversation.updatedAt),
+    ...artifacts.map((artifact) => artifact.createdAt),
+  ].filter((value): value is string => Boolean(value));
+  const latestActivityAt = timestampValues.length ? sortTimestampDesc(timestampValues.map((timestamp) => ({ timestamp })))[0]?.timestamp ?? null : null;
+  const savedPerWorkflow = conversations.length ? (artifacts.length / conversations.length).toFixed(1) : '0.0';
+
+  return {
+    totalWorkflows: conversations.length,
+    savedArtifacts: artifacts.length,
+    savedPerWorkflowLabel: savedPerWorkflow,
+    latestActivityAt,
+  };
 }
 
 function modeLabel(mode: AppMode | undefined): string {

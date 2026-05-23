@@ -8,6 +8,7 @@ import {
   buildArtifactDownload,
   buildLibraryArtifactRows,
   buildLibraryModeCards,
+  buildLibraryOverviewStats,
   buildRecentActivityItems,
   filterLibraryArtifacts,
 } from '@/lib/libraryOutputs';
@@ -30,6 +31,7 @@ export function LibraryView() {
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
   const cards = buildLibraryModeCards(conversations);
+  const overviewStats = buildLibraryOverviewStats(conversations, libraryArtifacts);
   const filteredArtifacts = useMemo(
     () => filterLibraryArtifacts(libraryArtifacts, artifactQuery),
     [libraryArtifacts, artifactQuery],
@@ -112,7 +114,30 @@ export function LibraryView() {
       </header>
 
       <section className="flex-1 overflow-y-auto px-6 py-6">
-        <div className="grid gap-3 md:grid-cols-4">
+        <div className="grid gap-3 lg:grid-cols-4">
+          <article className="rounded-3xl border border-accent/20 bg-accent/10 p-4">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-accent">Workspace runs</p>
+            <p className="mt-2 text-2xl font-semibold text-white">{overviewStats.totalWorkflows}</p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">Total reusable workflows tracked in this cockpit.</p>
+          </article>
+          <article className="rounded-3xl border border-line bg-panel/70 p-4">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">Saved artifacts</p>
+            <p className="mt-2 text-2xl font-semibold text-white">{overviewStats.savedArtifacts}</p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">Pinned assistant outputs ready to copy or export.</p>
+          </article>
+          <article className="rounded-3xl border border-line bg-panel/70 p-4">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">Saved per run</p>
+            <p className="mt-2 text-2xl font-semibold text-white">{overviewStats.savedPerWorkflowLabel}</p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">Lightweight reuse signal; higher means more work is being captured.</p>
+          </article>
+          <article className="rounded-3xl border border-line bg-panel/70 p-4">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">Latest activity</p>
+            <p className="mt-2 text-2xl font-semibold text-white">{overviewStats.latestActivityAt ? formatDate(overviewStats.latestActivityAt) : '—'}</p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">Most recent workflow or saved artifact timestamp.</p>
+          </article>
+        </div>
+
+        <div className="mt-6 grid gap-3 md:grid-cols-4">
           {cards.map((card) => (
             <article key={card.id} className="rounded-3xl border border-line bg-panel/80 p-5 shadow-xl shadow-black/20">
               <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{card.label}</p>
