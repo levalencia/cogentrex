@@ -135,6 +135,42 @@ function searchableText(artifact: ArtifactItem): string {
   ].filter(Boolean).join(' ').toLowerCase();
 }
 
+export function mergeLibraryArtifacts(fetchedArtifacts: ArtifactItem[], workspaceArtifacts: ArtifactItem[]): ArtifactItem[] {
+  const byId = new Map<string, ArtifactItem>();
+  const bySignature = new Map<string, ArtifactItem>();
+
+  for (const artifact of [...fetchedArtifacts, ...workspaceArtifacts]) {
+    const signature = artifactSignature(artifact);
+    const existing = byId.get(artifact.id) ?? bySignature.get(signature);
+    const merged = existing ? mergeArtifact(existing, artifact) : artifact;
+    byId.set(merged.id, merged);
+    bySignature.set(signature, merged);
+    if (existing && existing.id !== merged.id) byId.delete(existing.id);
+  }
+
+  return sortTimestampDesc(Array.from(byId.values()).map((artifact) => ({ ...artifact, timestamp: artifact.createdAt })))
+    .map(({ timestamp: _timestamp, ...artifact }) => artifact);
+}
+
+function artifactSignature(artifact: ArtifactItem): string {
+  return [artifact.conversationId, artifact.messageId, artifact.filename, artifact.content].join('\u0000');
+}
+
+function mergeArtifact(existing: ArtifactItem, incoming: ArtifactItem): ArtifactItem {
+  const existingIsLive = existing.id.startsWith('live-');
+  const incomingIsPersisted = !incoming.id.startsWith('live-');
+  const base = existingIsLive && incomingIsPersisted ? incoming : existing;
+  const fallback = base === existing ? incoming : existing;
+
+  return {
+    ...fallback,
+    ...base,
+    conversationTitle: base.conversationTitle ?? fallback.conversationTitle,
+    conversationMode: base.conversationMode ?? fallback.conversationMode,
+    language: base.language ?? fallback.language,
+  };
+}
+
 export function buildLibraryArtifactRows(artifacts: ArtifactItem[]): LibraryArtifactRow[] {
   return artifacts.map((artifact) => ({
     id: artifact.id,

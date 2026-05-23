@@ -11,6 +11,7 @@ import {
   buildLibraryOverviewStats,
   buildRecentActivityItems,
   filterLibraryArtifacts,
+  mergeLibraryArtifacts,
 } from '@/lib/libraryOutputs';
 import { api } from '@/lib/api';
 
@@ -25,20 +26,25 @@ function findArtifact(artifacts: ArtifactItem[], artifactId: string | null): Art
 export function LibraryView() {
   const router = useRouter();
   const conversations = useAppStore((state) => state.conversations);
+  const workspaceArtifacts = useAppStore((state) => state.artifacts);
   const [libraryArtifacts, setLibraryArtifacts] = useState<ArtifactItem[]>([]);
   const [isLoadingArtifacts, setIsLoadingArtifacts] = useState(true);
   const [artifactQuery, setArtifactQuery] = useState('');
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
   const cards = buildLibraryModeCards(conversations);
-  const overviewStats = buildLibraryOverviewStats(conversations, libraryArtifacts);
+  const mergedArtifacts = useMemo(
+    () => mergeLibraryArtifacts(libraryArtifacts, workspaceArtifacts),
+    [libraryArtifacts, workspaceArtifacts],
+  );
+  const overviewStats = buildLibraryOverviewStats(conversations, mergedArtifacts);
   const filteredArtifacts = useMemo(
-    () => filterLibraryArtifacts(libraryArtifacts, artifactQuery),
-    [libraryArtifacts, artifactQuery],
+    () => filterLibraryArtifacts(mergedArtifacts, artifactQuery),
+    [mergedArtifacts, artifactQuery],
   );
   const artifactRows = buildLibraryArtifactRows(filteredArtifacts);
   const selectedArtifact = findArtifact(filteredArtifacts, selectedArtifactId);
-  const recentActivity = buildRecentActivityItems(conversations, libraryArtifacts, 8);
+  const recentActivity = buildRecentActivityItems(conversations, mergedArtifacts, 8);
 
   useEffect(() => {
     let cancelled = false;
@@ -202,7 +208,7 @@ export function LibraryView() {
                 className="mt-2 w-full rounded-2xl border border-line bg-ink/70 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-accent"
               />
               <div className="mt-4 space-y-2">
-                {isLoadingArtifacts ? (
+                {isLoadingArtifacts && !artifactRows.length ? (
                   <div className="rounded-2xl border border-dashed border-line p-5 text-sm text-slate-500">
                     Loading saved artifacts…
                   </div>

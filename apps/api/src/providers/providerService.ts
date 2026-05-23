@@ -15,6 +15,14 @@ export interface ProviderRuntimeConfig {
   kind: ProviderConfigView['kind'];
 }
 
+type ProviderMode = 'CHAT' | 'DEEP_RESEARCH' | 'SOCIAL_WRITING' | 'IMAGE_GENERATION' | 'VIDEO_GENERATION';
+
+function providerSupportsMode(provider: ProviderRecord, mode: ProviderMode): boolean {
+  if (mode === 'IMAGE_GENERATION') return provider.kind === 'IMAGE_GENERATION' || provider.supportsImage;
+  if (mode === 'VIDEO_GENERATION') return provider.kind === 'VIDEO_GENERATION' || provider.supportsVideo;
+  return provider.kind !== 'IMAGE_GENERATION' && provider.kind !== 'VIDEO_GENERATION';
+}
+
 export class ProviderService {
   constructor(
     private readonly providers: ProviderRepository,
@@ -170,9 +178,12 @@ export class ProviderService {
     };
   }
 
-  async resolveForMode(userId: string, mode: 'CHAT' | 'DEEP_RESEARCH' | 'SOCIAL_WRITING' | 'IMAGE_GENERATION' | 'VIDEO_GENERATION', providerId?: string): Promise<ProviderRuntimeConfig> {
+  async resolveForMode(userId: string, mode: ProviderMode, providerId?: string): Promise<ProviderRuntimeConfig> {
     if (providerId) return this.resolve(userId, providerId);
-    const provider = await this.providers.findDefaultForMode(userId, mode);
+    const modeDefault = await this.providers.findDefaultForMode(userId, mode);
+    const provider = modeDefault && providerSupportsMode(modeDefault, mode)
+      ? modeDefault
+      : (await this.providers.listForUser(userId)).find((candidate) => providerSupportsMode(candidate, mode));
     if (!provider) throw notFound('Provider not configured');
     this.logger.debug({ userId, providerId: provider.id, kind: provider.kind, model: provider.model, mode }, 'provider_resolved_for_mode');
     return {

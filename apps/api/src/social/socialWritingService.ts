@@ -59,6 +59,7 @@ export class SocialWritingService {
     providerId?: string | undefined;
   }): Promise<{ conversationId: string; posts: GeneratedPost[]; researchContext: string }> {
     const startedAt = performance.now();
+    const provider = await this.providers.resolveForMode(input.userId, 'SOCIAL_WRITING', input.providerId);
     const now = nowIso();
     const conversation = await this.conversations.create({
       id: createId('cnv'),
@@ -87,8 +88,6 @@ export class SocialWritingService {
       content: input.topic,
       now,
     });
-
-    const provider = await this.providers.resolveForMode(input.userId, 'SOCIAL_WRITING', input.providerId);
 
     // Scrape any URLs pasted into the topic
     let urlContext = '';
