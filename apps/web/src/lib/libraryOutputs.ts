@@ -1,7 +1,10 @@
 import type { AppMode, ArtifactItem } from '@cogentrex/shared';
 
 interface ConversationLike {
+  id?: string;
+  title?: string;
   mode: AppMode;
+  updatedAt?: string;
 }
 
 export interface LibraryArtifactRow {
@@ -24,6 +27,17 @@ export interface ArtifactDownload {
   filename: string;
   content: string;
   mimeType: string;
+}
+
+export interface RecentActivityItem {
+  id: string;
+  kind: 'workflow' | 'artifact';
+  title: string;
+  eyebrow: string;
+  description: string;
+  href: string;
+  timestamp: string;
+  mode?: AppMode | undefined;
 }
 
 export function buildLibraryModeCards(conversations: ConversationLike[]): LibraryModeCard[] {
@@ -64,6 +78,18 @@ function modeLabel(mode: AppMode | undefined): string {
   return mode ? mode.replace('_', ' ') : 'UNKNOWN MODE';
 }
 
+function workflowActivityDescription(mode: AppMode): string {
+  if (mode === 'DEEP_RESEARCH') return 'Research run with sources, reasoning, and synthesis available in its chat context.';
+  if (mode === 'SOCIAL_WRITING') return 'Social writing workflow with reusable platform draft context.';
+  if (mode === 'IMAGE_GENERATION') return 'Image generation workflow output and prompt context.';
+  if (mode === 'VIDEO_GENERATION') return 'Video generation workflow output and prompt context.';
+  return 'Chat workflow with reusable answer context.';
+}
+
+function sortTimestampDesc<T extends { timestamp: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+}
+
 function sizeLabel(sizeBytes: number): string {
   if (sizeBytes < 1024) return `${sizeBytes} B`;
   return `${(sizeBytes / 1024).toFixed(1)} KB`;
@@ -95,6 +121,38 @@ export function buildLibraryArtifactRows(artifacts: ArtifactItem[]): LibraryArti
     conversationHref: `/chats/${artifact.conversationId}`,
     preview: textPreview(artifact.content),
   }));
+}
+
+export function buildRecentActivityItems(
+  conversations: ConversationLike[],
+  artifacts: ArtifactItem[],
+  limit = 8,
+): RecentActivityItem[] {
+  const workflowItems: RecentActivityItem[] = conversations
+    .filter((conversation): conversation is ConversationLike & { id: string; updatedAt: string } => Boolean(conversation.id && conversation.updatedAt))
+    .map((conversation) => ({
+      id: `workflow-${conversation.id}`,
+      kind: 'workflow',
+      title: conversation.title?.trim() || 'Untitled workflow',
+      eyebrow: `${modeLabel(conversation.mode)} run`,
+      description: workflowActivityDescription(conversation.mode),
+      href: `/chats/${conversation.id}`,
+      timestamp: conversation.updatedAt,
+      mode: conversation.mode,
+    }));
+
+  const artifactItems: RecentActivityItem[] = artifacts.map((artifact) => ({
+    id: `artifact-${artifact.id}`,
+    kind: 'artifact',
+    title: artifact.filename,
+    eyebrow: 'Saved artifact',
+    description: `${artifact.conversationTitle ?? 'Untitled output'} · ${modeLabel(artifact.conversationMode)}`,
+    href: `/chats/${artifact.conversationId}`,
+    timestamp: artifact.createdAt,
+    mode: artifact.conversationMode,
+  }));
+
+  return sortTimestampDesc([...artifactItems, ...workflowItems]).slice(0, limit);
 }
 
 export function filterLibraryArtifacts(artifacts: ArtifactItem[], query: string): ArtifactItem[] {
