@@ -47,6 +47,27 @@ export interface RecentActivityItem {
   mode?: AppMode | undefined;
 }
 
+export interface SkillRunHealthStats {
+  totalRuns: number;
+  completedRuns: number;
+  activeRuns: number;
+  failedRuns: number;
+  latestRunAt: string | null;
+}
+
+export interface SkillRunHistoryRow {
+  id: string;
+  skillName: string;
+  modeLabel: string;
+  statusLabel: string;
+  statusTone: 'success' | 'warning' | 'danger' | 'neutral';
+  summary: string;
+  durationLabel: string;
+  timestamp: string;
+  href: string;
+  metrics: string[];
+}
+
 function buildSkillRunModeByConversationId(skillRuns: SkillRunSummary[]): Map<string, AppMode> {
   const byConversationId = new Map<string, { mode: AppMode; timestamp: string }>();
 
@@ -126,6 +147,100 @@ export function buildLibraryOverviewStats(conversations: ConversationLike[], art
 
 function modeLabel(mode: AppMode | undefined): string {
   return mode ? mode.replace('_', ' ') : 'UNKNOWN MODE';
+}
+
+function readNumericMetric(observability: Record<string, unknown> | null, key: string): number | null {
+  const value = observability?.[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function durationLabel(durationMs: number | null | undefined): string {
+  if (durationMs == null) return '—';
+  const seconds = Math.max(0, Math.round(durationMs / 1000));
+  if (seconds < 90) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return remainingSeconds ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
+}
+
+function compactNumber(value: number): string {
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
+  return String(value);
+}
+
+function skillRunStatusLabel(status: SkillRunSummary['status']): string {
+  if (status === 'completed') return 'Completed';
+  if (status === 'failed') return 'Failed';
+  if (status === 'running') return 'Running';
+  return 'Pending';
+}
+
+function skillRunStatusTone(status: SkillRunSummary['status']): SkillRunHistoryRow['statusTone'] {
+  if (status === 'completed') return 'success';
+  if (status === 'failed') return 'danger';
+  if (status === 'running') return 'warning';
+  return 'neutral';
+}
+
+function skillRunMetrics(observability: Record<string, unknown> | null): string[] {
+  const metrics: string[] = [];
+  const sourceCount = readNumericMetric(observability, 'sourceCount');
+  const newSourceCount = readNumericMetric(observability, 'newSourceCount');
+  const planLength = readNumericMetric(observability, 'planLength');
+  const estimatedTokens = readNumericMetric(observability, 'estimatedTokens');
+  const synthesisDurationMs = readNumericMetric(observability, 'synthesisDurationMs');
+  const postCount = readNumericMetric(observability, 'postCount');
+  const promptLength = readNumericMetric(observability, 'promptLength');
+
+  if (sourceCount != null) metrics.push(`${sourceCount} sources`);
+  if (newSourceCount != null) metrics.push(`${newSourceCount} new`);
+  if (planLength != null) metrics.push(`${planLength} plan steps`);
+  if (estimatedTokens != null) metrics.push(`${compactNumber(estimatedTokens)} tokens`);
+  if (synthesisDurationMs != null) metrics.push(`${durationLabel(synthesisDurationMs)} synthesis`);
+  if (postCount != null) metrics.push(`${postCount} posts`);
+  if (promptLength != null) metrics.push(`${promptLength} prompt chars`);
+
+  const platforms = observability?.platforms;
+  if (Array.isArray(platforms) && platforms.length) metrics.push(`${platforms.length} platforms`);
+
+  return metrics;
+}
+
+function skillRunSummary(run: SkillRunSummary): string {
+  if (run.status === 'failed') return run.errorMessage ?? 'Run failed before producing an output.';
+  if (run.status === 'running') return 'Run is currently in progress.';
+  if (run.status === 'pending') return 'Run is queued and waiting to start.';
+  const sourceCount = readNumericMetric(run.observability, 'sourceCount');
+  if (sourceCount != null) return `Completed with ${sourceCount} sources.`;
+  return 'Completed skill run.';
+}
+
+export function buildSkillRunHealthStats(skillRuns: SkillRunSummary[]): SkillRunHealthStats {
+  const timestampValues = skillRuns.map((run) => run.completedAt ?? run.startedAt);
+  return {
+    totalRuns: skillRuns.length,
+    completedRuns: skillRuns.filter((run) => run.status === 'completed').length,
+    activeRuns: skillRuns.filter((run) => run.status === 'pending' || run.status === 'running').length,
+    failedRuns: skillRuns.filter((run) => run.status === 'failed').length,
+    latestRunAt: timestampValues.length ? sortTimestampDesc(timestampValues.map((timestamp) => ({ timestamp })))[0]?.timestamp ?? null : null,
+  };
+}
+
+export function buildSkillRunHistoryRows(skillRuns: SkillRunSummary[], limit = 6): SkillRunHistoryRow[] {
+  return sortTimestampDesc(skillRuns.map((run) => ({ run, timestamp: run.completedAt ?? run.startedAt })))
+    .slice(0, limit)
+    .map(({ run, timestamp }) => ({
+      id: run.id,
+      skillName: run.skillName,
+      modeLabel: modeLabel(run.mode),
+      statusLabel: skillRunStatusLabel(run.status),
+      statusTone: skillRunStatusTone(run.status),
+      summary: skillRunSummary(run),
+      durationLabel: durationLabel(run.durationMs),
+      timestamp,
+      href: run.conversationId ? `/chats/${run.conversationId}` : '/',
+      metrics: skillRunMetrics(run.observability),
+    }));
 }
 
 function workflowActivityDescription(mode: AppMode): string {

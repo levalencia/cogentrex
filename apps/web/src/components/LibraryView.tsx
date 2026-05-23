@@ -10,6 +10,8 @@ import {
   buildLibraryModeCards,
   buildLibraryOverviewStats,
   buildRecentActivityItems,
+  buildSkillRunHealthStats,
+  buildSkillRunHistoryRows,
   filterLibraryArtifacts,
   getLibraryArtifactMode,
   mergeLibraryArtifacts,
@@ -22,6 +24,13 @@ function formatDate(value: string): string {
 
 function findArtifact(artifacts: ArtifactItem[], artifactId: string | null): ArtifactItem | undefined {
   return artifacts.find((artifact) => artifact.id === artifactId) ?? artifacts[0];
+}
+
+function runStatusClass(tone: 'success' | 'warning' | 'danger' | 'neutral'): string {
+  if (tone === 'success') return 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200';
+  if (tone === 'warning') return 'border-amber-400/30 bg-amber-400/10 text-amber-200';
+  if (tone === 'danger') return 'border-rose-400/30 bg-rose-400/10 text-rose-200';
+  return 'border-slate-600 bg-slate-800/60 text-slate-300';
 }
 
 export function LibraryView() {
@@ -48,6 +57,8 @@ export function LibraryView() {
   const selectedArtifact = findArtifact(filteredArtifacts, selectedArtifactId);
   const selectedArtifactMode = selectedArtifact ? getLibraryArtifactMode(selectedArtifact, skillRuns) : undefined;
   const recentActivity = buildRecentActivityItems(conversations, mergedArtifacts, skillRuns, 8);
+  const skillRunStats = buildSkillRunHealthStats(skillRuns);
+  const skillRunRows = buildSkillRunHistoryRows(skillRuns, 6);
 
   useEffect(() => {
     let cancelled = false;
@@ -164,6 +175,81 @@ export function LibraryView() {
             </article>
           ))}
         </div>
+
+        <section className="mt-6 rounded-3xl border border-line bg-panel/80 p-5 shadow-xl shadow-black/20">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-accent">Run history</p>
+              <h2 className="mt-2 text-lg font-semibold text-white">Skill runs as auditable work units</h2>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+                Status, duration, and observability signals for the workflows that feed Library and Recent activity.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+              <div className="rounded-2xl border border-line bg-ink/50 px-3 py-2">
+                <p className="uppercase tracking-[0.16em] text-slate-600">Total</p>
+                <p className="mt-1 text-lg font-semibold text-white">{skillRunStats.totalRuns}</p>
+              </div>
+              <div className="rounded-2xl border border-amber-400/20 bg-amber-400/5 px-3 py-2">
+                <p className="uppercase tracking-[0.16em] text-amber-200/60">Active</p>
+                <p className="mt-1 text-lg font-semibold text-amber-100">{skillRunStats.activeRuns}</p>
+              </div>
+              <div className="rounded-2xl border border-rose-400/20 bg-rose-400/5 px-3 py-2">
+                <p className="uppercase tracking-[0.16em] text-rose-200/60">Failed</p>
+                <p className="mt-1 text-lg font-semibold text-rose-100">{skillRunStats.failedRuns}</p>
+              </div>
+              <div className="rounded-2xl border border-line bg-ink/50 px-3 py-2">
+                <p className="uppercase tracking-[0.16em] text-slate-600">Latest</p>
+                <p className="mt-1 text-sm font-semibold text-white">{skillRunStats.latestRunAt ? formatDate(skillRunStats.latestRunAt) : '—'}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 xl:grid-cols-2">
+            {isLoadingArtifacts && !skillRunRows.length ? (
+              <div className="rounded-2xl border border-dashed border-line p-5 text-sm text-slate-500">
+                Loading run history…
+              </div>
+            ) : skillRunRows.length ? skillRunRows.map((run) => (
+              <button
+                key={run.id}
+                type="button"
+                onClick={() => router.push(run.href)}
+                className="rounded-2xl border border-line bg-ink/50 p-4 text-left transition hover:border-accent/60 hover:bg-accent/5"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] ${runStatusClass(run.statusTone)}`}>
+                        {run.statusLabel}
+                      </span>
+                      <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">{run.modeLabel}</p>
+                    </div>
+                    <p className="mt-2 truncate text-sm font-semibold text-white">{run.skillName}</p>
+                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{run.summary}</p>
+                  </div>
+                  <div className="shrink-0 text-right text-xs text-slate-500">
+                    <p>{formatDate(run.timestamp)}</p>
+                    <p className="mt-1 text-slate-600">{run.durationLabel}</p>
+                  </div>
+                </div>
+                {run.metrics.length ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {run.metrics.map((metric) => (
+                      <span key={metric} className="rounded-full border border-line bg-black/20 px-2 py-1 text-[10px] text-slate-400">
+                        {metric}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+              </button>
+            )) : (
+              <div className="rounded-2xl border border-dashed border-line p-5 text-sm text-slate-500">
+                No skill runs yet. Launch a workflow to start building an auditable run ledger.
+              </div>
+            )}
+          </div>
+        </section>
 
         <div className="mt-6 grid gap-6 2xl:grid-cols-[0.9fr_1.3fr]">
           <section className="rounded-3xl border border-line bg-panel/80 p-5">

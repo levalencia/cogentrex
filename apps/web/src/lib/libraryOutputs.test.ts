@@ -5,6 +5,8 @@ import {
   buildLibraryModeCards,
   buildLibraryOverviewStats,
   buildRecentActivityItems,
+  buildSkillRunHealthStats,
+  buildSkillRunHistoryRows,
   filterLibraryArtifacts,
   mergeLibraryArtifacts,
 } from './libraryOutputs';
@@ -382,6 +384,140 @@ describe('buildRecentActivityItems', () => {
 
     expect(items).toHaveLength(1);
     expect(items[0]?.title).toBe('Two');
+  });
+});
+
+describe('buildSkillRunHealthStats', () => {
+  it('summarizes run health by status and latest run timestamp', () => {
+    const stats = buildSkillRunHealthStats([
+      {
+        id: 'run-1',
+        userId: 'user-1',
+        skillId: 'skill-1',
+        skillSlug: 'deep-research-default',
+        skillName: 'Deep Research',
+        mode: 'DEEP_RESEARCH',
+        status: 'completed',
+        conversationId: 'conv-1',
+        jobId: 'job-1',
+        providerId: 'provider-1',
+        startedAt: '2026-05-22T20:01:00.000Z',
+        completedAt: '2026-05-22T20:04:00.000Z',
+        durationMs: 180000,
+        errorMessage: null,
+        observability: { sourceCount: 4 },
+      },
+      {
+        id: 'run-2',
+        userId: 'user-1',
+        skillId: 'skill-2',
+        skillSlug: 'social-writer',
+        skillName: 'Social Writer',
+        mode: 'SOCIAL_WRITING',
+        status: 'failed',
+        conversationId: 'conv-2',
+        jobId: null,
+        providerId: 'provider-2',
+        startedAt: '2026-05-22T20:06:00.000Z',
+        completedAt: '2026-05-22T20:07:00.000Z',
+        durationMs: 60000,
+        errorMessage: 'Provider unavailable',
+        observability: { phase: 'failed' },
+      },
+      {
+        id: 'run-3',
+        userId: 'user-1',
+        skillId: 'skill-3',
+        skillSlug: 'image-studio',
+        skillName: 'Image Studio',
+        mode: 'IMAGE_GENERATION',
+        status: 'running',
+        conversationId: 'conv-3',
+        jobId: null,
+        providerId: 'provider-3',
+        startedAt: '2026-05-22T20:09:00.000Z',
+        completedAt: null,
+        durationMs: null,
+        errorMessage: null,
+        observability: { type: 'image' },
+      },
+    ]);
+
+    expect(stats).toEqual({
+      totalRuns: 3,
+      completedRuns: 1,
+      activeRuns: 1,
+      failedRuns: 1,
+      latestRunAt: '2026-05-22T20:09:00.000Z',
+    });
+  });
+});
+
+describe('buildSkillRunHistoryRows', () => {
+  it('turns skill runs into auditable rows with status, duration, metrics, and drill-down links', () => {
+    const rows = buildSkillRunHistoryRows([
+      {
+        id: 'run-1',
+        userId: 'user-1',
+        skillId: 'skill-1',
+        skillSlug: 'deep-research-default',
+        skillName: 'Deep Research',
+        mode: 'DEEP_RESEARCH',
+        status: 'completed',
+        conversationId: 'conv-1',
+        jobId: 'job-1',
+        providerId: 'provider-1',
+        startedAt: '2026-05-22T20:01:00.000Z',
+        completedAt: '2026-05-22T20:04:00.000Z',
+        durationMs: 180000,
+        errorMessage: null,
+        observability: {
+          sourceCount: 4,
+          newSourceCount: 3,
+          planLength: 5,
+          estimatedTokens: 1234,
+          synthesisDurationMs: 45000,
+        },
+      },
+      {
+        id: 'run-2',
+        userId: 'user-1',
+        skillId: 'skill-2',
+        skillSlug: 'social-writer',
+        skillName: 'Social Writer',
+        mode: 'SOCIAL_WRITING',
+        status: 'failed',
+        conversationId: null,
+        jobId: null,
+        providerId: null,
+        startedAt: '2026-05-22T20:05:00.000Z',
+        completedAt: '2026-05-22T20:06:00.000Z',
+        durationMs: 60000,
+        errorMessage: 'Provider unavailable',
+        observability: { phase: 'failed' },
+      },
+    ]);
+
+    expect(rows.map((row) => row.id)).toEqual(['run-2', 'run-1']);
+    expect(rows[0]).toEqual(expect.objectContaining({
+      skillName: 'Social Writer',
+      statusLabel: 'Failed',
+      statusTone: 'danger',
+      durationLabel: '60s',
+      href: '/',
+      summary: 'Provider unavailable',
+    }));
+    expect(rows[1]).toEqual(expect.objectContaining({
+      skillName: 'Deep Research',
+      modeLabel: 'DEEP RESEARCH',
+      statusLabel: 'Completed',
+      statusTone: 'success',
+      durationLabel: '3m',
+      href: '/chats/conv-1',
+      timestamp: '2026-05-22T20:04:00.000Z',
+      summary: 'Completed with 4 sources.',
+    }));
+    expect(rows[1]?.metrics).toEqual(['4 sources', '3 new', '5 plan steps', '1.2k tokens', '45s synthesis']);
   });
 });
 
