@@ -47,11 +47,36 @@ export interface RecentActivityItem {
   mode?: AppMode | undefined;
 }
 
-export function buildLibraryModeCards(conversations: ConversationLike[]): LibraryModeCard[] {
-  const research = conversations.filter((conversation) => conversation.mode === 'DEEP_RESEARCH').length;
-  const social = conversations.filter((conversation) => conversation.mode === 'SOCIAL_WRITING').length;
-  const media = conversations.filter((conversation) => conversation.mode === 'IMAGE_GENERATION' || conversation.mode === 'VIDEO_GENERATION').length;
-  const chat = conversations.filter((conversation) => conversation.mode === 'CHAT').length;
+function buildSkillRunModeByConversationId(skillRuns: SkillRunSummary[]): Map<string, AppMode> {
+  const byConversationId = new Map<string, { mode: AppMode; timestamp: string }>();
+
+  for (const run of skillRuns) {
+    if (!run.conversationId || run.status !== 'completed') continue;
+    const timestamp = run.completedAt ?? run.startedAt;
+    const existing = byConversationId.get(run.conversationId);
+    if (!existing || new Date(timestamp).getTime() > new Date(existing.timestamp).getTime()) {
+      byConversationId.set(run.conversationId, { mode: run.mode, timestamp });
+    }
+  }
+
+  return new Map(Array.from(byConversationId.entries()).map(([conversationId, value]) => [conversationId, value.mode]));
+}
+
+function effectiveConversationMode(conversation: ConversationLike, skillRunsByConversationId: Map<string, AppMode>): AppMode {
+  return conversation.id ? skillRunsByConversationId.get(conversation.id) ?? conversation.mode : conversation.mode;
+}
+
+function effectiveArtifactMode(artifact: ArtifactItem, skillRunsByConversationId: Map<string, AppMode>): AppMode | undefined {
+  return skillRunsByConversationId.get(artifact.conversationId) ?? artifact.conversationMode;
+}
+
+export function buildLibraryModeCards(conversations: ConversationLike[], skillRuns: SkillRunSummary[] = []): LibraryModeCard[] {
+  const skillRunsByConversationId = buildSkillRunModeByConversationId(skillRuns);
+  const modes = conversations.map((conversation) => effectiveConversationMode(conversation, skillRunsByConversationId));
+  const research = modes.filter((mode) => mode === 'DEEP_RESEARCH').length;
+  const social = modes.filter((mode) => mode === 'SOCIAL_WRITING').length;
+  const media = modes.filter((mode) => mode === 'IMAGE_GENERATION' || mode === 'VIDEO_GENERATION').length;
+  const chat = modes.filter((mode) => mode === 'CHAT').length;
 
   return [
     {
@@ -181,15 +206,23 @@ function mergeArtifact(existing: ArtifactItem, incoming: ArtifactItem): Artifact
   };
 }
 
-export function buildLibraryArtifactRows(artifacts: ArtifactItem[]): LibraryArtifactRow[] {
-  return artifacts.map((artifact) => ({
-    id: artifact.id,
-    filename: artifact.filename,
-    subtitle: `${artifact.conversationTitle ?? 'Untitled output'} · ${modeLabel(artifact.conversationMode)}`,
-    sizeLabel: sizeLabel(artifact.sizeBytes),
-    conversationHref: `/chats/${artifact.conversationId}`,
-    preview: textPreview(artifact.content),
-  }));
+export function getLibraryArtifactMode(artifact: ArtifactItem, skillRuns: SkillRunSummary[] = []): AppMode | undefined {
+  return effectiveArtifactMode(artifact, buildSkillRunModeByConversationId(skillRuns));
+}
+
+export function buildLibraryArtifactRows(artifacts: ArtifactItem[], skillRuns: SkillRunSummary[] = []): LibraryArtifactRow[] {
+  const skillRunsByConversationId = buildSkillRunModeByConversationId(skillRuns);
+  return artifacts.map((artifact) => {
+    const mode = effectiveArtifactMode(artifact, skillRunsByConversationId);
+    return {
+      id: artifact.id,
+      filename: artifact.filename,
+      subtitle: `${artifact.conversationTitle ?? 'Untitled output'} · ${modeLabel(mode)}`,
+      sizeLabel: sizeLabel(artifact.sizeBytes),
+      conversationHref: `/chats/${artifact.conversationId}`,
+      preview: textPreview(artifact.content),
+    };
+  });
 }
 
 export function buildRecentActivityItems(

@@ -11,6 +11,7 @@ import {
   buildLibraryOverviewStats,
   buildRecentActivityItems,
   filterLibraryArtifacts,
+  getLibraryArtifactMode,
   mergeLibraryArtifacts,
 } from '@/lib/libraryOutputs';
 import { api } from '@/lib/api';
@@ -33,7 +34,7 @@ export function LibraryView() {
   const [artifactQuery, setArtifactQuery] = useState('');
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
-  const cards = buildLibraryModeCards(conversations);
+  const cards = buildLibraryModeCards(conversations, skillRuns);
   const mergedArtifacts = useMemo(
     () => mergeLibraryArtifacts(libraryArtifacts, workspaceArtifacts),
     [libraryArtifacts, workspaceArtifacts],
@@ -43,8 +44,9 @@ export function LibraryView() {
     () => filterLibraryArtifacts(mergedArtifacts, artifactQuery),
     [mergedArtifacts, artifactQuery],
   );
-  const artifactRows = buildLibraryArtifactRows(filteredArtifacts);
+  const artifactRows = buildLibraryArtifactRows(filteredArtifacts, skillRuns);
   const selectedArtifact = findArtifact(filteredArtifacts, selectedArtifactId);
+  const selectedArtifactMode = selectedArtifact ? getLibraryArtifactMode(selectedArtifact, skillRuns) : undefined;
   const recentActivity = buildRecentActivityItems(conversations, mergedArtifacts, skillRuns, 8);
 
   useEffect(() => {
@@ -250,7 +252,7 @@ export function LibraryView() {
                       <p className="text-xs uppercase tracking-[0.2em] text-accent">Preview</p>
                       <h3 className="mt-2 truncate text-xl font-semibold text-white">{selectedArtifact.filename}</h3>
                       <p className="mt-1 text-xs text-slate-500">
-                        {selectedArtifact.conversationTitle ?? 'Untitled output'} · {selectedArtifact.conversationMode?.replace('_', ' ') ?? 'Unknown mode'}
+                        {selectedArtifact.conversationTitle ?? 'Untitled output'} · {selectedArtifactMode?.replace('_', ' ') ?? 'Unknown mode'}
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
