@@ -24,6 +24,7 @@ import {
   getLauncherPlaceholder,
   getLauncherToneClasses,
   getReadinessBadgeClasses,
+  summarizeLauncherReadiness,
   type LauncherItem,
 } from '@/lib/workflowLauncher';
 import { buildResearchWorkspaceCards, type ResearchWorkspaceStatus } from '@/lib/researchWorkspace';
@@ -262,15 +263,30 @@ function WorkflowLauncher({
   onSelect: (item: LauncherItem) => void;
 }) {
   const workflows = skillReadiness ? applyLauncherReadiness(getLauncherItems(), skillReadiness) : getLauncherItems();
+  const readinessSummary = skillReadiness ? summarizeLauncherReadiness(workflows) : null;
+  const readinessPills = readinessSummary ? [
+    { id: 'ready', label: 'Ready', count: readinessSummary.ready },
+    { id: 'degraded', label: 'Limited', count: readinessSummary.degraded },
+    { id: 'missing', label: 'Needs setup', count: readinessSummary.missing },
+    { id: 'unconfigured', label: 'Unpublished', count: readinessSummary.unconfigured },
+  ] as const : [];
 
   return (
     <section className="rounded-2xl border border-line bg-ink/40 p-2">
-      <div className="mb-2 flex items-center justify-between px-1">
+      <div className="mb-2 flex flex-wrap items-start justify-between gap-3 px-1">
         <div>
-          <p className="text-[10px] uppercase tracking-[0.22em] text-accent">Skill launcher</p>
-          <p className="text-xs text-slate-500">Pick a focused workflow. No marketplace sprawl.</p>
+          <p className="text-[10px] uppercase tracking-[0.22em] text-accent">Skill cockpit</p>
+          <p className="text-xs text-slate-500">Pick a focused workflow. Readiness is checked from live backend capability config.</p>
         </div>
-        <span className="hidden rounded-full border border-line px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-500 sm:inline-flex">Chat-first</span>
+        <div className="flex flex-wrap justify-end gap-1.5">
+          {readinessSummary ? readinessPills.map((pill) => (
+            <span key={pill.id} className={`rounded-full border px-2 py-1 text-[10px] uppercase tracking-[0.14em] ${getReadinessBadgeClasses(pill.id)}`}>
+              {pill.count} {pill.label}
+            </span>
+          )) : (
+            <span className="rounded-full border border-line px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-500">Checking readiness</span>
+          )}
+        </div>
       </div>
       <div className="grid w-full gap-2 md:grid-cols-2 xl:grid-cols-3">
         {workflows.map((workflow) => {

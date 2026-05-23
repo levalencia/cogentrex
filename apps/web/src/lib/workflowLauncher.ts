@@ -9,6 +9,13 @@ export interface LauncherReadinessBadge {
   message: string;
 }
 
+export interface LauncherReadinessSummary {
+  ready: number;
+  degraded: number;
+  missing: number;
+  unconfigured: number;
+}
+
 export interface LauncherItem {
   id: string;
   label: string;
@@ -146,6 +153,14 @@ export function getReadinessBadgeClasses(status: LauncherReadinessBadge['status'
     unconfigured: 'border-slate-500/30 bg-slate-500/10 text-slate-300',
   };
   return classes[status];
+}
+
+export function summarizeLauncherReadiness(items: LauncherItem[]): LauncherReadinessSummary {
+  return items.reduce<LauncherReadinessSummary>((summary, item) => {
+    const status = item.readiness?.status ?? 'unconfigured';
+    summary[status] += 1;
+    return summary;
+  }, { ready: 0, degraded: 0, missing: 0, unconfigured: 0 });
 }
 
 function summarizeReadiness(readiness: SkillReadiness): LauncherReadinessBadge {
