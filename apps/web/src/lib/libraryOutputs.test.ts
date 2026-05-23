@@ -59,6 +59,66 @@ describe('buildLibraryModeCards', () => {
       ['chat', 0],
     ]);
   });
+
+  it('uses active Deep Research skill runs to type stale chat conversations before completion', () => {
+    const cards = buildLibraryModeCards([
+      { id: 'conv-running-research', title: 'Started as chat', mode: 'CHAT', updatedAt: '2026-05-22T20:00:00.000Z' },
+    ], [
+      {
+        id: 'run-running',
+        userId: 'user-1',
+        skillId: 'skl_deep_research',
+        skillSlug: 'deep-research',
+        skillName: 'Deep Research',
+        mode: 'DEEP_RESEARCH',
+        status: 'running',
+        conversationId: 'conv-running-research',
+        jobId: 'job-1',
+        providerId: 'provider-1',
+        startedAt: '2026-05-22T20:00:00.000Z',
+        completedAt: null,
+        durationMs: null,
+        errorMessage: null,
+        observability: { phase: 'searching' },
+      },
+    ]);
+
+    expect(cards.map((card) => [card.id, card.count])).toEqual([
+      ['research', 1],
+      ['social', 0],
+      ['media', 0],
+      ['chat', 0],
+    ]);
+  });
+
+  it('counts standalone Deep Research skill runs in library output buckets', () => {
+    const cards = buildLibraryModeCards([], [
+      {
+        id: 'run-standalone',
+        userId: 'user-1',
+        skillId: 'skl_deep_research',
+        skillSlug: 'deep-research',
+        skillName: 'Deep Research',
+        mode: 'DEEP_RESEARCH',
+        status: 'completed',
+        conversationId: null,
+        jobId: 'job-1',
+        providerId: 'provider-1',
+        startedAt: '2026-05-22T20:00:00.000Z',
+        completedAt: '2026-05-22T20:03:00.000Z',
+        durationMs: 180000,
+        errorMessage: null,
+        observability: { sourceCount: 3 },
+      },
+    ]);
+
+    expect(cards.map((card) => [card.id, card.count])).toEqual([
+      ['research', 1],
+      ['social', 0],
+      ['media', 0],
+      ['chat', 0],
+    ]);
+  });
 });
 
 describe('buildLibraryOverviewStats', () => {
@@ -331,6 +391,47 @@ describe('buildRecentActivityItems', () => {
     ]);
     expect(items[0]?.href).toBe('/chats/conv-2');
     expect(items[1]?.description).toBe('Market research · DEEP RESEARCH');
+  });
+
+  it('labels recent saved artifacts by Deep Research skill run mode when artifact mode is stale', () => {
+    const items = buildRecentActivityItems(
+      [],
+      [
+        {
+          id: 'art-stale',
+          filename: 'Research answer.md',
+          type: 'text/markdown',
+          sizeBytes: 1536,
+          conversationId: 'conv-stale',
+          messageId: 'msg-1',
+          content: '# Research answer',
+          createdAt: '2026-05-22T20:04:00.000Z',
+          conversationTitle: 'Started as chat',
+          conversationMode: 'CHAT',
+        },
+      ],
+      [
+        {
+          id: 'run-1',
+          userId: 'user-1',
+          skillId: 'skl_deep_research',
+          skillSlug: 'deep-research',
+          skillName: 'Deep Research',
+          mode: 'DEEP_RESEARCH',
+          status: 'completed',
+          conversationId: 'conv-stale',
+          jobId: 'job-1',
+          providerId: 'provider-1',
+          startedAt: '2026-05-22T20:00:00.000Z',
+          completedAt: '2026-05-22T20:03:00.000Z',
+          durationMs: 180000,
+          errorMessage: null,
+          observability: { sourceCount: 3 },
+        },
+      ],
+    );
+
+    expect(items.find((item) => item.id === 'artifact-art-stale')?.description).toBe('Started as chat · DEEP RESEARCH');
   });
 
   it('shows skill runs as first-class recent activity without duplicating linked conversations', () => {
