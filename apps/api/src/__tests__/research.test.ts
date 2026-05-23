@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createProvider, makeTestApp, registerAndLogin } from './testApp.js';
 import { extractUrls, buildSeedContext } from '../research/researchService.js';
 import { parsePlanItem } from '../research/researchPlanner.js';
+import { FakeLanguageModelClient } from '../chat/languageModel.js';
 import { FakeWebSearchClient } from '../tools/searchClient.js';
 import type { ScrapedPage } from '../tools/searchClient.js';
 
@@ -13,6 +14,7 @@ function parseSse(text: string) {
       type: string;
       step?: string;
       name?: string;
+      content?: string;
       sources?: unknown[];
       metadata?: Record<string, unknown>;
       conversationId?: string;
@@ -138,6 +140,32 @@ describe('deep research API', () => {
     expect(artifactResponse.body.artifact).toMatchObject({
       conversationId: 'conv-chat-to-research',
       conversationMode: 'DEEP_RESEARCH',
+    });
+
+    database.close();
+  });
+
+  it('adds grounded citation fallback and citation audit diagnostics when synthesis is uncited', async () => {
+    const { agent, database } = await makeTestApp({}, {
+      llm: new FakeLanguageModelClient('Uncited synthesis without markers.'),
+    });
+    await registerAndLogin(agent);
+    await createProvider(agent);
+
+    const response = await agent
+      .post('/api/chat/stream')
+      .send({ content: 'Research agent workflow observability', mode: 'DEEP_RESEARCH' })
+      .expect(200);
+
+    const events = parseSse(response.text);
+    const done = events.at(-1);
+    expect(done?.type).toBe('done');
+    expect(done?.content).toContain('Sources consulted:');
+    expect(done?.content).toContain('[1]');
+    expect(events.find((event) => event.type === 'diagnostic' && event.name === 'citation_audit')?.metadata).toMatchObject({
+      fallbackApplied: true,
+      validCitationCount: 0,
+      sourceCount: 1,
     });
 
     database.close();

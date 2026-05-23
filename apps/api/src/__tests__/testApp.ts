@@ -2,12 +2,13 @@ import request from 'supertest';
 import { AppDatabase } from '../db/database.js';
 import { createApp } from '../app.js';
 import { FakeLanguageModelClient } from '../chat/languageModel.js';
+import type { LanguageModelClient } from '../chat/languageModel.js';
 import { FakeWebSearchClient } from '../tools/searchClient.js';
 import type { AppEnv } from '../config/env.js';
 import type { GoogleOAuthClient } from '../auth/googleOAuthClient.js';
 import { silentLogger } from '../observability/logger.js';
 
-export async function makeTestApp(overrides: Partial<AppEnv> = {}, deps: { search?: import('../tools/searchClient.js').WebSearchClient; googleOAuth?: GoogleOAuthClient } = {}) {
+export async function makeTestApp(overrides: Partial<AppEnv> = {}, deps: { search?: import('../tools/searchClient.js').WebSearchClient; llm?: LanguageModelClient; googleOAuth?: GoogleOAuthClient } = {}) {
   const database = new AppDatabase(':memory:');
   await database.init();
   const env: AppEnv = {
@@ -30,7 +31,7 @@ export async function makeTestApp(overrides: Partial<AppEnv> = {}, deps: { searc
   };
   const appDeps = {
     database,
-    llm: new FakeLanguageModelClient('Research answer with citation [1].'),
+    llm: deps.llm ?? new FakeLanguageModelClient('Research answer with citation [1].'),
     logger: silentLogger,
     search: deps.search ?? new FakeWebSearchClient([
       {
