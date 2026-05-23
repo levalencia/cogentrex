@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAppStore } from '@/store/appStore';
+import { getReasoningPanelSummary } from '@/lib/reasoningPanel';
 
 const STEP_ICONS: Record<string, string> = {
   'Planning research': '💡',
@@ -60,6 +61,7 @@ export function ReasoningPanel() {
   if (!reasoning.length) return null;
 
   const latestStep = reasoning[reasoning.length - 1];
+  const summary = getReasoningPanelSummary({ isStreaming, latestStep: latestStep?.step });
 
   return (
     <section className="rounded-2xl border border-accent/20 bg-accent/5 overflow-hidden">
@@ -68,16 +70,16 @@ export function ReasoningPanel() {
         onClick={() => setExpanded((prev) => !prev)}
         className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-accent/5 transition-colors"
       >
-        {isStreaming ? (
+        {summary.isActive ? (
           <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-accent" />
         ) : (
           <span className="inline-block h-2 w-2 rounded-full bg-green-400" />
         )}
         <span className="text-sm font-medium text-accent">
-          {isStreaming ? 'Thinking…' : 'Thinking'}
+          {summary.statusLabel}
         </span>
         <span className="text-xs text-slate-400">
-          {latestStep?.step ?? ''}
+          {summary.stepLabel}
         </span>
         <svg
           className={`ml-auto h-4 w-4 text-slate-500 transition-transform ${expanded ? 'rotate-180' : ''}`}
