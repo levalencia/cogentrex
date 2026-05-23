@@ -5,6 +5,7 @@ import {
   getLauncherItems,
   getLauncherPlaceholder,
   getPrimaryLauncherItems,
+  summarizeLauncherReadiness,
 } from './workflowLauncher';
 
 describe('workflow launcher helpers', () => {
@@ -67,6 +68,23 @@ describe('workflow launcher helpers', () => {
       status: 'unconfigured',
       label: 'Not enabled',
       message: 'This skill is not published in the registry yet.',
+    });
+  });
+
+  it('summarizes launcher readiness for cockpit-level status pills', () => {
+    const readiness: SkillReadiness[] = [
+      skillReadiness('chat', 'ready'),
+      skillReadiness('deep-research', 'missing'),
+      skillReadiness('image-studio', 'degraded'),
+    ];
+
+    const items = applyLauncherReadiness(getLauncherItems(), readiness);
+
+    expect(summarizeLauncherReadiness(items)).toEqual({
+      ready: 1,
+      degraded: 1,
+      missing: 1,
+      unconfigured: 3,
     });
   });
 });
