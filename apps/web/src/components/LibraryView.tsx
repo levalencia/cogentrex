@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import type { ArtifactItem } from '@cogentrex/shared';
+import type { ArtifactItem, SkillRunSummary } from '@cogentrex/shared';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/store/appStore';
 import {
@@ -28,6 +28,7 @@ export function LibraryView() {
   const conversations = useAppStore((state) => state.conversations);
   const workspaceArtifacts = useAppStore((state) => state.artifacts);
   const [libraryArtifacts, setLibraryArtifacts] = useState<ArtifactItem[]>([]);
+  const [skillRuns, setSkillRuns] = useState<SkillRunSummary[]>([]);
   const [isLoadingArtifacts, setIsLoadingArtifacts] = useState(true);
   const [artifactQuery, setArtifactQuery] = useState('');
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
@@ -37,24 +38,33 @@ export function LibraryView() {
     () => mergeLibraryArtifacts(libraryArtifacts, workspaceArtifacts),
     [libraryArtifacts, workspaceArtifacts],
   );
-  const overviewStats = buildLibraryOverviewStats(conversations, mergedArtifacts);
+  const overviewStats = buildLibraryOverviewStats(conversations, mergedArtifacts, skillRuns);
   const filteredArtifacts = useMemo(
     () => filterLibraryArtifacts(mergedArtifacts, artifactQuery),
     [mergedArtifacts, artifactQuery],
   );
   const artifactRows = buildLibraryArtifactRows(filteredArtifacts);
   const selectedArtifact = findArtifact(filteredArtifacts, selectedArtifactId);
-  const recentActivity = buildRecentActivityItems(conversations, mergedArtifacts, 8);
+  const recentActivity = buildRecentActivityItems(conversations, mergedArtifacts, skillRuns, 8);
 
   useEffect(() => {
     let cancelled = false;
     setIsLoadingArtifacts(true);
-    api.listLibraryArtifacts()
-      .then(({ artifacts }) => {
-        if (!cancelled) setLibraryArtifacts(artifacts);
+    Promise.all([
+      api.listLibraryArtifacts().catch(() => ({ artifacts: [] })),
+      api.listSkillRuns().catch(() => ({ runs: [] })),
+    ])
+      .then(([artifactResult, runResult]) => {
+        if (!cancelled) {
+          setLibraryArtifacts(artifactResult.artifacts);
+          setSkillRuns(runResult.runs);
+        }
       })
       .catch(() => {
-        if (!cancelled) setLibraryArtifacts([]);
+        if (!cancelled) {
+          setLibraryArtifacts([]);
+          setSkillRuns([]);
+        }
       })
       .finally(() => {
         if (!cancelled) setIsLoadingArtifacts(false);

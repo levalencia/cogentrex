@@ -54,6 +54,7 @@ import { CapabilityService } from './capabilities/capabilityService.js';
 import { capabilityRoutes } from './capabilities/capabilityRoutes.js';
 import { SkillRepository } from './skills/skillRepository.js';
 import { SkillService } from './skills/skillService.js';
+import { SkillRunRepository } from './skills/skillRunRepository.js';
 import { adminSkillRoutes, skillRoutes } from './skills/skillRoutes.js';
 
 export interface AppDependencies {
@@ -88,7 +89,8 @@ export async function createApp(env: AppEnv, deps: AppDependencies = {}) {
   const artifactRepository = new ArtifactRepository(database.adapter);
   const artifactService = new ArtifactService(artifactRepository, logger.child({ component: 'ArtifactService' }));
 
-  const chatService = new ChatService(conversationRepository, providerService, llm, new ProviderUsageRepository(database.adapter), metricsRepository, logger.child({ component: 'ChatService' }), artifactService);
+  const skillRunRepository = new SkillRunRepository(database.adapter);
+  const chatService = new ChatService(conversationRepository, providerService, llm, new ProviderUsageRepository(database.adapter), metricsRepository, logger.child({ component: 'ChatService' }), artifactService, skillRunRepository);
   const researchJobRepository = new ResearchJobRepository(database.adapter);
   const researchSourceRepository = new ResearchSourceRepository(database.adapter);
   const channelRegistry = new ChannelRegistry();
@@ -96,7 +98,7 @@ export async function createApp(env: AppEnv, deps: AppDependencies = {}) {
   channelRegistry.register(new RedditChannelClient());
   channelRegistry.register(new RssChannelClient());
   channelRegistry.register(new YouTubeChannelClient());
-  const researchService = new ResearchService(conversationRepository, providerService, llm, search, channelRegistry, researchJobRepository, researchSourceRepository, new ProviderUsageRepository(database.adapter), metricsRepository, logger.child({ component: 'ResearchService' }));
+  const researchService = new ResearchService(conversationRepository, providerService, llm, search, channelRegistry, researchJobRepository, researchSourceRepository, skillRunRepository, new ProviderUsageRepository(database.adapter), metricsRepository, logger.child({ component: 'ResearchService' }));
 
   const mediaRepository = new MediaRepository(database.adapter);
   const apiBaseUrl = env.API_PUBLIC_BASE_URL ?? `http://localhost:${env.API_PORT}`;
@@ -104,7 +106,7 @@ export async function createApp(env: AppEnv, deps: AppDependencies = {}) {
   const googleOAuth = deps.googleOAuth ?? (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
     ? new RealGoogleOAuthClient(env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET)
     : null);
-  const mediaService = new MediaService(conversationRepository, providerService, mediaRepository, llm, logger.child({ component: 'MediaService' }), apiBaseUrl);
+  const mediaService = new MediaService(conversationRepository, providerService, mediaRepository, llm, logger.child({ component: 'MediaService' }), apiBaseUrl, skillRunRepository);
 
   const socialConfigRepository = new SocialConfigRepository(database.adapter);
   const mediaDir = env.MEDIA_DIR ?? resolve(process.cwd(), 'data', 'media');
@@ -119,6 +121,7 @@ export async function createApp(env: AppEnv, deps: AppDependencies = {}) {
     metricsRepository,
     logger.child({ component: 'SocialWritingService' }),
     mediaDir,
+    skillRunRepository,
   );
 
   const projectRepository = new ProjectRepository(database.adapter);
@@ -168,7 +171,7 @@ export async function createApp(env: AppEnv, deps: AppDependencies = {}) {
     webOrigin: env.WEB_ORIGIN,
   }));
   app.use('/api/providers', providerRoutes(authService, providerService));
-  app.use('/api/skills', skillRoutes(authService, skillService, providerService, env));
+  app.use('/api/skills', skillRoutes(authService, skillService, providerService, env, skillRunRepository));
   app.use('/api/capabilities', capabilityRoutes(authService, capabilityService));
   app.use('/api/admin/skills', adminSkillRoutes(authService, skillService));
   app.use('/api/admin', adminRoutes(authService, providerService));

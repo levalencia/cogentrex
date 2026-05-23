@@ -12,6 +12,7 @@ import { hashForLog } from '../observability/logger.js';
 import type { SocialConfigRepository } from './socialConfigRepository.js';
 import { extractUrls } from '../research/researchService.js';
 import type { WebSearchClient } from '../tools/searchClient.js';
+import type { SkillRunRepository } from '../skills/skillRunRepository.js';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -47,6 +48,7 @@ export class SocialWritingService {
     private readonly metrics: MetricsRepository,
     private readonly logger: AppLogger,
     private readonly mediaDir: string,
+    private readonly skillRuns?: SkillRunRepository,
   ) {}
 
   async generate(input: {
@@ -89,6 +91,25 @@ export class SocialWritingService {
       now,
     });
 
+    const skillRun = this.skillRuns
+      ? await this.skillRuns.safeCreate({
+          userId: input.userId,
+          skillId: 'skl_linkedin_writer',
+          skillSlug: 'linkedin-writer',
+          skillName: 'Social Writer',
+          mode: 'SOCIAL_WRITING',
+          conversationId: conversation.id,
+          providerId: provider.id,
+          observability: {
+            phase: 'started',
+            platforms: input.platforms,
+            useResearch: input.useResearch ?? false,
+          },
+        })
+      : null;
+
+    try {
+
     // Scrape any URLs pasted into the topic
     let urlContext = '';
     const urls = extractUrls(input.topic);
@@ -98,7 +119,7 @@ export class SocialWritingService {
       const failedUrls: string[] = [];
       for (const url of urls) {
         try {
-          const page = await await this.search.scrape(url);
+          const page = await this.search.scrape(url);
           if (page) {
             scrapedPages.push({ url: page.url, title: page.title, markdown: page.markdown });
           } else {
@@ -186,7 +207,28 @@ export class SocialWritingService {
       durationMs: Math.round(performance.now() - startedAt),
     }, 'social_writing_finished');
 
+    const observability = {
+      platforms: validPlatforms,
+      postCount: posts.length,
+      useResearch: input.useResearch ?? false,
+      researchContextLength: researchContext.length,
+      durationMs: Math.round(performance.now() - startedAt),
+    };
+    await this.skillRuns?.safeComplete(skillRun?.id, { status: 'completed', observability });
+
     return { conversationId: conversation.id, posts, researchContext };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Social writing failed';
+      await this.skillRuns?.safeComplete(skillRun?.id, {
+        status: 'failed',
+        errorMessage: message,
+        observability: {
+          phase: 'failed',
+          durationMs: Math.round(performance.now() - startedAt),
+        },
+      });
+      throw error;
+    }
   }
 
   private async miniResearch(userId: string, provider: ProviderRuntimeConfig, topic: string, maxSources: number): Promise<string> {
@@ -208,7 +250,7 @@ export class SocialWritingService {
       iterationCount++;
       const item = { channel: 'web' as const, query: rawQuery.replace(/^web:/, '') };
       try {
-        const results = await await this.channels.search(item.channel, item.query, Math.min(5, maxSources - sources.length + 2));
+        const results = await this.channels.search(item.channel, item.query, Math.min(5, maxSources - sources.length + 2));
         for (const result of results) {
           if (sources.length >= maxSources) break;
           if (seenUrls.has(result.url)) continue;

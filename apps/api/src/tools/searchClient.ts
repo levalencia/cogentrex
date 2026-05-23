@@ -166,6 +166,29 @@ export class CompositeWebSearchClient implements WebSearchClient {
   }
 }
 
+export class FallbackWebSearchClient implements WebSearchClient {
+  constructor(
+    private readonly primary: WebSearchClient,
+    private readonly fallback: Pick<WebSearchClient, 'search'>,
+  ) {}
+
+  get searchProviderName(): string {
+    return `${describeSearchClient(this.primary)}→${describeSearchClient(this.fallback)}`;
+  }
+
+  async search(query: string, limit: number): Promise<SearchResult[]> {
+    try {
+      return await this.primary.search(query, limit);
+    } catch {
+      return await this.fallback.search(query, limit);
+    }
+  }
+
+  scrape(url: string): Promise<ScrapedPage | null> {
+    return this.primary.scrape(url);
+  }
+}
+
 export class ScraplingFetchClient implements WebFetchClient {
   constructor(protected readonly baseUrl: string) {}
 
@@ -310,6 +333,7 @@ export class FakeWebSearchClient implements WebSearchClient {
 
 export function describeSearchClient(client: Pick<WebSearchClient, 'search'>): string {
   if (client instanceof CompositeWebSearchClient) return client.searchProviderName;
+  if (client instanceof FallbackWebSearchClient) return client.searchProviderName;
   if (client instanceof ScraplingSearchClient) return 'scrapling';
   if (client instanceof FirecrawlSearchClient) return 'firecrawl';
   if (client instanceof BraveSearchClient) return 'brave';
@@ -342,7 +366,11 @@ function createSearchClient(env: WebSearchClientEnv): WebSearchClient {
   }
 
   if (env.WEB_SEARCH_ADAPTER === 'scrapling') {
-    return env.SCRAPLING_BASE_URL ? new ScraplingSearchClient(env.SCRAPLING_BASE_URL) : new FakeWebSearchClient();
+    if (!env.SCRAPLING_BASE_URL) return new FakeWebSearchClient();
+    const scrapling = new ScraplingSearchClient(env.SCRAPLING_BASE_URL);
+    return env.FIRECRAWL_API_KEY
+      ? new FallbackWebSearchClient(scrapling, new FirecrawlSearchClient(env.FIRECRAWL_API_KEY))
+      : scrapling;
   }
 
   if (env.WEB_SEARCH_ADAPTER === 'firecrawl') {
@@ -353,12 +381,12 @@ function createSearchClient(env: WebSearchClientEnv): WebSearchClient {
     return new BraveSearchClient(env.BRAVE_SEARCH_API_KEY);
   }
 
-  if (env.SCRAPLING_BASE_URL) {
-    return new ScraplingSearchClient(env.SCRAPLING_BASE_URL);
-  }
-
   if (env.FIRECRAWL_API_KEY) {
     return new FirecrawlSearchClient(env.FIRECRAWL_API_KEY);
+  }
+
+  if (env.SCRAPLING_BASE_URL) {
+    return new ScraplingSearchClient(env.SCRAPLING_BASE_URL);
   }
 
   return new FakeWebSearchClient();

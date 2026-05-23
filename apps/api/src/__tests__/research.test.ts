@@ -102,6 +102,75 @@ describe('deep research API', () => {
     database.close();
   });
 
+  it('promotes an existing chat conversation to Deep Research so library artifacts stay correctly classified', async () => {
+    const { agent, database } = await makeTestApp();
+    const user = await registerAndLogin(agent);
+    await createProvider(agent);
+    const now = new Date('2026-05-22T20:00:00.000Z').toISOString();
+
+    await database.adapter.prepare(
+      `INSERT INTO conversations (id, user_id, title, mode, created_at, updated_at)
+       VALUES ('conv-chat-to-research', @userId, 'Started as chat', 'CHAT', @now, @now)`,
+    ).run({ userId: user.id, now });
+
+    const response = await agent
+      .post('/api/chat/stream')
+      .send({ content: 'Research current AI agent workflow tools', mode: 'DEEP_RESEARCH', conversationId: 'conv-chat-to-research' })
+      .expect(200);
+
+    const events = parseSse(response.text);
+    expect(events.at(-1)?.type).toBe('done');
+
+    const conversations = await agent.get('/api/chat/conversations').expect(200);
+    expect(conversations.body.conversations.find((conversation: { id: string; mode: string }) => conversation.id === 'conv-chat-to-research')).toMatchObject({
+      id: 'conv-chat-to-research',
+      mode: 'DEEP_RESEARCH',
+    });
+
+    const messages = await agent.get('/api/chat/conversations/conv-chat-to-research/messages').expect(200);
+    const assistant = messages.body.messages.find((message: { role: string }) => message.role === 'assistant');
+    expect(assistant?.id).toBeTruthy();
+
+    const artifactResponse = await agent
+      .post('/api/artifacts/from-message')
+      .send({ messageId: assistant.id })
+      .expect(201);
+    expect(artifactResponse.body.artifact).toMatchObject({
+      conversationId: 'conv-chat-to-research',
+      conversationMode: 'DEEP_RESEARCH',
+    });
+
+    database.close();
+  });
+
+  it('records Deep Research as an observable skill run', async () => {
+    const { agent, database } = await makeTestApp();
+    await registerAndLogin(agent);
+    await createProvider(agent);
+
+    const response = await agent
+      .post('/api/chat/stream')
+      .send({ content: 'Research AI governance checklists', mode: 'DEEP_RESEARCH' })
+      .expect(200);
+    const conversationId = parseSse(response.text).find((event) => event.type === 'start')?.conversationId;
+    expect(conversationId).toBeTruthy();
+
+    const runsResponse = await agent.get('/api/skills/runs').expect(200);
+    expect(runsResponse.body.runs[0]).toMatchObject({
+      skillSlug: 'deep-research',
+      mode: 'DEEP_RESEARCH',
+      status: 'completed',
+      conversationId,
+    });
+    expect(runsResponse.body.runs[0].durationMs).toEqual(expect.any(Number));
+    expect(runsResponse.body.runs[0].observability).toMatchObject({
+      sourceCount: 1,
+      planLength: expect.any(Number),
+    });
+
+    database.close();
+  });
+
   it('parses plan items with channel prefixes', () => {
     expect(parsePlanItem('web:test query')).toEqual({ channel: 'web', query: 'test query' });
     expect(parsePlanItem('reddit:best LLMs')).toEqual({ channel: 'reddit', query: 'best LLMs' });

@@ -11,6 +11,7 @@ import { toModelMessages } from './languageModel.js';
 import type { AppLogger } from '../observability/logger.js';
 import { hashForLog } from '../observability/logger.js';
 import type { ArtifactService } from '../artifacts/artifactService.js';
+import type { SkillRunRepository } from '../skills/skillRunRepository.js';
 import { randomBytes } from 'node:crypto';
 
 export type StreamSink = (event: StreamEvent) => void;
@@ -24,6 +25,7 @@ export class ChatService {
     private readonly metrics: MetricsRepository,
     private readonly logger: AppLogger,
     private readonly artifacts?: ArtifactService,
+    private readonly skillRuns?: SkillRunRepository,
   ) {}
 
   async listConversations(userId: string, projectId?: string | null) {
@@ -202,6 +204,27 @@ export class ChatService {
       ttftMs,
       tps,
     });
+
+    if (this.skillRuns) {
+      const observability = {
+        messageId: assistantMessageId,
+        estimatedTokens,
+        durationMs,
+        ttftMs: ttftMs ?? null,
+        tps: tps ?? null,
+      };
+      const run = await this.skillRuns.safeCreate({
+        userId: input.userId,
+        skillId: 'skl_chat',
+        skillSlug: 'chat',
+        skillName: 'Chat',
+        mode: 'CHAT',
+        conversationId: conversation.id,
+        providerId: provider.id,
+        observability,
+      });
+      await this.skillRuns.safeComplete(run?.id, { status: 'completed', observability });
+    }
 
     this.logger.info({
       userId: input.userId,

@@ -166,11 +166,11 @@ describe('createDefaultWebSearchClient', () => {
     })).toBeInstanceOf(FakeWebSearchClient);
   });
 
-  it('uses Scrapling for search and fetch when the Scrapling search adapter is configured', async () => {
+  it('uses Firecrawl search with Scrapling fetch by default when Brave is unavailable', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ results: [{ title: 'Scrapling result', url: 'https://example.com', description: 'Snippet' }] }),
+        json: async () => ({ data: [{ title: 'Firecrawl result', url: 'https://example.com/firecrawl', markdown: 'Firecrawl body' }] }),
       } as Response)
       .mockResolvedValueOnce({
         ok: true,
@@ -180,15 +180,38 @@ describe('createDefaultWebSearchClient', () => {
     const client = createDefaultWebSearchClient({
       FIRECRAWL_API_KEY: 'firecrawl-test-key',
       SCRAPLING_BASE_URL: 'http://scrapling.test:8000',
-      WEB_SEARCH_ADAPTER: 'scrapling',
+      WEB_SEARCH_ADAPTER: undefined,
       WEB_FETCH_ADAPTER: 'scrapling',
     });
 
-    expect(client).toBeInstanceOf(ScraplingSearchClient);
-    await expect(client.search('artist du monde for kids', 1)).resolves.toHaveLength(1);
+    expect(client).toBeInstanceOf(CompositeWebSearchClient);
+    await expect(client.search('artist du monde for kids', 1)).resolves.toEqual([
+      expect.objectContaining({ title: 'Firecrawl result' }),
+    ]);
     await expect(client.scrape('https://example.com')).resolves.toEqual(expect.objectContaining({ markdown: 'Fetched body' }));
 
-    expect(fetchMock.mock.calls[0]![0]).toBe('http://scrapling.test:8000/search');
+    expect(fetchMock.mock.calls[0]![0]).toBe('https://api.firecrawl.dev/v2/search');
     expect(fetchMock.mock.calls[1]![0]).toBe('http://scrapling.test:8000/fetch');
+  });
+
+  it('falls back to Firecrawl when explicitly configured Scrapling search fails', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce({ ok: false, status: 404 } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: [{ title: 'Firecrawl fallback', url: 'https://example.com/fallback', markdown: 'Fallback body' }] }),
+      } as Response);
+
+    const client = createDefaultWebSearchClient({
+      FIRECRAWL_API_KEY: 'firecrawl-test-key',
+      SCRAPLING_BASE_URL: 'http://scrapling.test:8000',
+      WEB_SEARCH_ADAPTER: 'scrapling',
+    });
+
+    await expect(client.search('artist du monde for kids', 1)).resolves.toEqual([
+      expect.objectContaining({ title: 'Firecrawl fallback' }),
+    ]);
+    expect(fetchMock.mock.calls[0]![0]).toBe('http://scrapling.test:8000/search');
+    expect(fetchMock.mock.calls[1]![0]).toBe('https://api.firecrawl.dev/v2/search');
   });
 });
