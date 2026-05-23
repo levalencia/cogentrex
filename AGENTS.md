@@ -105,12 +105,14 @@ GitHub Actions runs: `install --frozen-lockfile` → `typecheck` → `build` →
    - Check Foundry quota/usage limits
 
 #### Medium Priority
-4. **Social settings blank screen** — `/settings/social` returns HTTP 200 but user reports blank page after logout. Likely client-side hydration error or runtime exception. Need browser console logs to diagnose
-5. **Update documentation**:
+4. **Update documentation**:
    - `README.md` with product workflow and architecture overview
    - `docs/PROVIDERS.md` for admin/global provider setup guide
    - `docs/RUNBOOK.md` for Azure troubleshooting, logs, domains, image issues
    - `DEPLOYMENT.md` refresh with current custom domains and gotchas
+
+#### Fixed / Regression Watch
+- **Social settings blank screen** — fixed. Keep only as a regression/debug note in `docs/RUNBOOK.md`; do not treat it as active backlog unless reproduced again.
 
 #### New / Planned (From This Session)
 6. **Agent God Mode integration** — Add skill-assisted chat toggle
@@ -162,10 +164,9 @@ GitHub Actions runs: `install --frozen-lockfile` → `typecheck` → `build` →
 - Shared package (`@cogentrex/shared`) must be rebuilt after any schema/type changes
 
 ### Next Actions (Immediate)
-1. Review `docs/INTEGRATION_PLAN.md` and decide on Phase 1 scope
+1. Review the UI refactor master plan/design artifacts before choosing the next product slice
 2. Rotate exposed secrets
 3. Fix image generation (verify Azure Foundry deployment/quotas)
-4. Debug social settings blank screen (get browser console logs)
 
 ---
 
