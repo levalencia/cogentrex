@@ -13,6 +13,7 @@ import type { ChannelRegistry } from '../tools/channels/channelRegistry.js';
 import type { AppLogger } from '../observability/logger.js';
 import { hashForLog } from '../observability/logger.js';
 import { formatSourcesForPrompt, createSynthesisMessages } from './researchPrompts.js';
+import { ensureGroundedCitations } from './researchCitations.js';
 import { ResearchPlanner, parsePlanItem, type PlanItem } from './researchPlanner.js';
 import { ResearchJobRepository } from './researchJobRepository.js';
 import type { ResearchSourceRepository } from './researchSourceRepository.js';
@@ -368,6 +369,21 @@ export class ResearchService {
           content += delta;
           await emit({ type: 'delta', content: delta });
         }
+        const grounded = ensureGroundedCitations(content, allSources);
+        if (grounded.content !== content) {
+          const fallbackDelta = grounded.content.slice(content.length);
+          content = grounded.content;
+          if (fallbackDelta) emitLive({ type: 'delta', content: fallbackDelta });
+        }
+        await emitDiagnostic('citation_audit', 'Citation audit completed', {
+          sourceCount: allSources.length,
+          citationCount: grounded.audit.citationCount,
+          validCitationCount: grounded.audit.validCitationCount,
+          invalidCitationCount: grounded.audit.invalidCitationCount,
+          missingCitations: grounded.audit.missingCitations,
+          fallbackApplied: grounded.audit.fallbackApplied,
+        });
+
         const synthesisDuration = Math.round(performance.now() - synthesisStarted);
         const ttftMs = firstTokenAt ? Math.round(firstTokenAt - synthesisStarted) : undefined;
         const estimatedTokens = Math.round(content.length / 4);
@@ -717,6 +733,21 @@ export class ResearchService {
       this.logger.error({ conversationId: conversation.id, providerId: provider.id, model: provider.model, errorMessage: message }, 'research_synthesis_failed');
       throw error;
     }
+    const grounded = ensureGroundedCitations(content, allSources);
+    if (grounded.content !== content) {
+      const fallbackDelta = grounded.content.slice(content.length);
+      content = grounded.content;
+      if (fallbackDelta) input.emit({ type: 'delta', content: fallbackDelta });
+    }
+    emitDiagnostic('citation_audit', 'Citation audit completed', {
+      sourceCount: allSources.length,
+      citationCount: grounded.audit.citationCount,
+      validCitationCount: grounded.audit.validCitationCount,
+      invalidCitationCount: grounded.audit.invalidCitationCount,
+      missingCitations: grounded.audit.missingCitations,
+      fallbackApplied: grounded.audit.fallbackApplied,
+    });
+
     const synthesisDuration = Math.round(performance.now() - synthesisStarted);
     const ttftMs = firstTokenAt ? Math.round(firstTokenAt - synthesisStarted) : undefined;
     const estimatedTokens = Math.round(content.length / 4);
