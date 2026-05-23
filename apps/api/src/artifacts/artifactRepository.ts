@@ -1,7 +1,7 @@
 import type { DbAdapter } from '../db/adapter.js';
 import { createId } from '../utils/id.js';
 import { nowIso } from '../utils/time.js';
-import type { AppMode } from '@cogentrex/shared';
+import type { AppMode, ResearchSource } from '@cogentrex/shared';
 
 export interface ArtifactRecord {
   id: string;
@@ -61,6 +61,31 @@ function filenameFromTitle(title: string): string {
   return base.toLowerCase().endsWith('.md') ? base : `${base}.md`;
 }
 
+function isResearchSource(value: unknown): value is ResearchSource {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<ResearchSource>;
+  return typeof candidate.id === 'number' && typeof candidate.title === 'string' && typeof candidate.url === 'string';
+}
+
+function extractSources(metadataJson: string | null): ResearchSource[] {
+  if (!metadataJson) return [];
+  try {
+    const metadata = JSON.parse(metadataJson) as { sources?: unknown };
+    return Array.isArray(metadata.sources) ? metadata.sources.filter(isResearchSource) : [];
+  } catch {
+    return [];
+  }
+}
+
+function appendSources(content: string, sources: ResearchSource[]): string {
+  if (!sources.length || content.includes('## Sources')) return content;
+  const sourceLines = sources.map((source) => {
+    const snippet = source.snippet ? ` — ${source.snippet}` : '';
+    return `[${source.id}] ${source.title} — ${source.url}${snippet}`;
+  });
+  return `${content.trim()}\n\n## Sources\n\n${sourceLines.join('\n')}`;
+}
+
 export class ArtifactRepository {
   constructor(private readonly db: DbAdapter) {}
 
@@ -106,14 +131,15 @@ export class ArtifactRepository {
 
   async createFromMessage(userId: string, messageId: string): Promise<ArtifactRecord | undefined> {
     const row = await this.db.prepare(
-      `SELECT m.id AS message_id, m.conversation_id, m.content, c.title AS conversation_title, c.mode AS conversation_mode
+      `SELECT m.id AS message_id, m.conversation_id, m.content, m.metadata_json, c.title AS conversation_title, c.mode AS conversation_mode
        FROM messages m
        JOIN conversations c ON c.id = m.conversation_id
        WHERE c.user_id = ? AND m.id = ? AND m.role = 'assistant'`,
-    ).get(userId, messageId) as { message_id: string; conversation_id: string; content: string; conversation_title: string; conversation_mode: AppMode } | undefined;
+    ).get(userId, messageId) as { message_id: string; conversation_id: string; content: string; metadata_json: string | null; conversation_title: string; conversation_mode: AppMode } | undefined;
 
     if (!row) return undefined;
 
+    const content = appendSources(row.content, extractSources(row.metadata_json));
     const record = await this.create({
       userId,
       conversationId: row.conversation_id,
@@ -121,8 +147,8 @@ export class ArtifactRepository {
       type: 'text/markdown',
       filename: filenameFromTitle(row.conversation_title),
       language: 'markdown',
-      content: row.content,
-      sizeBytes: Buffer.byteLength(row.content, 'utf-8'),
+      content,
+      sizeBytes: Buffer.byteLength(content, 'utf-8'),
     });
     record.conversationTitle = row.conversation_title;
     record.conversationMode = row.conversation_mode;

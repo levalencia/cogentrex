@@ -28,7 +28,7 @@ export function SourceCards({ sources }: SourceCardsProps) {
 
   return (
     <section className="rounded-3xl border border-line bg-panel/80 p-4" id="sources">
-      <h2 className="font-semibold text-white">Sources ({sources.length})</h2>
+      <h2 className="font-semibold text-white">Referenced sources ({sources.length})</h2>
       <div className="mt-3 grid gap-3 md:grid-cols-2">
         {sources.map((source) => (
           <a

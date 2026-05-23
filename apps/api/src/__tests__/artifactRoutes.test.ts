@@ -77,10 +77,12 @@ describe('artifact routes', () => {
       type: 'text/markdown',
       filename: 'Flight research.md',
       language: 'markdown',
-      content: 'Research answer with useful source [1].',
       conversationTitle: 'Flight research',
       conversationMode: 'DEEP_RESEARCH',
     });
+    expect(response.body.artifact.content).toContain('Research answer with useful source [1].');
+    expect(response.body.artifact.content).toContain('## Sources');
+    expect(response.body.artifact.content).toContain('[1] Source — https://example.com');
 
     const listResponse = await agent.get('/api/artifacts').expect(200);
     expect(listResponse.body.artifacts).toHaveLength(1);

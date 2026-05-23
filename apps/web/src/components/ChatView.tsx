@@ -25,6 +25,7 @@ import {
   type LauncherItem,
 } from '@/lib/workflowLauncher';
 import { buildResearchWorkspaceCards, type ResearchWorkspaceStatus } from '@/lib/researchWorkspace';
+import { buildReferencedSources, linkCitationMarkers } from '@/lib/citations';
 
 // ── Helper ──────────────────────────────────────────
 function extractImageFilenameFromMarkdown(content: string): string | null {
@@ -36,27 +37,6 @@ function extractImageFilenameFromMarkdown(content: string): string | null {
 interface MessageItemProps {
   message: { id: string; conversationId: string; role: 'user' | 'assistant' | 'system' | 'tool'; content: string; metadata?: Record<string, unknown> | null };
   onEditImage: (content: string) => void;
-}
-
-function processCitations(content: string, sources: ResearchSource[]): string {
-  if (!sources.length) return content;
-  const ids = new Set(sources.map((s) => s.id));
-  return content.replace(/\[(\d+)\]/g, (match, num) => {
-    const id = parseInt(num, 10);
-    return ids.has(id) ? `[${id}](#source-${id})` : match;
-  });
-}
-
-function getCitedSources(content: string, sources: ResearchSource[] | undefined): ResearchSource[] {
-  if (!sources?.length) return [];
-  const citedIds = new Set<number>();
-  const regex = /\[(\d+)\]/g;
-  let match;
-  while ((match = regex.exec(content)) !== null) {
-    const num = match[1];
-    if (num) citedIds.add(parseInt(num, 10));
-  }
-  return sources.filter((s) => citedIds.has(s.id));
 }
 
 const MessageItem = memo(function MessageItem({ message, onEditImage }: MessageItemProps) {
@@ -94,8 +74,8 @@ const MessageItem = memo(function MessageItem({ message, onEditImage }: MessageI
   const isLoading = message.content?.includes('Generating image') || message.content?.includes('Generating video');
   const hasGeneratedImage = message.content?.includes('![Generated Image]');
   const messageSources = message.metadata?.sources as ResearchSource[] | undefined;
-  const citedSources = getCitedSources(message.content, messageSources);
-  const processedContent = citedSources.length ? processCitations(message.content, citedSources) : message.content;
+  const referencedSources = buildReferencedSources(message.content, messageSources);
+  const processedContent = referencedSources.length ? linkCitationMarkers(message.content, referencedSources) : message.content;
   const messageReasoning = toDisplayReasoningEntries(message.metadata?.reasoning);
   const canSaveArtifact = Boolean(
     message.id
@@ -137,14 +117,14 @@ const MessageItem = memo(function MessageItem({ message, onEditImage }: MessageI
               </div>
             </div>
           ) : (
-            <MarkdownMessage content={processedContent} sources={citedSources} />
+            <MarkdownMessage content={processedContent} sources={referencedSources} />
           )
         ) : (
           'Thinking...'
         )}
-        {citedSources.length ? (
+        {referencedSources.length ? (
           <div className="mt-3">
-            <SourceCards sources={citedSources} />
+            <SourceCards sources={referencedSources} />
           </div>
         ) : null}
         {messageReasoning && messageReasoning.length ? (
@@ -243,7 +223,7 @@ function MessageList({ onEditImage }: { onEditImage: (content: string) => void }
         </div>
         {lastAssistant && !isStreaming ? (
           <div className="flex items-center justify-between">
-            <ExportButtons content={lastAssistant.content} sources={getCitedSources(lastAssistant.content, (lastAssistant.metadata?.sources as ResearchSource[] | undefined) ?? [])} />
+            <ExportButtons content={lastAssistant.content} sources={buildReferencedSources(lastAssistant.content, (lastAssistant.metadata?.sources as ResearchSource[] | undefined) ?? [])} />
           </div>
         ) : null}
         {error ? <p className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</p> : null}
