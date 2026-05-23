@@ -6,6 +6,7 @@ import {
   buildLibraryOverviewStats,
   buildRecentActivityItems,
   filterLibraryArtifacts,
+  mergeLibraryArtifacts,
 } from './libraryOutputs';
 
 describe('buildLibraryModeCards', () => {
@@ -54,6 +55,107 @@ describe('buildLibraryOverviewStats', () => {
       savedPerWorkflowLabel: '0.5',
       latestActivityAt: '2026-05-22T20:05:00.000Z',
     });
+  });
+});
+
+describe('mergeLibraryArtifacts', () => {
+  it('combines fetched library artifacts with newly saved workspace artifacts without duplicates', () => {
+    const fetched = [
+      {
+        id: 'art-1',
+        filename: 'Fetched.md',
+        type: 'text/markdown',
+        sizeBytes: 20,
+        conversationId: 'conv-1',
+        messageId: 'msg-1',
+        content: 'Fetched',
+        createdAt: '2026-05-22T20:01:00.000Z',
+      },
+    ];
+    const liveSaved = [
+      fetched[0]!,
+      {
+        id: 'art-2',
+        filename: 'Just saved.md',
+        type: 'text/markdown',
+        sizeBytes: 30,
+        conversationId: 'conv-2',
+        messageId: 'msg-2',
+        content: 'Just saved',
+        createdAt: '2026-05-22T20:02:00.000Z',
+      },
+    ];
+
+    expect(mergeLibraryArtifacts(fetched, liveSaved).map((artifact) => artifact.id)).toEqual(['art-2', 'art-1']);
+  });
+
+  it('preserves fetched conversation metadata when merging a less-complete workspace copy', () => {
+    const merged = mergeLibraryArtifacts([
+      {
+        id: 'art-1',
+        filename: 'Brief.md',
+        type: 'text/markdown',
+        sizeBytes: 20,
+        conversationId: 'conv-1',
+        messageId: 'msg-1',
+        content: 'Brief',
+        createdAt: '2026-05-22T20:01:00.000Z',
+        conversationTitle: 'Research brief',
+        conversationMode: 'DEEP_RESEARCH',
+      },
+    ], [
+      {
+        id: 'art-1',
+        filename: 'Brief.md',
+        type: 'text/markdown',
+        sizeBytes: 20,
+        conversationId: 'conv-1',
+        messageId: 'msg-1',
+        content: 'Brief',
+        createdAt: '2026-05-22T20:01:00.000Z',
+      },
+    ]);
+
+    expect(merged[0]).toEqual(expect.objectContaining({
+      id: 'art-1',
+      conversationTitle: 'Research brief',
+      conversationMode: 'DEEP_RESEARCH',
+    }));
+  });
+
+  it('deduplicates live workspace artifacts once the persisted library artifact is fetched', () => {
+    const merged = mergeLibraryArtifacts([
+      {
+        id: 'art-1',
+        filename: 'Generated.md',
+        type: 'text/markdown',
+        sizeBytes: 29,
+        conversationId: 'conv-1',
+        messageId: 'msg-1',
+        content: 'Generated',
+        createdAt: '2026-05-22T20:01:00.000Z',
+        conversationTitle: 'Artifact chat',
+        conversationMode: 'CHAT',
+      },
+    ], [
+      {
+        id: 'live-1',
+        filename: 'Generated.md',
+        type: 'text/markdown',
+        sizeBytes: 9,
+        conversationId: 'conv-1',
+        messageId: 'msg-1',
+        content: 'Generated',
+        createdAt: '2026-05-22T20:02:00.000Z',
+      },
+    ]);
+
+    expect(merged).toHaveLength(1);
+    expect(merged[0]).toEqual(expect.objectContaining({
+      id: 'art-1',
+      sizeBytes: 29,
+      createdAt: '2026-05-22T20:01:00.000Z',
+    }));
   });
 });
 
