@@ -1,4 +1,4 @@
-import type { ArtifactItem, ChatMessage, ConversationSummary, MediaArtifact, ProjectSummary, ProviderConfigView, PublicUser, RequestMetric, StreamEvent, ImageGenerationOptions, GeneratedPost, SocialPlatformConfig, WorkflowReadiness, SkillReadiness, SkillSummary, UpdateSkillInput, UpdateSkillRouteInput } from '@cogentrex/shared';
+import type { ArtifactItem, ChatMessage, ConversationSummary, MediaArtifact, ProjectSummary, ProviderConfigView, PublicUser, RequestMetric, StreamEvent, ImageGenerationOptions, GeneratedPost, SocialPlatformConfig, WorkflowReadiness, SkillReadiness, SkillRunSummary, SkillSummary, UpdateSkillInput, UpdateSkillRouteInput } from '@cogentrex/shared';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001';
 
@@ -50,6 +50,7 @@ export const api = {
   getCatalog: () => jsonRequest<{ catalog: { id: string; name: string; description: string; kind: ProviderConfigView['kind']; baseUrl?: string; baseUrlTemplate?: string; models: string[]; features: { chat: boolean; vision: boolean; tools: boolean; image: boolean; video: boolean }; docsUrl: string }[] }>('/api/providers/catalog'),
   getCapabilities: () => jsonRequest<{ workflows: WorkflowReadiness[] }>('/api/capabilities'),
   getSkillReadiness: () => jsonRequest<{ skills: SkillReadiness[] }>('/api/skills/readiness'),
+  listSkillRuns: () => jsonRequest<{ runs: SkillRunSummary[] }>('/api/skills/runs'),
   getMetrics: (conversationId: string) => jsonRequest<{ metrics: RequestMetric[] }>(`/api/chat/conversations/${conversationId}/metrics`),
   getDiagnostics: (conversationId: string) => jsonRequest<{ metrics: RequestMetric[]; reasoning?: StreamEvent[] }>(`/api/chat/conversations/${conversationId}/diagnostics`),
   listConversations: (projectId?: string | null) => jsonRequest<{ conversations: ConversationSummary[] }>(`/api/chat/conversations${projectId !== undefined ? `?projectId=${projectId ?? 'null'}` : ''}`),

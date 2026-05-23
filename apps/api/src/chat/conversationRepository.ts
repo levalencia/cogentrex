@@ -88,6 +88,12 @@ export class ConversationRepository {
     await this.db.prepare('UPDATE conversations SET updated_at = ? WHERE id = ?').run(now, id);
   }
 
+  async setMode(userId: string, id: string, mode: AppMode, now: string): Promise<void> {
+    await this.db.prepare(
+      'UPDATE conversations SET mode = ?, updated_at = ? WHERE user_id = ? AND id = ?',
+    ).run(mode, now, userId, id);
+  }
+
   async addMessage(input: {
     id: string;
     conversationId: string;

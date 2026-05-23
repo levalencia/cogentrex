@@ -7,7 +7,9 @@ import type { ProviderService } from '../providers/providerService.js';
 import type { SkillService } from './skillService.js';
 import { buildSkillReadiness } from './skillReadiness.js';
 
-export function skillRoutes(auth: AuthService, skills: SkillService, providers: ProviderService, env: AppEnv): Router {
+import type { SkillRunRepository } from './skillRunRepository.js';
+
+export function skillRoutes(auth: AuthService, skills: SkillService, providers: ProviderService, env: AppEnv, skillRuns: SkillRunRepository): Router {
   const router = Router();
   router.use(requireAuth(auth));
 
@@ -27,6 +29,16 @@ export function skillRoutes(auth: AuthService, skills: SkillService, providers: 
         providers.list(user.id),
       ]);
       res.json({ skills: buildSkillReadiness(visibleSkills, availableProviders, env) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get('/runs', async (req, res, next) => {
+    try {
+      const user = currentUser(req);
+      const limit = typeof req.query.limit === 'string' ? Number.parseInt(req.query.limit, 10) : 50;
+      res.json({ runs: await skillRuns.listForUser(user.id, Number.isFinite(limit) ? limit : 50) });
     } catch (error) {
       next(error);
     }

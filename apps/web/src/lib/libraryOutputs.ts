@@ -1,4 +1,4 @@
-import type { AppMode, ArtifactItem } from '@cogentrex/shared';
+import type { AppMode, ArtifactItem, SkillRunSummary } from '@cogentrex/shared';
 
 interface ConversationLike {
   id?: string;
@@ -81,16 +81,18 @@ export function buildLibraryModeCards(conversations: ConversationLike[]): Librar
   ];
 }
 
-export function buildLibraryOverviewStats(conversations: ConversationLike[], artifacts: ArtifactItem[]): LibraryOverviewStats {
+export function buildLibraryOverviewStats(conversations: ConversationLike[], artifacts: ArtifactItem[], skillRuns: SkillRunSummary[] = []): LibraryOverviewStats {
   const timestampValues = [
     ...conversations.map((conversation) => conversation.updatedAt),
     ...artifacts.map((artifact) => artifact.createdAt),
+    ...skillRuns.map((run) => run.completedAt ?? run.startedAt),
   ].filter((value): value is string => Boolean(value));
+  const totalWorkflows = conversations.length + skillRuns.filter((run) => !run.conversationId).length;
   const latestActivityAt = timestampValues.length ? sortTimestampDesc(timestampValues.map((timestamp) => ({ timestamp })))[0]?.timestamp ?? null : null;
-  const savedPerWorkflow = conversations.length ? (artifacts.length / conversations.length).toFixed(1) : '0.0';
+  const savedPerWorkflow = totalWorkflows ? (artifacts.length / totalWorkflows).toFixed(1) : '0.0';
 
   return {
-    totalWorkflows: conversations.length,
+    totalWorkflows,
     savedArtifacts: artifacts.length,
     savedPerWorkflowLabel: savedPerWorkflow,
     latestActivityAt,
@@ -107,6 +109,14 @@ function workflowActivityDescription(mode: AppMode): string {
   if (mode === 'IMAGE_GENERATION') return 'Image generation workflow output and prompt context.';
   if (mode === 'VIDEO_GENERATION') return 'Video generation workflow output and prompt context.';
   return 'Chat workflow with reusable answer context.';
+}
+
+function skillRunDescription(run: SkillRunSummary): string {
+  if (run.status === 'failed') return run.errorMessage ? `Failed: ${run.errorMessage}` : 'Skill run failed before producing an output.';
+  if (run.status === 'running') return 'Skill run is currently in progress.';
+  if (run.status === 'pending') return 'Skill run is queued and waiting to start.';
+  const durationLabel = run.durationMs == null ? null : `${Math.round(run.durationMs / 1000)}s`;
+  return durationLabel ? `Completed skill run in ${durationLabel}.` : 'Completed skill run.';
 }
 
 function sortTimestampDesc<T extends { timestamp: string }>(items: T[]): T[] {
@@ -185,10 +195,14 @@ export function buildLibraryArtifactRows(artifacts: ArtifactItem[]): LibraryArti
 export function buildRecentActivityItems(
   conversations: ConversationLike[],
   artifacts: ArtifactItem[],
+  skillRunsOrLimit: SkillRunSummary[] | number = [],
   limit = 8,
 ): RecentActivityItem[] {
+  const skillRuns = Array.isArray(skillRunsOrLimit) ? skillRunsOrLimit : [];
+  const activityLimit = typeof skillRunsOrLimit === 'number' ? skillRunsOrLimit : limit;
+  const runConversationIds = new Set(skillRuns.map((run) => run.conversationId).filter((id): id is string => Boolean(id)));
   const workflowItems: RecentActivityItem[] = conversations
-    .filter((conversation): conversation is ConversationLike & { id: string; updatedAt: string } => Boolean(conversation.id && conversation.updatedAt))
+    .filter((conversation): conversation is ConversationLike & { id: string; updatedAt: string } => Boolean(conversation.id && conversation.updatedAt && !runConversationIds.has(conversation.id)))
     .map((conversation) => ({
       id: `workflow-${conversation.id}`,
       kind: 'workflow',
@@ -199,6 +213,17 @@ export function buildRecentActivityItems(
       timestamp: conversation.updatedAt,
       mode: conversation.mode,
     }));
+
+  const runItems: RecentActivityItem[] = skillRuns.map((run) => ({
+    id: `skill-run-${run.id}`,
+    kind: 'workflow',
+    title: run.skillName,
+    eyebrow: `${modeLabel(run.mode)} · ${run.status}`,
+    description: skillRunDescription(run),
+    href: run.conversationId ? `/chats/${run.conversationId}` : '/',
+    timestamp: run.completedAt ?? run.startedAt,
+    mode: run.mode,
+  }));
 
   const artifactItems: RecentActivityItem[] = artifacts.map((artifact) => ({
     id: `artifact-${artifact.id}`,
@@ -211,7 +236,7 @@ export function buildRecentActivityItems(
     mode: artifact.conversationMode,
   }));
 
-  return sortTimestampDesc([...artifactItems, ...workflowItems]).slice(0, limit);
+  return sortTimestampDesc([...artifactItems, ...runItems, ...workflowItems]).slice(0, activityLimit);
 }
 
 export function filterLibraryArtifacts(artifacts: ArtifactItem[], query: string): ArtifactItem[] {

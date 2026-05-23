@@ -123,6 +123,31 @@ CREATE TABLE IF NOT EXISTS messages (
   FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS skill_runs (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  skill_id TEXT NOT NULL,
+  skill_slug TEXT NOT NULL,
+  skill_name TEXT NOT NULL,
+  mode TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  conversation_id TEXT,
+  job_id TEXT,
+  provider_id TEXT,
+  started_at TEXT NOT NULL,
+  completed_at TEXT,
+  duration_ms INTEGER,
+  error_message TEXT,
+  observability_json TEXT,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE CASCADE,
+  FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE SET NULL,
+  FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS skill_runs_user_started ON skill_runs(user_id, started_at);
+CREATE INDEX IF NOT EXISTS skill_runs_conversation ON skill_runs(conversation_id);
+
 CREATE TABLE IF NOT EXISTS research_jobs (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,

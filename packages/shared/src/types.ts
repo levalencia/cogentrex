@@ -87,6 +87,26 @@ export interface SkillReadiness {
   dependencies: SkillReadinessDependency[];
 }
 
+export type SkillRunStatus = 'pending' | 'running' | 'completed' | 'failed';
+
+export interface SkillRunSummary {
+  id: string;
+  userId: string;
+  skillId: string;
+  skillSlug: string;
+  skillName: string;
+  mode: AppMode;
+  status: SkillRunStatus;
+  conversationId: string | null;
+  jobId: string | null;
+  providerId: string | null;
+  startedAt: string;
+  completedAt: string | null;
+  durationMs: number | null;
+  errorMessage: string | null;
+  observability: Record<string, unknown> | null;
+}
+
 export interface WorkflowDefinition {
   id: WorkflowId;
   label: string;

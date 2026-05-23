@@ -16,6 +16,7 @@ import { formatSourcesForPrompt, createSynthesisMessages } from './researchPromp
 import { ResearchPlanner, parsePlanItem, type PlanItem } from './researchPlanner.js';
 import { ResearchJobRepository } from './researchJobRepository.js';
 import type { ResearchSourceRepository } from './researchSourceRepository.js';
+import type { SkillRunRepository } from '../skills/skillRunRepository.js';
 
 export function extractUrls(text: string): string[] {
   const urlRegex = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi;
@@ -65,6 +66,7 @@ export class ResearchService {
     private readonly channels: ChannelRegistry,
     private readonly jobsRepo: ResearchJobRepository,
     private readonly sourceRepo: ResearchSourceRepository,
+    private readonly skillRuns: SkillRunRepository,
     private readonly usage: ProviderUsageRepository,
     private readonly metrics: MetricsRepository,
     private readonly logger: AppLogger,
@@ -93,7 +95,12 @@ export class ResearchService {
         });
       } else {
         conversation = existing;
-        await this.conversations.touch(conversation.id, now);
+        if (conversation.mode !== 'DEEP_RESEARCH') {
+          await this.conversations.setMode(userId, conversation.id, 'DEEP_RESEARCH', now);
+          conversation = { ...conversation, mode: 'DEEP_RESEARCH' };
+        } else {
+          await this.conversations.touch(conversation.id, now);
+        }
         try {
           priorSources = await this.sourceRepo.listByConversation(conversation.id);
           this.logger.info({ userId, conversationId: conversation.id, priorSourceCount: priorSources.length }, 'research_prior_sources_loaded_for_plan');
@@ -122,14 +129,14 @@ export class ResearchService {
       this.logger.info({ userId, conversationId: conversation.id, urlCount: urls.length }, 'research_url_scrape_started');
       for (const url of urls) {
         try {
-          const page = await await this.search.scrape(url);
+          const page = await this.search.scrape(url);
           if (page) {
             scrapedPages.push(page);
           } else {
             failedUrls.push(url);
             const searchQuery = url;
             try {
-              const results = await await this.search.search(searchQuery, 3);
+              const results = await this.search.search(searchQuery, 3);
               for (const result of results.slice(0, 2)) {
                 scrapedPages.push({
                   url: result.url,
@@ -214,6 +221,20 @@ export class ResearchService {
     await this.jobsRepo.updateStatus(jobId, 'running', nowIso());
 
     const provider = await this.providers.resolveForMode(userId, 'DEEP_RESEARCH', job.providerId ?? undefined);
+    const skillRun = await this.skillRuns.safeCreate({
+      userId,
+      skillId: 'skl_deep_research',
+      skillSlug: 'deep-research',
+      skillName: 'Deep Research',
+      mode: 'DEEP_RESEARCH',
+      conversationId: conversation.id,
+      jobId,
+      providerId: provider.id,
+      observability: {
+        phase: 'started',
+        planLength: plan.length,
+      },
+    });
     const assistantMessageId = createId('msg');
     await this.conversations.addMessage({ id: createId('msg'), conversationId: conversation.id, role: 'user', content: job.question, now: nowIso() });
 
@@ -267,7 +288,7 @@ export class ResearchService {
           this.logger.info({ jobId, iteration, channel: item.channel, queryHash: hashForLog(item.query), queryLength: item.query.length }, 'research_search_started');
           let results;
           try {
-            results = await await this.channels.search(item.channel, item.query, 5);
+            results = await this.channels.search(item.channel, item.query, 5);
           } catch (error) {
             const message = error instanceof Error ? error.message : 'Search failed';
             this.logger.error({ jobId, iteration, channel: item.channel, errorMessage: message }, 'research_search_failed');
@@ -408,6 +429,17 @@ export class ResearchService {
           metadata: { sources: allSources, reasoning: completedReasoning },
           now: nowIso(),
         });
+        await this.skillRuns.safeComplete(skillRun?.id, {
+          status: 'completed',
+          observability: {
+            sourceCount: allSources.length,
+            newSourceCount: sources.length,
+            planLength: plan.length,
+            durationMs: totalDuration,
+            synthesisDurationMs: synthesisDuration,
+            estimatedTokens,
+          },
+        });
         await this.jobsRepo.updateStatus(jobId, 'completed', nowIso(), { answer: content, sources: allSources, reasoning: completedReasoning });
         reasoningLog.push(finishedDiagnostic);
         emitLive(finishedDiagnostic);
@@ -417,6 +449,16 @@ export class ResearchService {
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Research failed';
         await emit({ type: 'error', code: 'RESEARCH_ERROR', message });
+        await this.skillRuns.safeComplete(skillRun?.id, {
+          status: 'failed',
+          errorMessage: message,
+          observability: {
+            phase: 'failed',
+            planLength: plan.length,
+            sourceCount: sources.length,
+            durationMs: Math.round(performance.now() - startedAt),
+          },
+        });
         await this.jobsRepo.updateStatus(jobId, 'failed', nowIso(), { errorMessage: message });
         this.logger.error({ jobId, errorMessage: message }, 'research_job_failed');
       } finally {
@@ -481,6 +523,20 @@ export class ResearchService {
           now,
         });
     if (!conversation) throw new Error('Conversation not found');
+    if (conversation.mode !== 'DEEP_RESEARCH') {
+      await this.conversations.setMode(input.userId, conversation.id, 'DEEP_RESEARCH', now);
+    }
+    const skillRun = await this.skillRuns.safeCreate({
+      userId: input.userId,
+      skillId: 'skl_deep_research',
+      skillSlug: 'deep-research',
+      skillName: 'Deep Research',
+      mode: 'DEEP_RESEARCH',
+      conversationId: conversation.id,
+      providerId: input.providerId ?? null,
+      observability: { phase: 'started' },
+    });
+    try {
     this.logger.info({
       userId: input.userId,
       conversationId: conversation.id,
@@ -572,7 +628,7 @@ export class ResearchService {
       this.logger.info({ conversationId: conversation.id, iteration, channel: item.channel, queryHash: hashForLog(item.query), queryLength: item.query.length }, 'research_search_started');
       let results;
       try {
-        results = await await this.channels.search(item.channel, item.query, 5);
+        results = await this.channels.search(item.channel, item.query, 5);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Search failed';
         this.logger.error({ conversationId: conversation.id, iteration, channel: item.channel, errorMessage: message }, 'research_search_failed');
@@ -722,6 +778,17 @@ export class ResearchService {
       metadata: { sources: allSources, reasoning: completedReasoning },
       now: nowIso(),
     });
+    await this.skillRuns.safeComplete(skillRun?.id, {
+      status: 'completed',
+      observability: {
+        sourceCount: allSources.length,
+        newSourceCount: sources.length,
+        planLength: queries.length,
+        durationMs: totalDuration,
+        synthesisDurationMs: synthesisDuration,
+        estimatedTokens,
+      },
+    });
     reasoningLog.push(finishedDiagnostic);
     input.emit(finishedDiagnostic);
     input.emit({ type: 'done', content, sources: allSources });
@@ -735,5 +802,17 @@ export class ResearchService {
       durationMs: totalDuration,
     }, 'research_finished');
     return { conversationId: conversation.id, content, sources };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Research failed';
+      await this.skillRuns.safeComplete(skillRun?.id, {
+        status: 'failed',
+        errorMessage: message,
+        observability: {
+          phase: 'failed',
+          durationMs: Math.round(performance.now() - startedAt),
+        },
+      });
+      throw error;
+    }
   }
 }

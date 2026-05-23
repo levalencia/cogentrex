@@ -56,6 +56,38 @@ describe('buildLibraryOverviewStats', () => {
       latestActivityAt: '2026-05-22T20:05:00.000Z',
     });
   });
+  it('includes standalone skill runs in workflow stats and latest activity', () => {
+    const stats = buildLibraryOverviewStats(
+      [],
+      [],
+      [
+        {
+          id: 'run-1',
+          userId: 'user-1',
+          skillId: 'skill-1',
+          skillSlug: 'deep-research-default',
+          skillName: 'Deep Research',
+          mode: 'DEEP_RESEARCH',
+          status: 'completed',
+          conversationId: null,
+          jobId: 'job-1',
+          providerId: 'provider-1',
+          startedAt: '2026-05-22T20:01:00.000Z',
+          completedAt: '2026-05-22T20:04:00.000Z',
+          durationMs: 180000,
+          errorMessage: null,
+          observability: { sourceCount: 4 },
+        },
+      ],
+    );
+
+    expect(stats).toEqual({
+      totalWorkflows: 1,
+      savedArtifacts: 0,
+      savedPerWorkflowLabel: '0.0',
+      latestActivityAt: '2026-05-22T20:04:00.000Z',
+    });
+  });
 });
 
 describe('mergeLibraryArtifacts', () => {
@@ -229,6 +261,45 @@ describe('buildRecentActivityItems', () => {
     ]);
     expect(items[0]?.href).toBe('/chats/conv-2');
     expect(items[1]?.description).toBe('Market research · DEEP RESEARCH');
+  });
+
+  it('shows skill runs as first-class recent activity without duplicating linked conversations', () => {
+    const items = buildRecentActivityItems(
+      [
+        {
+          id: 'conv-1',
+          title: 'Market research conversation',
+          mode: 'DEEP_RESEARCH',
+          updatedAt: '2026-05-22T20:03:00.000Z',
+        },
+      ],
+      [],
+      [
+        {
+          id: 'run-1',
+          userId: 'user-1',
+          skillId: 'skill-1',
+          skillSlug: 'deep-research-default',
+          skillName: 'Deep Research',
+          mode: 'DEEP_RESEARCH',
+          status: 'completed',
+          conversationId: 'conv-1',
+          jobId: 'job-1',
+          providerId: 'provider-1',
+          startedAt: '2026-05-22T20:01:00.000Z',
+          completedAt: '2026-05-22T20:04:00.000Z',
+          durationMs: 180000,
+          errorMessage: null,
+          observability: { sourceCount: 4 },
+        },
+      ],
+    );
+
+    expect(items.map((item) => [item.id, item.kind, item.title, item.href])).toEqual([
+      ['skill-run-run-1', 'workflow', 'Deep Research', '/chats/conv-1'],
+    ]);
+    expect(items[0]?.eyebrow).toBe('DEEP RESEARCH · completed');
+    expect(items[0]?.description).toBe('Completed skill run in 180s.');
   });
 
   it('respects the provided activity limit', () => {

@@ -9,6 +9,7 @@ import type { AppLogger } from '../observability/logger.js';
 import { notFound } from '../http/errors.js';
 import type { ChatMessage, ImageGenerationOptions, ProviderConfigView } from '@cogentrex/shared';
 import type { LanguageModelClient } from '../chat/languageModel.js';
+import type { SkillRunRepository } from '../skills/skillRunRepository.js';
 
 const MEDIA_DIR = resolve(process.cwd(), 'data', 'media');
 if (!existsSync(MEDIA_DIR)) {
@@ -39,6 +40,7 @@ export class MediaService {
     private readonly llm: LanguageModelClient,
     private readonly logger: AppLogger,
     private readonly apiBaseUrl: string,
+    private readonly skillRuns?: SkillRunRepository,
   ) {}
 
   async generate(input: {
@@ -129,6 +131,26 @@ export class MediaService {
       status: 'pending',
     });
 
+    const skillRun = this.skillRuns
+      ? await this.skillRuns.safeCreate({
+          userId,
+          skillId: type === 'image' ? 'skl_image_studio' : 'skl_video_lab',
+          skillSlug: type === 'image' ? 'image-studio' : 'video-lab',
+          skillName: type === 'image' ? 'Image Studio' : 'Video Lab',
+          mode: type === 'image' ? 'IMAGE_GENERATION' : 'VIDEO_GENERATION',
+          conversationId: conversation.id,
+          providerId: provider.id,
+          observability: {
+            artifactId: artifact.id,
+            providerId: provider.id,
+            model: provider.model,
+            type,
+            promptLength: prompt.length,
+            hasInputImages: Boolean(inputImages?.length),
+          },
+        })
+      : null;
+
     // Attempt generation
     const startedAt = performance.now();
     try {
@@ -155,11 +177,35 @@ export class MediaService {
       });
 
       this.logger.info({ userId, artifactId: artifact.id, providerId: provider.id, durationMs: Math.round(performance.now() - startedAt) }, 'media_generation_completed');
+      if (skillRun) {
+        await this.skillRuns?.safeComplete(skillRun.id, {
+          status: 'completed',
+          observability: {
+            artifactId: artifact.id,
+            providerId: provider.id,
+            model: provider.model,
+            type,
+            outputUrl: imageUrl,
+          },
+        });
+      }
       const messages = await this.conversations.listMessages(conversation.id);
       return { messages, conversationId: conversation.id, artifact: completedArtifact };
     } catch (error) {
       await this.media.updateStatus(artifact.id, 'failed');
       const message = error instanceof Error ? error.message : 'Media generation failed';
+      if (skillRun) {
+        await this.skillRuns?.safeComplete(skillRun.id, {
+          status: 'failed',
+          errorMessage: message,
+          observability: {
+            artifactId: artifact.id,
+            providerId: provider.id,
+            model: provider.model,
+            type,
+          },
+        });
+      }
       this.logger.error({ userId, artifactId: artifact.id, providerId: provider.id, errorMessage: message }, 'media_generation_failed');
 
       // Store error as assistant message for inline display

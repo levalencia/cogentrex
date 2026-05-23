@@ -31,6 +31,14 @@ describe('chat streaming API', () => {
       expect(res.body.messages).toHaveLength(2);
     });
 
+    const runs = await agent.get('/api/skills/runs').expect(200);
+    expect(runs.body.runs).toContainEqual(expect.objectContaining({
+      skillSlug: 'chat',
+      mode: 'CHAT',
+      status: 'completed',
+      conversationId,
+    }));
+
     database.close();
   });
 });
