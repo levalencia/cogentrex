@@ -8,6 +8,7 @@ import {
   buildArtifactDownload,
   buildLibraryArtifactRows,
   buildLibraryModeCards,
+  buildRecentActivityItems,
   filterLibraryArtifacts,
 } from '@/lib/libraryOutputs';
 import { api } from '@/lib/api';
@@ -35,7 +36,7 @@ export function LibraryView() {
   );
   const artifactRows = buildLibraryArtifactRows(filteredArtifacts);
   const selectedArtifact = findArtifact(filteredArtifacts, selectedArtifactId);
-  const recent = conversations.slice(0, 6);
+  const recentActivity = buildRecentActivityItems(conversations, libraryArtifacts, 8);
 
   useEffect(() => {
     let cancelled = false;
@@ -125,28 +126,34 @@ export function LibraryView() {
           <section className="rounded-3xl border border-line bg-panel/80 p-5">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold text-white">Recent outputs by conversation</h2>
-                <p className="text-sm text-slate-500">Quick links back to the conversation context behind saved work.</p>
+                <h2 className="text-lg font-semibold text-white">Recent activity</h2>
+                <p className="text-sm text-slate-500">A lightweight cockpit view of workflow runs and saved artifacts.</p>
               </div>
-              <span className="rounded-full border border-line bg-ink/50 px-3 py-1 text-xs text-slate-400">{conversations.length} total</span>
+              <span className="rounded-full border border-line bg-ink/50 px-3 py-1 text-xs text-slate-400">{recentActivity.length} shown</span>
             </div>
             <div className="mt-4 space-y-2">
-              {recent.length ? recent.map((conversation) => (
+              {recentActivity.length ? recentActivity.map((activity) => (
                 <button
-                  key={conversation.id}
+                  key={activity.id}
                   type="button"
-                  onClick={() => router.push(`/chats/${conversation.id}`)}
-                  className="flex w-full items-center justify-between gap-3 rounded-2xl border border-line bg-ink/40 px-4 py-3 text-left transition hover:border-accent/60 hover:bg-accent/5"
+                  onClick={() => router.push(activity.href)}
+                  className="flex w-full items-start justify-between gap-3 rounded-2xl border border-line bg-ink/40 px-4 py-3 text-left transition hover:border-accent/60 hover:bg-accent/5"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-white">{conversation.title || 'Untitled output'}</p>
-                    <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-500">{conversation.mode.replace('_', ' ')}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] ${activity.kind === 'artifact' ? 'border-accent/30 bg-accent/10 text-accent' : 'border-slate-600 bg-slate-800/60 text-slate-300'}`}>
+                        {activity.kind === 'artifact' ? 'Artifact' : 'Run'}
+                      </span>
+                      <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">{activity.eyebrow}</p>
+                    </div>
+                    <p className="mt-2 truncate text-sm font-medium text-white">{activity.title}</p>
+                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{activity.description}</p>
                   </div>
-                  <span className="shrink-0 text-xs text-slate-500">{formatDate(conversation.updatedAt)}</span>
+                  <span className="shrink-0 text-xs text-slate-500">{formatDate(activity.timestamp)}</span>
                 </button>
               )) : (
                 <div className="rounded-2xl border border-dashed border-line p-8 text-center text-sm text-slate-500">
-                  No saved conversations yet. Run a workflow and it will show up here.
+                  No activity yet. Run a workflow or save an assistant answer to populate this cockpit feed.
                 </div>
               )}
             </div>

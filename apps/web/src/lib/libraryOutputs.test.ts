@@ -3,6 +3,7 @@ import {
   buildArtifactDownload,
   buildLibraryArtifactRows,
   buildLibraryModeCards,
+  buildRecentActivityItems,
   filterLibraryArtifacts,
 } from './libraryOutputs';
 
@@ -52,6 +53,63 @@ describe('buildLibraryArtifactRows', () => {
         preview: 'Brief',
       },
     ]);
+  });
+});
+
+describe('buildRecentActivityItems', () => {
+  it('combines workflow runs and saved artifacts in newest-first order', () => {
+    const items = buildRecentActivityItems(
+      [
+        {
+          id: 'conv-1',
+          title: 'Market research',
+          mode: 'DEEP_RESEARCH',
+          updatedAt: '2026-05-22T20:01:00.000Z',
+        },
+        {
+          id: 'conv-2',
+          title: 'Launch post',
+          mode: 'SOCIAL_WRITING',
+          updatedAt: '2026-05-22T20:03:00.000Z',
+        },
+      ],
+      [
+        {
+          id: 'art-1',
+          filename: 'AI research brief.md',
+          type: 'text/markdown',
+          sizeBytes: 1536,
+          conversationId: 'conv-1',
+          messageId: 'msg-1',
+          content: '# Brief',
+          createdAt: '2026-05-22T20:02:00.000Z',
+          conversationTitle: 'Market research',
+          conversationMode: 'DEEP_RESEARCH',
+        },
+      ],
+    );
+
+    expect(items.map((item) => [item.id, item.kind, item.title])).toEqual([
+      ['workflow-conv-2', 'workflow', 'Launch post'],
+      ['artifact-art-1', 'artifact', 'AI research brief.md'],
+      ['workflow-conv-1', 'workflow', 'Market research'],
+    ]);
+    expect(items[0]?.href).toBe('/chats/conv-2');
+    expect(items[1]?.description).toBe('Market research · DEEP RESEARCH');
+  });
+
+  it('respects the provided activity limit', () => {
+    const items = buildRecentActivityItems(
+      [
+        { id: 'conv-1', title: 'One', mode: 'CHAT', updatedAt: '2026-05-22T20:01:00.000Z' },
+        { id: 'conv-2', title: 'Two', mode: 'CHAT', updatedAt: '2026-05-22T20:02:00.000Z' },
+      ],
+      [],
+      1,
+    );
+
+    expect(items).toHaveLength(1);
+    expect(items[0]?.title).toBe('Two');
   });
 });
 
