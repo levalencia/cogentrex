@@ -68,11 +68,12 @@ export interface SkillRunHistoryRow {
   metrics: string[];
 }
 
-function buildSkillRunModeByConversationId(skillRuns: SkillRunSummary[]): Map<string, AppMode> {
+function buildSkillRunModeByConversationId(skillRuns: SkillRunSummary[], completedOnly = false): Map<string, AppMode> {
   const byConversationId = new Map<string, { mode: AppMode; timestamp: string }>();
 
   for (const run of skillRuns) {
-    if (!run.conversationId || run.status !== 'completed') continue;
+    if (!run.conversationId) continue;
+    if (completedOnly && run.status !== 'completed') continue;
     const timestamp = run.completedAt ?? run.startedAt;
     const existing = byConversationId.get(run.conversationId);
     if (!existing || new Date(timestamp).getTime() > new Date(existing.timestamp).getTime()) {
@@ -93,7 +94,12 @@ function effectiveArtifactMode(artifact: ArtifactItem, skillRunsByConversationId
 
 export function buildLibraryModeCards(conversations: ConversationLike[], skillRuns: SkillRunSummary[] = []): LibraryModeCard[] {
   const skillRunsByConversationId = buildSkillRunModeByConversationId(skillRuns);
-  const modes = conversations.map((conversation) => effectiveConversationMode(conversation, skillRunsByConversationId));
+  const conversationModes = conversations.map((conversation) => effectiveConversationMode(conversation, skillRunsByConversationId));
+  const linkedConversationIds = new Set(conversations.map((conversation) => conversation.id).filter((id): id is string => Boolean(id)));
+  const standaloneRunModes = skillRuns
+    .filter((run) => !run.conversationId || !linkedConversationIds.has(run.conversationId))
+    .map((run) => run.mode);
+  const modes = [...conversationModes, ...standaloneRunModes];
   const research = modes.filter((mode) => mode === 'DEEP_RESEARCH').length;
   const social = modes.filter((mode) => mode === 'SOCIAL_WRITING').length;
   const media = modes.filter((mode) => mode === 'IMAGE_GENERATION' || mode === 'VIDEO_GENERATION').length;
@@ -373,16 +379,20 @@ export function buildRecentActivityItems(
     mode: run.mode,
   }));
 
-  const artifactItems: RecentActivityItem[] = artifacts.map((artifact) => ({
-    id: `artifact-${artifact.id}`,
-    kind: 'artifact',
-    title: artifact.filename,
-    eyebrow: 'Saved artifact',
-    description: `${artifact.conversationTitle ?? 'Untitled output'} · ${modeLabel(artifact.conversationMode)}`,
-    href: `/chats/${artifact.conversationId}`,
-    timestamp: artifact.createdAt,
-    mode: artifact.conversationMode,
-  }));
+  const skillRunsByConversationId = buildSkillRunModeByConversationId(skillRuns);
+  const artifactItems: RecentActivityItem[] = artifacts.map((artifact) => {
+    const mode = effectiveArtifactMode(artifact, skillRunsByConversationId);
+    return {
+      id: `artifact-${artifact.id}`,
+      kind: 'artifact',
+      title: artifact.filename,
+      eyebrow: 'Saved artifact',
+      description: `${artifact.conversationTitle ?? 'Untitled output'} · ${modeLabel(mode)}`,
+      href: `/chats/${artifact.conversationId}`,
+      timestamp: artifact.createdAt,
+      mode,
+    };
+  });
 
   return sortTimestampDesc([...artifactItems, ...runItems, ...workflowItems]).slice(0, activityLimit);
 }
