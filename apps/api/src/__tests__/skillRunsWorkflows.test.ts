@@ -27,6 +27,41 @@ describe('workflow skill runs', () => {
     database.close();
   });
 
+  it('links saved library artifacts back to the originating workflow run', async () => {
+    const { agent, database } = await makeTestApp();
+    await registerAndLogin(agent);
+    await createProvider(agent);
+
+    const response = await agent
+      .post('/api/social/generate')
+      .send({ topic: 'Reusable launch note for Cogentrex', platforms: ['linkedin'], useResearch: false })
+      .expect(200);
+
+    const messages = await agent
+      .get(`/api/chat/conversations/${response.body.conversationId}/messages`)
+      .expect(200);
+    const assistantMessage = messages.body.messages.find((message: { role: string }) => message.role === 'assistant');
+
+    const saved = await agent
+      .post('/api/artifacts/from-message')
+      .send({ messageId: assistantMessage.id })
+      .expect(201);
+
+    const runs = await agent.get('/api/skills/runs').expect(200);
+    expect(runs.body.runs).toContainEqual(expect.objectContaining({
+      skillSlug: 'linkedin-writer',
+      mode: 'SOCIAL_WRITING',
+      status: 'completed',
+      conversationId: response.body.conversationId,
+      observability: expect.objectContaining({
+        savedArtifactCount: 1,
+        savedArtifactIds: [saved.body.artifact.id],
+      }),
+    }));
+
+    database.close();
+  });
+
   it('records Deep Research jobs as observable skill runs', async () => {
     const { agent, database } = await makeTestApp();
     await registerAndLogin(agent);

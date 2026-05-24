@@ -185,7 +185,7 @@ export async function createApp(env: AppEnv, deps: AppDependencies = {}) {
   app.use('/api/media', mediaRoutes(authService, mediaService, apiBaseUrl));
   app.use('/api/social', socialRoutes(authService, socialWritingService, socialConfigRepository, logger.child({ component: 'SocialRoutes' })));
   app.use('/api/projects', projectRoutes(authService, projectRepository));
-  app.use('/api/artifacts', artifactRoutes(authService, artifactRepository));
+  app.use('/api/artifacts', artifactRoutes(authService, artifactRepository, skillRunRepository));
   if (linkedInPostService) {
     app.use('/api/linkedin', linkedInRoutes(authService, linkedInPostService, mediaRepository, scheduledPostService));
   }

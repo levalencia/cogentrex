@@ -644,6 +644,8 @@ describe('buildSkillRunDetail', () => {
       observability: {
         sourceCount: 4,
         platforms: ['linkedin', 'x'],
+        savedArtifactCount: 1,
+        savedArtifactIds: ['art-1'],
         nested: { phase: 'synthesis' },
       },
     });
@@ -661,10 +663,12 @@ describe('buildSkillRunDetail', () => {
       providerId: 'provider-1',
       summary: 'Completed with 4 sources.',
     }));
-    expect(detail.metrics).toEqual(['4 sources', '2 platforms']);
+    expect(detail.metrics).toEqual(['4 sources', '2 platforms', '1 saved artifact']);
     expect(detail.observabilityEntries).toEqual([
       { key: 'nested', value: '{"phase":"synthesis"}' },
       { key: 'platforms', value: 'linkedin, x' },
+      { key: 'savedArtifactCount', value: '1' },
+      { key: 'savedArtifactIds', value: 'art-1' },
       { key: 'sourceCount', value: '4' },
     ]);
   });
