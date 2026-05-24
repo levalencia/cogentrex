@@ -41,4 +41,55 @@ describe('chat streaming API', () => {
 
     database.close();
   });
+
+  it('saves a streamed chat assistant answer to the Library', async () => {
+    const { agent, database } = await makeTestApp();
+    await registerAndLogin(agent);
+    await createProvider(agent);
+
+    await agent
+      .post('/api/chat/stream')
+      .send({ content: 'Save this short answer', mode: 'CHAT' })
+      .expect(200);
+
+    const conversations = await agent.get('/api/chat/conversations').expect(200);
+    const conversationId = conversations.body.conversations[0].id as string;
+    const messages = await agent.get(`/api/chat/conversations/${conversationId}/messages`).expect(200);
+    const assistantMessage = messages.body.messages.find((message: { role: string }) => message.role === 'assistant');
+    expect(assistantMessage?.id).toBeTruthy();
+
+    const saved = await agent
+      .post('/api/artifacts/from-message')
+      .send({ messageId: assistantMessage.id })
+      .expect(201);
+
+    expect(saved.body.artifact).toMatchObject({
+      conversationId,
+      messageId: assistantMessage.id,
+      content: assistantMessage.content,
+      type: 'text/markdown',
+    });
+
+    const artifacts = await agent.get('/api/artifacts').expect(200);
+    expect(artifacts.body.artifacts).toHaveLength(1);
+    expect(artifacts.body.artifacts[0]).toMatchObject({
+      id: saved.body.artifact.id,
+      conversationId,
+      messageId: assistantMessage.id,
+    });
+
+    const runs = await agent.get('/api/skills/runs').expect(200);
+    expect(runs.body.runs).toContainEqual(expect.objectContaining({
+      skillSlug: 'chat',
+      mode: 'CHAT',
+      status: 'completed',
+      conversationId,
+      observability: expect.objectContaining({
+        savedArtifactCount: 1,
+        savedArtifactIds: [saved.body.artifact.id],
+      }),
+    }));
+
+    database.close();
+  });
 });
