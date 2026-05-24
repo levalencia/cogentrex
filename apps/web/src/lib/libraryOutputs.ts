@@ -224,6 +224,7 @@ function skillRunMetrics(observability: Record<string, unknown> | null): string[
   const synthesisDurationMs = readNumericMetric(observability, 'synthesisDurationMs');
   const postCount = readNumericMetric(observability, 'postCount');
   const promptLength = readNumericMetric(observability, 'promptLength');
+  const savedArtifactCount = readNumericMetric(observability, 'savedArtifactCount');
 
   if (sourceCount != null) metrics.push(`${sourceCount} sources`);
   if (newSourceCount != null) metrics.push(`${newSourceCount} new`);
@@ -235,6 +236,7 @@ function skillRunMetrics(observability: Record<string, unknown> | null): string[
 
   const platforms = observability?.platforms;
   if (Array.isArray(platforms) && platforms.length) metrics.push(`${platforms.length} platforms`);
+  if (savedArtifactCount != null) metrics.push(`${savedArtifactCount} saved ${savedArtifactCount === 1 ? 'artifact' : 'artifacts'}`);
 
   return metrics;
 }

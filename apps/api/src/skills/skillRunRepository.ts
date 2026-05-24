@@ -133,6 +133,42 @@ export class SkillRunRepository {
     }
   }
 
+  async linkArtifactToConversation(userId: string, conversationId: string, artifactId: string): Promise<void> {
+    const row = await this.db.prepare(
+      `SELECT * FROM skill_runs
+       WHERE user_id = ? AND conversation_id = ?
+       ORDER BY COALESCE(completed_at, started_at) DESC, started_at DESC
+       LIMIT 1`,
+    ).get(userId, conversationId) as SkillRunRow | undefined;
+    if (!row) return;
+
+    const observability = row.observability_json ? JSON.parse(row.observability_json) as Record<string, unknown> : {};
+    const existingIds = Array.isArray(observability.savedArtifactIds)
+      ? observability.savedArtifactIds.filter((value): value is string => typeof value === 'string')
+      : [];
+    const savedArtifactIds = existingIds.includes(artifactId) ? existingIds : [...existingIds, artifactId];
+    await this.db.prepare(
+      `UPDATE skill_runs
+       SET observability_json = @observabilityJson
+       WHERE id = @id`,
+    ).run({
+      id: row.id,
+      observabilityJson: JSON.stringify({
+        ...observability,
+        savedArtifactIds,
+        savedArtifactCount: savedArtifactIds.length,
+      }),
+    });
+  }
+
+  async safeLinkArtifactToConversation(userId: string, conversationId: string, artifactId: string): Promise<void> {
+    try {
+      await this.linkArtifactToConversation(userId, conversationId, artifactId);
+    } catch {
+      // Artifact persistence must remain independent from run-ledger enrichment.
+    }
+  }
+
   async listForUser(userId: string, limit = 50): Promise<SkillRunSummary[]> {
     const boundedLimit = Math.min(100, Math.max(1, Math.trunc(limit)));
     const rows = await this.db.prepare(
