@@ -173,6 +173,7 @@ describe('skill registry API', () => {
       DEFAULT_PROVIDER_BASE_URL: 'https://foundry.example.com/openai/v1',
       DEFAULT_PROVIDER_MODEL: 'Kimi 2.6',
       LOG_LEVEL: 'silent',
+      QA_FIXTURES_ENABLED: false,
     }, {
       database,
       logger: { debug() {}, info() {}, warn() {}, error() {}, child: () => ({ debug() {}, info() {}, warn() {}, error() {}, child: () => { throw new Error('unused'); } }) } as never,
