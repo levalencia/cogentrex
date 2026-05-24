@@ -123,11 +123,11 @@ export class ProviderRepository {
   }
 
   async create(provider: ProviderRecord): Promise<ProviderRecord>{
-    await this.db.transaction(async () => {
+    await this.db.transaction(async (tx) => {
       if (provider.isDefault && !provider.isGlobal) {
-        await this.db.prepare('UPDATE providers SET is_default = 0 WHERE user_id = ? AND is_global = 0').run(provider.userId);
+        await tx.prepare('UPDATE providers SET is_default = 0 WHERE user_id = ? AND is_global = 0').run(provider.userId);
       }
-      await this.db.prepare(
+      await tx.prepare(
         `INSERT INTO providers (
           id, user_id, name, base_url, encrypted_api_key, model, kind, is_default, is_global,
           default_for_mode, supports_streaming, supports_vision, supports_tools, supports_search,
@@ -153,11 +153,11 @@ export class ProviderRepository {
   }
 
   async update(provider: ProviderRecord): Promise<ProviderRecord>{
-    await this.db.transaction(async () => {
+    await this.db.transaction(async (tx) => {
       if (provider.isDefault && !provider.isGlobal) {
-        await this.db.prepare('UPDATE providers SET is_default = 0 WHERE user_id = ? AND id != ? AND is_global = 0').run(provider.userId, provider.id);
+        await tx.prepare('UPDATE providers SET is_default = 0 WHERE user_id = ? AND id != ? AND is_global = 0').run(provider.userId, provider.id);
       }
-      await this.db.prepare(
+      await tx.prepare(
         `UPDATE providers
          SET name = @name, base_url = @baseUrl, encrypted_api_key = @encryptedApiKey,
              model = @model, kind = @kind, is_default = @isDefault, is_global = @isGlobal,
@@ -183,13 +183,13 @@ export class ProviderRepository {
   }
 
   async delete(userId: string, id: string): Promise<void>{
-    await this.db.transaction(async () => {
-      await this.db.prepare('DELETE FROM providers WHERE user_id = ? AND id = ? AND is_global = 0').run(userId, id);
-      const remainingDefault = await this.db.prepare('SELECT 1 FROM providers WHERE user_id = ? AND is_default = 1 AND is_global = 0').get(userId);
+    await this.db.transaction(async (tx) => {
+      await tx.prepare('DELETE FROM providers WHERE user_id = ? AND id = ? AND is_global = 0').run(userId, id);
+      const remainingDefault = await tx.prepare('SELECT 1 FROM providers WHERE user_id = ? AND is_default = 1 AND is_global = 0').get(userId);
       if (!remainingDefault) {
-        const first = await this.db.prepare('SELECT id FROM providers WHERE user_id = ? AND is_global = 0 ORDER BY created_at ASC LIMIT 1').get(userId) as { id: string } | undefined;
+        const first = await tx.prepare('SELECT id FROM providers WHERE user_id = ? AND is_global = 0 ORDER BY created_at ASC LIMIT 1').get(userId) as { id: string } | undefined;
         if (first) {
-          await this.db.prepare('UPDATE providers SET is_default = 1 WHERE user_id = ? AND id = ?').run(userId, first.id);
+          await tx.prepare('UPDATE providers SET is_default = 1 WHERE user_id = ? AND id = ?').run(userId, first.id);
         }
       }
     });

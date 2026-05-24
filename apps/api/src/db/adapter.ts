@@ -13,7 +13,7 @@ export interface DbAdapter {
   getOne<T = any>(sql: string, params?: any[] | Record<string, any> | any): Promise<T | undefined>;
   execute(sql: string, params?: any[] | Record<string, any> | any): Promise<{ changes?: number; lastID?: number | undefined }>;
   exec(sql: string): Promise<void>;
-  transaction<T>(fn: () => Promise<T>): Promise<T>;
+  transaction<T>(fn: (tx: DbAdapter) => Promise<T>): Promise<T>;
   close(): Promise<void>;
 }
 
@@ -120,11 +120,11 @@ class PostgresAdapter implements DbAdapter {
     await client.query(sql);
   }
 
-  async transaction<T>(fn: () => Promise<T>): Promise<T> {
+  async transaction<T>(fn: (tx: DbAdapter) => Promise<T>): Promise<T> {
     if (this.txDepth > 0) {
       this.txDepth++;
       try {
-        return await fn();
+        return await fn(this);
       } finally {
         this.txDepth--;
       }
@@ -135,7 +135,7 @@ class PostgresAdapter implements DbAdapter {
     const txAdapter = new PostgresAdapter(null, client);
     txAdapter.txDepth = 1;
     try {
-      const result = await fn();
+      const result = await fn(txAdapter);
       await client.query('COMMIT');
       return result;
     } catch (err) {
@@ -193,11 +193,11 @@ class SqliteAdapter implements DbAdapter {
     this.db.exec(sql);
   }
 
-  async transaction<T>(fn: () => Promise<T>): Promise<T> {
+  async transaction<T>(fn: (tx: DbAdapter) => Promise<T>): Promise<T> {
     if (this.txDepth > 0) {
       this.txDepth++;
       try {
-        return await fn();
+        return await fn(this);
       } finally {
         this.txDepth--;
       }
@@ -205,7 +205,7 @@ class SqliteAdapter implements DbAdapter {
     this.db.exec('BEGIN');
     this.txDepth = 1;
     try {
-      const result = await fn();
+      const result = await fn(this);
       this.db.exec('COMMIT');
       return result;
     } catch (e) {

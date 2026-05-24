@@ -1,4 +1,4 @@
-import type { AppMode, ArtifactItem, SkillRunSummary } from '@cogentrex/shared';
+import type { AppMode, ArtifactItem, SkillRunEvent, SkillRunSummary } from '@cogentrex/shared';
 
 interface ConversationLike {
   id?: string;
@@ -85,6 +85,16 @@ export interface SkillRunDetail {
   errorMessage: string | null;
   metrics: string[];
   observabilityEntries: Array<{ key: string; value: string }>;
+}
+
+export interface SkillRunEventRow {
+  id: string;
+  sequenceLabel: string;
+  label: string;
+  eventType: string;
+  message: string | null;
+  metadataEntries: Array<{ key: string; value: string }>;
+  createdAt: string;
 }
 
 export type SkillRunStatusFilter = 'all' | 'active' | SkillRunSummary['status'];
@@ -268,6 +278,27 @@ function skillRunObservabilityEntries(observability: Record<string, unknown> | n
   return Object.entries(observability)
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([key, value]) => ({ key, value: formatObservabilityValue(value) }));
+}
+
+function metadataEntries(metadata: Record<string, unknown> | null): SkillRunEventRow['metadataEntries'] {
+  if (!metadata) return [];
+  return Object.entries(metadata)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => ({ key, value: formatObservabilityValue(value) }));
+}
+
+export function buildSkillRunEventRows(events: SkillRunEvent[]): SkillRunEventRow[] {
+  return [...events]
+    .sort((left, right) => left.sequence - right.sequence || new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime())
+    .map((event) => ({
+      id: event.id,
+      sequenceLabel: `#${event.sequence}`,
+      label: event.label,
+      eventType: event.eventType,
+      message: event.message,
+      metadataEntries: metadataEntries(event.metadata),
+      createdAt: event.createdAt,
+    }));
 }
 
 export function buildSkillRunDetail(run: SkillRunSummary): SkillRunDetail {

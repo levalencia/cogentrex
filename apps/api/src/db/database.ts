@@ -22,6 +22,7 @@ export class AppDatabase {
     await this.adapter.exec(this.isPostgres ? postgresSchemaSql : schemaSql);
 
     await this.ensureNullableUserPasswordHash();
+    await this.ensureSkillRunEventSequence();
 
     try {
       await this.adapter.exec('ALTER TABLE conversations ADD COLUMN is_public INTEGER NOT NULL DEFAULT 0');
@@ -374,6 +375,35 @@ export class AppDatabase {
         PRAGMA foreign_keys=ON;
       `);
     } catch { /* best-effort SQLite migration for existing local databases */ }
+  }
+
+  private async ensureSkillRunEventSequence(): Promise<void> {
+    if (this.isPostgres) {
+      try {
+        await this.adapter.exec('ALTER TABLE skill_runs ADD COLUMN IF NOT EXISTS event_sequence INTEGER NOT NULL DEFAULT 0');
+      } catch { /* table may not exist yet on very old failed startups */ }
+    } else {
+      try {
+        const hasEventSequence = await this.adapter.getOne(
+          "SELECT 1 FROM pragma_table_info('skill_runs') WHERE name = 'event_sequence'",
+        );
+        if (!hasEventSequence) {
+          await this.adapter.exec('ALTER TABLE skill_runs ADD COLUMN event_sequence INTEGER NOT NULL DEFAULT 0');
+        }
+      } catch { /* best-effort SQLite migration for existing local databases */ }
+    }
+
+    try {
+      await this.adapter.exec(`
+        UPDATE skill_runs
+        SET event_sequence = (
+          SELECT COALESCE(MAX(sequence), 0) FROM skill_run_events WHERE skill_run_events.run_id = skill_runs.id
+        )
+        WHERE COALESCE(event_sequence, 0) < (
+          SELECT COALESCE(MAX(sequence), 0) FROM skill_run_events WHERE skill_run_events.run_id = skill_runs.id
+        );
+      `);
+    } catch { /* best-effort backfill for existing run ledgers */ }
   }
 
   async close(): Promise<void> {

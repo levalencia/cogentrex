@@ -6,6 +6,7 @@ import {
   buildLibraryOverviewStats,
   buildRecentActivityItems,
   buildSkillRunDetail,
+  buildSkillRunEventRows,
   buildSkillRunHealthStats,
   buildSkillRunHistoryRows,
   filterLibraryArtifacts,
@@ -657,6 +658,59 @@ describe('buildSkillRunDetail', () => {
       { key: 'savedArtifactCount', value: '1' },
       { key: 'savedArtifactIds', value: 'art-1' },
       { key: 'sourceCount', value: '4' },
+    ]);
+  });
+});
+
+describe('buildSkillRunEventRows', () => {
+  it('turns persisted skill run events into drawer timeline rows', () => {
+    const rows = buildSkillRunEventRows([
+      {
+        id: 'event-2',
+        runId: 'run-1',
+        userId: 'user-1',
+        sequence: 2,
+        eventType: 'run_completed',
+        label: 'Social Writer completed',
+        message: null,
+        metadata: { postCount: 1, platforms: ['linkedin'] },
+        createdAt: '2026-05-22T20:03:00.000Z',
+      },
+      {
+        id: 'event-1',
+        runId: 'run-1',
+        userId: 'user-1',
+        sequence: 1,
+        eventType: 'run_started',
+        label: 'Social Writer started',
+        message: 'Starting provider request',
+        metadata: { mode: 'SOCIAL_WRITING' },
+        createdAt: '2026-05-22T20:01:00.000Z',
+      },
+    ]);
+
+    expect(rows).toEqual([
+      {
+        id: 'event-1',
+        sequenceLabel: '#1',
+        label: 'Social Writer started',
+        eventType: 'run_started',
+        message: 'Starting provider request',
+        metadataEntries: [{ key: 'mode', value: 'SOCIAL_WRITING' }],
+        createdAt: '2026-05-22T20:01:00.000Z',
+      },
+      {
+        id: 'event-2',
+        sequenceLabel: '#2',
+        label: 'Social Writer completed',
+        eventType: 'run_completed',
+        message: null,
+        metadataEntries: [
+          { key: 'platforms', value: 'linkedin' },
+          { key: 'postCount', value: '1' },
+        ],
+        createdAt: '2026-05-22T20:03:00.000Z',
+      },
     ]);
   });
 });
