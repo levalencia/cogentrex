@@ -116,7 +116,17 @@ function effectiveConversationMode(conversation: ConversationLike, skillRunsByCo
 }
 
 function effectiveArtifactMode(artifact: ArtifactItem, skillRunsByConversationId: Map<string, AppMode>): AppMode | undefined {
-  return skillRunsByConversationId.get(artifact.conversationId) ?? artifact.conversationMode;
+  return artifact.effectiveMode ?? skillRunsByConversationId.get(artifact.conversationId) ?? artifact.conversationMode;
+}
+
+function artifactProvenanceLabel(artifact: ArtifactItem, mode: AppMode | undefined): string {
+  const labels = [artifact.conversationTitle ?? 'Untitled output', modeLabel(mode)];
+  if (artifact.skillRunName && artifact.skillRunStatus) {
+    labels.push(`${artifact.skillRunName} ${artifact.skillRunStatus}`);
+  } else if (artifact.skillRunName) {
+    labels.push(artifact.skillRunName);
+  }
+  return labels.join(' · ');
 }
 
 export function buildLibraryModeCards(conversations: ConversationLike[], skillRuns: SkillRunSummary[] = []): LibraryModeCard[] {
@@ -421,6 +431,11 @@ function mergeArtifact(existing: ArtifactItem, incoming: ArtifactItem): Artifact
     ...base,
     conversationTitle: base.conversationTitle ?? fallback.conversationTitle,
     conversationMode: base.conversationMode ?? fallback.conversationMode,
+    baseConversationMode: base.baseConversationMode ?? fallback.baseConversationMode,
+    effectiveMode: base.effectiveMode ?? fallback.effectiveMode,
+    skillRunId: base.skillRunId ?? fallback.skillRunId,
+    skillRunName: base.skillRunName ?? fallback.skillRunName,
+    skillRunStatus: base.skillRunStatus ?? fallback.skillRunStatus,
     language: base.language ?? fallback.language,
   };
 }
@@ -436,7 +451,7 @@ export function buildLibraryArtifactRows(artifacts: ArtifactItem[], skillRuns: S
     return {
       id: artifact.id,
       filename: artifact.filename,
-      subtitle: `${artifact.conversationTitle ?? 'Untitled output'} · ${modeLabel(mode)}`,
+      subtitle: artifactProvenanceLabel(artifact, mode),
       sizeLabel: sizeLabel(artifact.sizeBytes),
       conversationHref: `/chats/${artifact.conversationId}`,
       preview: textPreview(artifact.content),
@@ -485,7 +500,7 @@ export function buildRecentActivityItems(
       kind: 'artifact',
       title: artifact.filename,
       eyebrow: 'Saved artifact',
-      description: `${artifact.conversationTitle ?? 'Untitled output'} · ${modeLabel(mode)}`,
+      description: artifactProvenanceLabel(artifact, mode),
       href: `/chats/${artifact.conversationId}`,
       timestamp: artifact.createdAt,
       mode,

@@ -315,7 +315,7 @@ describe('buildLibraryArtifactRows', () => {
     ]);
   });
 
-  it('labels saved artifacts by completed skill run mode when artifact conversation mode is stale', () => {
+  it('uses server-derived artifact provenance before falling back to stale conversation mode', () => {
     const rows = buildLibraryArtifactRows([
       {
         id: 'art-1',
@@ -328,28 +328,15 @@ describe('buildLibraryArtifactRows', () => {
         createdAt: '2026-05-22T20:01:00.000Z',
         conversationTitle: 'Started as chat',
         conversationMode: 'CHAT',
-      },
-    ], [
-      {
-        id: 'run-1',
-        userId: 'user-1',
-        skillId: 'skl_deep_research',
-        skillSlug: 'deep-research',
-        skillName: 'Deep Research',
-        mode: 'DEEP_RESEARCH',
-        status: 'completed',
-        conversationId: 'conv-stale',
-        jobId: 'job-1',
-        providerId: 'provider-1',
-        startedAt: '2026-05-22T20:00:00.000Z',
-        completedAt: '2026-05-22T20:03:00.000Z',
-        durationMs: 180000,
-        errorMessage: null,
-        observability: { sourceCount: 3 },
+        baseConversationMode: 'CHAT',
+        effectiveMode: 'DEEP_RESEARCH',
+        skillRunId: 'run-1',
+        skillRunName: 'Deep Research',
+        skillRunStatus: 'completed',
       },
     ]);
 
-    expect(rows[0]?.subtitle).toBe('Started as chat · DEEP RESEARCH');
+    expect(rows[0]?.subtitle).toBe('Started as chat · DEEP RESEARCH · Deep Research completed');
   });
 });
 

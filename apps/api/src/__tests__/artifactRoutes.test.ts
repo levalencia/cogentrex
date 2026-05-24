@@ -87,6 +87,23 @@ describe('artifact routes', () => {
       id: 'art-stale-research',
       conversationTitle: 'Started as chat',
       conversationMode: 'DEEP_RESEARCH',
+      baseConversationMode: 'CHAT',
+      effectiveMode: 'DEEP_RESEARCH',
+      skillRunId: 'skr-stale-research',
+      skillRunName: 'Deep Research',
+      skillRunStatus: 'completed',
+    });
+
+    const detailResponse = await agent.get('/api/artifacts/art-stale-research').expect(200);
+    expect(detailResponse.body.artifact).toMatchObject({
+      id: 'art-stale-research',
+      conversationTitle: 'Started as chat',
+      conversationMode: 'DEEP_RESEARCH',
+      baseConversationMode: 'CHAT',
+      effectiveMode: 'DEEP_RESEARCH',
+      skillRunId: 'skr-stale-research',
+      skillRunName: 'Deep Research',
+      skillRunStatus: 'completed',
     });
 
     database.close();
