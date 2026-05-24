@@ -5,6 +5,7 @@ import { useParams, usePathname } from 'next/navigation';
 import { AuthPanel } from './AuthPanel';
 import { ChatView } from './ChatView';
 import { LibraryView } from './LibraryView';
+import { RunsView } from './RunsView';
 import { Sidebar } from './Sidebar';
 import { useAppStore } from '@/store/appStore';
 
@@ -18,6 +19,7 @@ export function AppShell() {
   const pathname = usePathname();
   const conversationId = params?.id as string | undefined;
   const isLibraryRoute = pathname?.startsWith('/library') ?? false;
+  const isRunsRoute = pathname?.startsWith('/runs') ?? false;
 
   useEffect(() => {
     void bootstrap();
@@ -26,7 +28,7 @@ export function AppShell() {
   useEffect(() => {
     if (conversationId) {
       void loadMessages(conversationId);
-    } else if (pathname === '/') {
+    } else if (pathname === '/' || pathname === '/chats') {
       clearChat();
     }
   }, [conversationId, pathname, loadMessages, clearChat]);
@@ -49,7 +51,7 @@ export function AppShell() {
   return (
     <div className="flex h-screen overflow-hidden bg-ink text-slate-100">
       <Sidebar />
-      {isLibraryRoute ? <LibraryView /> : <ChatView />}
+      {isRunsRoute ? <RunsView /> : isLibraryRoute ? <LibraryView /> : <ChatView />}
     </div>
   );
 }
