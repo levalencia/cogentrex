@@ -29,6 +29,7 @@ import {
 } from '@/lib/workflowLauncher';
 import { buildResearchWorkspaceCards, type ResearchWorkspaceStatus } from '@/lib/researchWorkspace';
 import { buildReferencedSources, linkCitationMarkers } from '@/lib/citations';
+import { getSaveToLibraryButtonView, type SaveToLibraryState } from '@/lib/saveToLibraryButton';
 
 // ── Helper ──────────────────────────────────────────
 function extractImageFilenameFromMarkdown(content: string): string | null {
@@ -44,7 +45,7 @@ interface MessageItemProps {
 
 const MessageItem = memo(function MessageItem({ message, onEditImage }: MessageItemProps) {
   const saveMessageAsArtifact = useAppStore((state) => state.saveMessageAsArtifact);
-  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [saveState, setSaveState] = useState<SaveToLibraryState>('idle');
 
   if (message.role === 'user') {
     // Detect if this user message was for social generation
@@ -90,16 +91,16 @@ const MessageItem = memo(function MessageItem({ message, onEditImage }: MessageI
   );
 
   const handleSaveArtifact = async () => {
-    if (!canSaveArtifact || saveState === 'saving') return;
+    if (!canSaveArtifact || saveState !== 'idle') return;
     setSaveState('saving');
     try {
       await saveMessageAsArtifact(message.id);
       setSaveState('saved');
-      setTimeout(() => setSaveState('idle'), 2500);
     } catch {
       setSaveState('idle');
     }
   };
+  const saveButtonView = getSaveToLibraryButtonView(saveState);
 
   return (
     <article className="flex justify-start">
@@ -140,10 +141,10 @@ const MessageItem = memo(function MessageItem({ message, onEditImage }: MessageI
           <button
             type="button"
             onClick={handleSaveArtifact}
-            disabled={saveState === 'saving'}
+            disabled={saveButtonView.disabled}
             className="mt-2 rounded-lg border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-medium text-accent transition hover:bg-accent/20 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? '✓ Saved to Library' : 'Save to Library'}
+            {saveButtonView.label}
           </button>
         ) : null}
         {hasGeneratedImage ? (
