@@ -107,6 +107,54 @@ export interface SkillRunSummary {
   observability: Record<string, unknown> | null;
 }
 
+export interface AdminAnalyticsTotals {
+  totalRuns: number;
+  completedRuns: number;
+  failedRuns: number;
+  activeRuns: number;
+  successRate: number;
+  averageDurationMs: number | null;
+}
+
+export interface AdminAnalyticsSkillRow {
+  skillSlug: string;
+  skillName: string;
+  mode: AppMode;
+  totalRuns: number;
+  completedRuns: number;
+  failedRuns: number;
+  activeRuns: number;
+  successRate: number;
+  averageDurationMs: number | null;
+  latestRunAt: string;
+}
+
+export interface AdminAnalyticsModeRow {
+  mode: AppMode;
+  totalRuns: number;
+  completedRuns: number;
+  failedRuns: number;
+  activeRuns: number;
+  successRate: number;
+}
+
+export interface AdminAnalyticsProviderRow {
+  providerId: string;
+  totalRuns: number;
+  failedRuns: number;
+  averageDurationMs: number | null;
+  latestRunAt: string;
+}
+
+export interface AdminAnalyticsSummary {
+  generatedAt: string;
+  totals: AdminAnalyticsTotals;
+  topSkills: AdminAnalyticsSkillRow[];
+  modeBreakdown: AdminAnalyticsModeRow[];
+  providerUsage: AdminAnalyticsProviderRow[];
+  recentFailures: SkillRunSummary[];
+}
+
 export interface WorkflowDefinition {
   id: WorkflowId;
   label: string;

@@ -168,6 +168,9 @@ export default function AdminSkillsPage() {
             <a href="/settings/admin/providers" className="rounded-xl border border-line bg-panel px-4 py-2 text-sm hover:border-accent">
               Provider admin
             </a>
+            <a href="/settings/admin/analytics" className="rounded-xl border border-line bg-panel px-4 py-2 text-sm hover:border-accent">
+              Workflow analytics
+            </a>
             <a href="/settings/providers" className="rounded-xl border border-line bg-panel px-4 py-2 text-sm hover:border-accent">
               Back to settings
             </a>
