@@ -9,6 +9,7 @@ import {
   buildSkillRunHealthStats,
   buildSkillRunHistoryRows,
   filterLibraryArtifacts,
+  filterSkillRuns,
   mergeLibraryArtifacts,
 } from './libraryOutputs';
 
@@ -666,6 +667,69 @@ describe('buildSkillRunDetail', () => {
       { key: 'platforms', value: 'linkedin, x' },
       { key: 'sourceCount', value: '4' },
     ]);
+  });
+});
+
+describe('filterSkillRuns', () => {
+  const runs = [
+    {
+      id: 'run-1',
+      userId: 'user-1',
+      skillId: 'skill-1',
+      skillSlug: 'deep-research-default',
+      skillName: 'Deep Research',
+      mode: 'DEEP_RESEARCH' as const,
+      status: 'completed' as const,
+      conversationId: 'conv-1',
+      jobId: 'job-1',
+      providerId: 'firecrawl',
+      startedAt: '2026-05-22T20:01:00.000Z',
+      completedAt: '2026-05-22T20:04:00.000Z',
+      durationMs: 180000,
+      errorMessage: null,
+      observability: { sourceCount: 4, phase: 'synthesis' },
+    },
+    {
+      id: 'run-2',
+      userId: 'user-1',
+      skillId: 'skill-2',
+      skillSlug: 'linkedin-writer',
+      skillName: 'LinkedIn Writer',
+      mode: 'SOCIAL_WRITING' as const,
+      status: 'failed' as const,
+      conversationId: null,
+      jobId: null,
+      providerId: null,
+      startedAt: '2026-05-22T20:05:00.000Z',
+      completedAt: '2026-05-22T20:06:00.000Z',
+      durationMs: 60000,
+      errorMessage: 'Provider unavailable',
+      observability: { phase: 'publish' },
+    },
+    {
+      id: 'run-3',
+      userId: 'user-1',
+      skillId: 'skill-3',
+      skillSlug: 'image-studio',
+      skillName: 'Image Studio',
+      mode: 'IMAGE_GENERATION' as const,
+      status: 'running' as const,
+      conversationId: 'conv-3',
+      jobId: 'job-3',
+      providerId: 'foundry',
+      startedAt: '2026-05-22T20:07:00.000Z',
+      completedAt: null,
+      durationMs: null,
+      errorMessage: null,
+      observability: { promptLength: 120 },
+    },
+  ];
+
+  it('filters skill runs by status, mode, and searchable metadata while preserving newest-first order', () => {
+    expect(filterSkillRuns(runs, { status: 'failed', mode: 'all', query: 'provider' }).map((run) => run.id)).toEqual(['run-2']);
+    expect(filterSkillRuns(runs, { status: 'all', mode: 'DEEP_RESEARCH', query: 'firecrawl' }).map((run) => run.id)).toEqual(['run-1']);
+    expect(filterSkillRuns(runs, { status: 'active', mode: 'all', query: 'image' }).map((run) => run.id)).toEqual(['run-3']);
+    expect(filterSkillRuns(runs, { status: 'all', mode: 'all', query: '' }).map((run) => run.id)).toEqual(['run-3', 'run-2', 'run-1']);
   });
 });
 
