@@ -28,6 +28,7 @@ const envSchema = z.object({
   LINKEDIN_CLIENT_SECRET: z.string().optional(),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
+  QA_FIXTURES_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

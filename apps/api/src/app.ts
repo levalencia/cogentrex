@@ -31,6 +31,8 @@ import { chatRoutes } from './chat/chatRoutes.js';
 import { createLogger, type AppLogger } from './observability/logger.js';
 import { requestLogger } from './observability/requestLogger.js';
 import { adminRoutes } from './admin/adminRoutes.js';
+import { adminQaFixtureRoutes } from './admin/qaFixtureRoutes.js';
+import { QaFixtureService } from './admin/qaFixtureService.js';
 import { MetricsRepository } from './observability/metricsRepository.js';
 import { MediaRepository } from './media/mediaRepository.js';
 import { MediaService } from './media/mediaService.js';
@@ -88,6 +90,7 @@ export async function createApp(env: AppEnv, deps: AppDependencies = {}) {
 
   const artifactRepository = new ArtifactRepository(database.adapter);
   const artifactService = new ArtifactService(artifactRepository, logger.child({ component: 'ArtifactService' }));
+  const qaFixtureService = new QaFixtureService(database.adapter);
 
   const skillRunRepository = new SkillRunRepository(database.adapter);
   const chatService = new ChatService(conversationRepository, providerService, llm, new ProviderUsageRepository(database.adapter), metricsRepository, logger.child({ component: 'ChatService' }), artifactService, skillRunRepository);
@@ -174,6 +177,7 @@ export async function createApp(env: AppEnv, deps: AppDependencies = {}) {
   app.use('/api/skills', skillRoutes(authService, skillService, providerService, env, skillRunRepository));
   app.use('/api/capabilities', capabilityRoutes(authService, capabilityService));
   app.use('/api/admin/skills', adminSkillRoutes(authService, skillService));
+  app.use('/api/admin/qa', adminQaFixtureRoutes(authService, qaFixtureService, env));
   app.use('/api/admin', adminRoutes(authService, providerService));
   app.use('/api/chat', chatRoutes(authService, chatService, researchService, metricsRepository, artifactService, logger.child({ component: 'ChatRoutes' })));
   app.use('/api/media', mediaRoutes(authService, mediaService, apiBaseUrl));
