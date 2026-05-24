@@ -33,6 +33,14 @@ interface ArtifactRow {
   conversation_mode?: AppMode | null;
 }
 
+const EFFECTIVE_CONVERSATION_MODE_SQL = `COALESCE((
+  SELECT sr.mode
+  FROM skill_runs sr
+  WHERE sr.conversation_id = c.id
+  ORDER BY COALESCE(sr.completed_at, sr.started_at) DESC, sr.started_at DESC
+  LIMIT 1
+), c.mode)`;
+
 function mapArtifact(row: ArtifactRow): ArtifactRecord {
   const artifact: ArtifactRecord = {
     id: row.id,
@@ -120,7 +128,7 @@ export class ArtifactRepository {
 
   async listForUser(userId: string): Promise<ArtifactRecord[]> {
     const rows = await this.db.prepare(
-      `SELECT a.*, c.title AS conversation_title, c.mode AS conversation_mode
+      `SELECT a.*, c.title AS conversation_title, ${EFFECTIVE_CONVERSATION_MODE_SQL} AS conversation_mode
        FROM artifacts a
        JOIN conversations c ON c.id = a.conversation_id
        WHERE a.user_id = ? AND c.user_id = ?
@@ -131,7 +139,7 @@ export class ArtifactRepository {
 
   async createFromMessage(userId: string, messageId: string): Promise<ArtifactRecord | undefined> {
     const row = await this.db.prepare(
-      `SELECT m.id AS message_id, m.conversation_id, m.content, m.metadata_json, c.title AS conversation_title, c.mode AS conversation_mode
+      `SELECT m.id AS message_id, m.conversation_id, m.content, m.metadata_json, c.title AS conversation_title, ${EFFECTIVE_CONVERSATION_MODE_SQL} AS conversation_mode
        FROM messages m
        JOIN conversations c ON c.id = m.conversation_id
        WHERE c.user_id = ? AND m.id = ? AND m.role = 'assistant'`,
@@ -157,8 +165,12 @@ export class ArtifactRepository {
 
   async listForConversation(userId: string, conversationId: string): Promise<ArtifactRecord[]> {
     const rows = await this.db.prepare(
-      'SELECT * FROM artifacts WHERE user_id = ? AND conversation_id = ? ORDER BY created_at ASC',
-    ).all(userId, conversationId) as ArtifactRow[];
+      `SELECT a.*, c.title AS conversation_title, ${EFFECTIVE_CONVERSATION_MODE_SQL} AS conversation_mode
+       FROM artifacts a
+       JOIN conversations c ON c.id = a.conversation_id
+       WHERE a.user_id = ? AND a.conversation_id = ? AND c.user_id = ?
+       ORDER BY a.created_at ASC`,
+    ).all(userId, conversationId, userId) as ArtifactRow[];
     return rows.map(mapArtifact);
   }
 
