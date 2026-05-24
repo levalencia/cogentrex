@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { AccountMenu } from '@/components/AccountMenu';
+import { getCockpitNavItems } from '@/lib/cockpitNav';
 import { useAppStore } from '@/store/appStore';
 
 function modeLabel(mode: string): string {
@@ -14,6 +15,7 @@ function modeLabel(mode: string): string {
 }
 
 export function Sidebar() {
+  const user = useAppStore((state) => state.user);
   const conversations = useAppStore((state) => state.conversations);
   const projects = useAppStore((state) => state.projects);
   const activeProjectId = useAppStore((state) => state.activeProjectId);
@@ -29,6 +31,7 @@ export function Sidebar() {
   const deleteProject = useAppStore((state) => state.deleteProject);
   const router = useRouter();
   const pathname = usePathname();
+  const cockpitNavItems = getCockpitNavItems(user?.role, pathname);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -84,14 +87,21 @@ export function Sidebar() {
       <AccountMenu />
 
       {/* New Chat */}
-      <div className="space-y-2 p-3">
-        <button onClick={handleNewChat} className="w-full rounded-2xl bg-accent px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-white">New chat</button>
-        <button
-          onClick={() => router.push('/library')}
-          className={`w-full rounded-2xl border px-4 py-2.5 text-left text-sm transition ${pathname?.startsWith('/library') ? 'border-accent bg-accent/10 text-accent' : 'border-line text-slate-300 hover:border-accent'}`}
-        >
-          Library / Outputs
-        </button>
+      <div className="space-y-3 p-3">
+        <button onClick={handleNewChat} className="w-full rounded-2xl bg-accent px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-white">New workflow</button>
+        <nav className="space-y-1" aria-label="Cogentrex cockpit">
+          {cockpitNavItems.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => router.push(item.href)}
+              className={`w-full rounded-2xl border px-4 py-3 text-left transition ${item.isActive ? 'border-accent bg-accent/10 text-accent' : 'border-line text-slate-300 hover:border-accent hover:bg-white/5'}`}
+            >
+              <span className="block text-sm font-semibold">{item.label}</span>
+              <span className="mt-0.5 block text-xs text-slate-500">{item.description}</span>
+            </button>
+          ))}
+        </nav>
       </div>
 
       {/* Project Filter */}
