@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { AdminAnalyticsSummary } from '@cogentrex/shared';
 import { api } from '@/lib/api';
+import { buildAdminAnalyticsViewModel, type AdminAnalyticsHealthTone } from '@/lib/adminAnalytics';
 import { getProtectedRouteState } from '@/lib/protectedRoute';
 import { useAppStore } from '@/store/appStore';
 
@@ -19,6 +20,20 @@ function formatDuration(value: number | null): string {
 
 function modeLabel(mode: string): string {
   return mode.toLowerCase().split('_').map((part) => part[0]?.toUpperCase() + part.slice(1)).join(' ');
+}
+
+function healthToneClass(tone: AdminAnalyticsHealthTone): string {
+  switch (tone) {
+    case 'success':
+      return 'border-emerald-400/20 bg-emerald-400/5 text-emerald-100';
+    case 'warning':
+      return 'border-amber-400/20 bg-amber-400/5 text-amber-100';
+    case 'danger':
+      return 'border-rose-400/20 bg-rose-400/5 text-rose-100';
+    case 'neutral':
+    default:
+      return 'border-line bg-panel/70 text-slate-200';
+  }
 }
 
 export default function AdminAnalyticsPage() {
@@ -84,6 +99,7 @@ export default function AdminAnalyticsPage() {
   }
 
   const totals = analytics?.totals;
+  const analyticsView = analytics ? buildAdminAnalyticsViewModel(analytics) : null;
 
   return (
     <main className="min-h-screen bg-ink text-slate-100">
@@ -96,7 +112,13 @@ export default function AdminAnalyticsPage() {
               Operational health for skill runs: volume, success rate, failure hotspots, and provider usage.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {analytics && analyticsView ? (
+              <span className="rounded-xl border border-line bg-panel px-3 py-2 text-xs text-slate-500">
+                Generated {formatDate(analytics.generatedAt)}
+                {analyticsView.latestActivityAt ? ` · latest run ${formatDate(analyticsView.latestActivityAt)}` : ''}
+              </span>
+            ) : null}
             <a href="/settings/admin/skills" className="rounded-xl border border-line bg-panel px-4 py-2 text-sm hover:border-accent">
               Skills registry
             </a>
@@ -109,18 +131,60 @@ export default function AdminAnalyticsPage() {
           </div>
         </div>
 
-        {error ? <p className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</p> : null}
+        {error ? (
+          <section className="mb-4 rounded-3xl border border-red-500/30 bg-red-500/10 p-5 text-sm text-red-100">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="font-semibold">Could not load workflow analytics</p>
+                <p className="mt-1 text-red-100/80">{error}</p>
+              </div>
+              <button type="button" onClick={() => void loadAnalytics()} className="rounded-xl border border-red-300/30 px-4 py-2 hover:border-red-200">
+                Retry
+              </button>
+            </div>
+          </section>
+        ) : null}
 
         {loading ? (
           <section className="rounded-3xl border border-line bg-panel/70 p-8 text-center text-slate-400">
-            Loading analytics…
+            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-accent border-t-transparent" />
+            <p className="mt-4 font-medium text-slate-200">Loading workflow analytics…</p>
+            <p className="mt-1 text-sm text-slate-500">Fetching recent skill runs, provider usage, and failure signals.</p>
           </section>
         ) : !analytics || !totals ? (
           <section className="rounded-3xl border border-line bg-panel/70 p-8 text-center text-slate-400">
-            No analytics available yet. Launch workflows to populate this dashboard.
+            Analytics are not available yet. Refresh or run a workflow to create telemetry.
           </section>
         ) : (
           <div className="space-y-6">
+            <section className={`rounded-3xl border p-5 ${healthToneClass(analyticsView?.healthTone ?? 'neutral')}`}>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.2em] opacity-70">Workflow health</p>
+                  <h2 className="mt-2 text-2xl font-semibold">{analyticsView?.healthLabel}</h2>
+                  <p className="mt-2 max-w-3xl text-sm opacity-80">{analyticsView?.primaryInsight}</p>
+                </div>
+                <div className="flex flex-wrap gap-2 text-sm">
+                  <a href={analyticsView?.primaryCta.href ?? '/library'} className="rounded-xl border border-white/15 bg-white/10 px-4 py-2 hover:bg-white/15">
+                    {analyticsView?.primaryCta.label ?? 'Review run history'}
+                  </a>
+                  <a href={analyticsView?.secondaryCta.href ?? '/settings/admin/skills'} className="rounded-xl border border-white/10 px-4 py-2 hover:bg-white/10">
+                    {analyticsView?.secondaryCta.label ?? 'Check skill routes'}
+                  </a>
+                </div>
+              </div>
+            </section>
+
+            {!analyticsView?.hasRuns ? (
+              <section className="rounded-3xl border border-dashed border-line bg-panel/60 p-8 text-center">
+                <p className="text-lg font-semibold text-white">No workflow telemetry yet</p>
+                <p className="mx-auto mt-2 max-w-2xl text-sm text-slate-500">
+                  Run Chat, Deep Research, Social Writer, or Image Studio once and this dashboard will start showing success rates,
+                  failures, provider usage, and durations.
+                </p>
+              </section>
+            ) : null}
+
             <section className="grid gap-3 md:grid-cols-5">
               <article className="rounded-3xl border border-accent/20 bg-accent/10 p-4">
                 <p className="text-[10px] uppercase tracking-[0.2em] text-accent">Runs</p>
