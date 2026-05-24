@@ -5,6 +5,7 @@ import {
   buildLibraryModeCards,
   buildLibraryOverviewStats,
   buildRecentActivityItems,
+  buildSkillRunDetail,
   buildSkillRunHealthStats,
   buildSkillRunHistoryRows,
   filterLibraryArtifacts,
@@ -619,6 +620,52 @@ describe('buildSkillRunHistoryRows', () => {
       summary: 'Completed with 4 sources.',
     }));
     expect(rows[1]?.metrics).toEqual(['4 sources', '3 new', '5 plan steps', '1.2k tokens', '45s synthesis']);
+  });
+});
+
+describe('buildSkillRunDetail', () => {
+  it('builds a drawer-ready skill run detail model with links, metrics, and observability entries', () => {
+    const detail = buildSkillRunDetail({
+      id: 'run-1',
+      userId: 'user-1',
+      skillId: 'skill-1',
+      skillSlug: 'deep-research-default',
+      skillName: 'Deep Research',
+      mode: 'DEEP_RESEARCH',
+      status: 'completed',
+      conversationId: 'conv-1',
+      jobId: 'job-1',
+      providerId: 'provider-1',
+      startedAt: '2026-05-22T20:01:00.000Z',
+      completedAt: '2026-05-22T20:04:00.000Z',
+      durationMs: 180000,
+      errorMessage: null,
+      observability: {
+        sourceCount: 4,
+        platforms: ['linkedin', 'x'],
+        nested: { phase: 'synthesis' },
+      },
+    });
+
+    expect(detail).toEqual(expect.objectContaining({
+      id: 'run-1',
+      skillName: 'Deep Research',
+      skillSlug: 'deep-research-default',
+      modeLabel: 'DEEP RESEARCH',
+      statusLabel: 'Completed',
+      statusTone: 'success',
+      durationLabel: '3m',
+      conversationHref: '/chats/conv-1',
+      jobId: 'job-1',
+      providerId: 'provider-1',
+      summary: 'Completed with 4 sources.',
+    }));
+    expect(detail.metrics).toEqual(['4 sources', '2 platforms']);
+    expect(detail.observabilityEntries).toEqual([
+      { key: 'nested', value: '{"phase":"synthesis"}' },
+      { key: 'platforms', value: 'linkedin, x' },
+      { key: 'sourceCount', value: '4' },
+    ]);
   });
 });
 

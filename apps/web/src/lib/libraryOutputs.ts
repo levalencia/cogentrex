@@ -68,6 +68,25 @@ export interface SkillRunHistoryRow {
   metrics: string[];
 }
 
+export interface SkillRunDetail {
+  id: string;
+  skillName: string;
+  skillSlug: string;
+  modeLabel: string;
+  statusLabel: string;
+  statusTone: SkillRunHistoryRow['statusTone'];
+  summary: string;
+  startedAt: string;
+  completedAt: string | null;
+  durationLabel: string;
+  conversationHref: string | null;
+  jobId: string | null;
+  providerId: string | null;
+  errorMessage: string | null;
+  metrics: string[];
+  observabilityEntries: Array<{ key: string; value: string }>;
+}
+
 function buildSkillRunModeByConversationId(skillRuns: SkillRunSummary[], completedOnly = false): Map<string, AppMode> {
   const byConversationId = new Map<string, { mode: AppMode; timestamp: string }>();
 
@@ -210,6 +229,46 @@ function skillRunMetrics(observability: Record<string, unknown> | null): string[
   if (Array.isArray(platforms) && platforms.length) metrics.push(`${platforms.length} platforms`);
 
   return metrics;
+}
+
+function formatObservabilityValue(value: unknown): string {
+  if (value == null) return '—';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (Array.isArray(value)) return value.map(formatObservabilityValue).join(', ');
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function skillRunObservabilityEntries(observability: Record<string, unknown> | null): SkillRunDetail['observabilityEntries'] {
+  if (!observability) return [];
+  return Object.entries(observability)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => ({ key, value: formatObservabilityValue(value) }));
+}
+
+export function buildSkillRunDetail(run: SkillRunSummary): SkillRunDetail {
+  return {
+    id: run.id,
+    skillName: run.skillName,
+    skillSlug: run.skillSlug,
+    modeLabel: modeLabel(run.mode),
+    statusLabel: skillRunStatusLabel(run.status),
+    statusTone: skillRunStatusTone(run.status),
+    summary: skillRunSummary(run),
+    startedAt: run.startedAt,
+    completedAt: run.completedAt,
+    durationLabel: durationLabel(run.durationMs),
+    conversationHref: run.conversationId ? `/chats/${run.conversationId}` : null,
+    jobId: run.jobId,
+    providerId: run.providerId,
+    errorMessage: run.errorMessage,
+    metrics: skillRunMetrics(run.observability),
+    observabilityEntries: skillRunObservabilityEntries(run.observability),
+  };
 }
 
 function skillRunSummary(run: SkillRunSummary): string {

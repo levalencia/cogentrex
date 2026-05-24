@@ -10,6 +10,7 @@ import {
   buildLibraryModeCards,
   buildLibraryOverviewStats,
   buildRecentActivityItems,
+  buildSkillRunDetail,
   buildSkillRunHealthStats,
   buildSkillRunHistoryRows,
   filterLibraryArtifacts,
@@ -42,6 +43,7 @@ export function LibraryView() {
   const [isLoadingArtifacts, setIsLoadingArtifacts] = useState(true);
   const [artifactQuery, setArtifactQuery] = useState('');
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
   const cards = buildLibraryModeCards(conversations, skillRuns);
   const mergedArtifacts = useMemo(
@@ -59,6 +61,8 @@ export function LibraryView() {
   const recentActivity = buildRecentActivityItems(conversations, mergedArtifacts, skillRuns, 8);
   const skillRunStats = buildSkillRunHealthStats(skillRuns);
   const skillRunRows = buildSkillRunHistoryRows(skillRuns, 6);
+  const selectedRun = selectedRunId ? skillRuns.find((run) => run.id === selectedRunId) : undefined;
+  const selectedRunDetail = selectedRun ? buildSkillRunDetail(selectedRun) : undefined;
 
   useEffect(() => {
     let cancelled = false;
@@ -97,6 +101,12 @@ export function LibraryView() {
     }
   }, [filteredArtifacts, selectedArtifactId]);
 
+  useEffect(() => {
+    if (selectedRunId && !skillRuns.some((run) => run.id === selectedRunId)) {
+      setSelectedRunId(null);
+    }
+  }, [selectedRunId, skillRuns]);
+
   async function copySelectedArtifact() {
     if (!selectedArtifact) return;
     try {
@@ -122,7 +132,8 @@ export function LibraryView() {
   }
 
   return (
-    <main className="flex h-full flex-1 flex-col overflow-hidden bg-[radial-gradient(circle_at_top_right,#17213b,#0b0f19_45%)]">
+    <>
+      <main className="flex h-full flex-1 flex-col overflow-hidden bg-[radial-gradient(circle_at_top_right,#17213b,#0b0f19_45%)]">
       <header className="border-b border-line bg-panel/70 px-6 py-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -214,8 +225,8 @@ export function LibraryView() {
               <button
                 key={run.id}
                 type="button"
-                onClick={() => router.push(run.href)}
-                className="rounded-2xl border border-line bg-ink/50 p-4 text-left transition hover:border-accent/60 hover:bg-accent/5"
+                onClick={() => setSelectedRunId(run.id)}
+                className={`rounded-2xl border p-4 text-left transition ${selectedRunId === run.id ? 'border-accent/70 bg-accent/10' : 'border-line bg-ink/50 hover:border-accent/60 hover:bg-accent/5'}`}
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -379,6 +390,113 @@ export function LibraryView() {
           </section>
         </div>
       </section>
-    </main>
+      </main>
+
+      {selectedRunDetail ? (
+        <div className="fixed inset-0 z-40 flex justify-end bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="run-detail-title">
+          <button
+            type="button"
+            aria-label="Close run details"
+            onClick={() => setSelectedRunId(null)}
+            className="absolute inset-0 cursor-default"
+          />
+          <aside className="relative z-10 flex h-full w-full max-w-xl flex-col border-l border-line bg-panel shadow-2xl shadow-black/40">
+            <div className="border-b border-line px-6 py-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-xs uppercase tracking-[0.2em] text-accent">Run detail</p>
+                  <h2 id="run-detail-title" className="mt-2 truncate text-2xl font-semibold text-white">{selectedRunDetail.skillName}</h2>
+                  <p className="mt-1 truncate text-xs text-slate-500">{selectedRunDetail.skillSlug} · {selectedRunDetail.modeLabel}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRunId(null)}
+                  className="rounded-xl border border-line px-3 py-2 text-xs text-slate-300 transition hover:border-accent"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span className={`rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.14em] ${runStatusClass(selectedRunDetail.statusTone)}`}>
+                  {selectedRunDetail.statusLabel}
+                </span>
+                <span className="rounded-full border border-line bg-ink/60 px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-slate-400">
+                  {selectedRunDetail.durationLabel}
+                </span>
+                {selectedRunDetail.conversationHref ? (
+                  <button
+                    type="button"
+                    onClick={() => router.push(selectedRunDetail.conversationHref!)}
+                    className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-accent transition hover:border-accent"
+                  >
+                    Open chat
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+              <section className="rounded-3xl border border-line bg-ink/50 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Summary</p>
+                <p className="mt-2 text-sm leading-6 text-slate-300">{selectedRunDetail.summary}</p>
+                {selectedRunDetail.errorMessage ? (
+                  <p className="mt-3 rounded-2xl border border-rose-400/20 bg-rose-400/10 p-3 text-xs leading-5 text-rose-100">{selectedRunDetail.errorMessage}</p>
+                ) : null}
+              </section>
+
+              <section className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-line bg-ink/50 p-4">
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-slate-600">Started</p>
+                  <p className="mt-2 text-sm font-medium text-white">{formatDate(selectedRunDetail.startedAt)}</p>
+                </div>
+                <div className="rounded-2xl border border-line bg-ink/50 p-4">
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-slate-600">Completed</p>
+                  <p className="mt-2 text-sm font-medium text-white">{selectedRunDetail.completedAt ? formatDate(selectedRunDetail.completedAt) : '—'}</p>
+                </div>
+                <div className="rounded-2xl border border-line bg-ink/50 p-4">
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-slate-600">Provider</p>
+                  <p className="mt-2 truncate text-sm font-medium text-white">{selectedRunDetail.providerId ?? '—'}</p>
+                </div>
+                <div className="rounded-2xl border border-line bg-ink/50 p-4">
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-slate-600">Job</p>
+                  <p className="mt-2 truncate text-sm font-medium text-white">{selectedRunDetail.jobId ?? '—'}</p>
+                </div>
+              </section>
+
+              <section className="rounded-3xl border border-line bg-ink/50 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Metrics</p>
+                {selectedRunDetail.metrics.length ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {selectedRunDetail.metrics.map((metric) => (
+                      <span key={metric} className="rounded-full border border-line bg-black/20 px-3 py-1 text-xs text-slate-300">
+                        {metric}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm text-slate-500">No compact metrics were captured for this run.</p>
+                )}
+              </section>
+
+              <section className="rounded-3xl border border-line bg-ink/50 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Observability payload</p>
+                {selectedRunDetail.observabilityEntries.length ? (
+                  <dl className="mt-3 divide-y divide-line rounded-2xl border border-line bg-black/10">
+                    {selectedRunDetail.observabilityEntries.map((entry) => (
+                      <div key={entry.key} className="grid gap-2 px-3 py-2 text-xs sm:grid-cols-[0.45fr_1fr]">
+                        <dt className="font-mono text-slate-500">{entry.key}</dt>
+                        <dd className="break-words text-slate-300">{entry.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : (
+                  <p className="mt-2 text-sm text-slate-500">No observability payload was stored for this run.</p>
+                )}
+              </section>
+            </div>
+          </aside>
+        </div>
+      ) : null}
+    </>
   );
 }
