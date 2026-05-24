@@ -87,6 +87,14 @@ export interface SkillRunDetail {
   observabilityEntries: Array<{ key: string; value: string }>;
 }
 
+export type SkillRunStatusFilter = 'all' | 'active' | SkillRunSummary['status'];
+
+export interface SkillRunFilterInput {
+  query: string;
+  status: SkillRunStatusFilter;
+  mode: AppMode | 'all';
+}
+
 function buildSkillRunModeByConversationId(skillRuns: SkillRunSummary[], completedOnly = false): Map<string, AppMode> {
   const byConversationId = new Map<string, { mode: AppMode; timestamp: string }>();
 
@@ -278,6 +286,35 @@ function skillRunSummary(run: SkillRunSummary): string {
   const sourceCount = readNumericMetric(run.observability, 'sourceCount');
   if (sourceCount != null) return `Completed with ${sourceCount} sources.`;
   return 'Completed skill run.';
+}
+
+export function filterSkillRuns(skillRuns: SkillRunSummary[], filters: SkillRunFilterInput): SkillRunSummary[] {
+  const query = filters.query.trim().toLowerCase();
+  const matchesStatus = (run: SkillRunSummary) => {
+    if (filters.status === 'all') return true;
+    if (filters.status === 'active') return run.status === 'pending' || run.status === 'running';
+    return run.status === filters.status;
+  };
+  const matchesMode = (run: SkillRunSummary) => filters.mode === 'all' || run.mode === filters.mode;
+  const matchesQuery = (run: SkillRunSummary) => !query || skillRunSearchableText(run).includes(query);
+
+  return sortTimestampDesc(skillRuns
+    .filter((run) => matchesStatus(run) && matchesMode(run) && matchesQuery(run))
+    .map((run) => ({ run, timestamp: run.completedAt ?? run.startedAt })))
+    .map(({ run }) => run);
+}
+
+function skillRunSearchableText(run: SkillRunSummary): string {
+  return [
+    run.skillName,
+    run.skillSlug,
+    run.mode,
+    run.status,
+    run.providerId,
+    run.jobId,
+    run.errorMessage,
+    run.observability ? JSON.stringify(run.observability) : null,
+  ].filter(Boolean).join(' ').toLowerCase();
 }
 
 export function buildSkillRunHealthStats(skillRuns: SkillRunSummary[]): SkillRunHealthStats {

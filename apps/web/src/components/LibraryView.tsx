@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import type { ArtifactItem, SkillRunSummary } from '@cogentrex/shared';
+import type { AppMode, ArtifactItem, SkillRunSummary } from '@cogentrex/shared';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/store/appStore';
 import {
@@ -14,6 +14,7 @@ import {
   buildSkillRunHealthStats,
   buildSkillRunHistoryRows,
   filterLibraryArtifacts,
+  filterSkillRuns,
   getLibraryArtifactMode,
   mergeLibraryArtifacts,
 } from '@/lib/libraryOutputs';
@@ -34,6 +35,22 @@ function runStatusClass(tone: 'success' | 'warning' | 'danger' | 'neutral'): str
   return 'border-slate-600 bg-slate-800/60 text-slate-300';
 }
 
+const runStatusOptions = [
+  { value: 'all', label: 'All statuses' },
+  { value: 'active', label: 'Active' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'failed', label: 'Failed' },
+] as const;
+
+const runModeOptions: Array<{ value: AppMode | 'all'; label: string }> = [
+  { value: 'all', label: 'All modes' },
+  { value: 'DEEP_RESEARCH', label: 'Deep Research' },
+  { value: 'SOCIAL_WRITING', label: 'Social Writing' },
+  { value: 'IMAGE_GENERATION', label: 'Image' },
+  { value: 'VIDEO_GENERATION', label: 'Video' },
+  { value: 'CHAT', label: 'Chat' },
+];
+
 export function LibraryView() {
   const router = useRouter();
   const conversations = useAppStore((state) => state.conversations);
@@ -42,6 +59,9 @@ export function LibraryView() {
   const [skillRuns, setSkillRuns] = useState<SkillRunSummary[]>([]);
   const [isLoadingArtifacts, setIsLoadingArtifacts] = useState(true);
   const [artifactQuery, setArtifactQuery] = useState('');
+  const [runQuery, setRunQuery] = useState('');
+  const [runStatusFilter, setRunStatusFilter] = useState<(typeof runStatusOptions)[number]['value']>('all');
+  const [runModeFilter, setRunModeFilter] = useState<AppMode | 'all'>('all');
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
@@ -60,7 +80,11 @@ export function LibraryView() {
   const selectedArtifactMode = selectedArtifact ? getLibraryArtifactMode(selectedArtifact, skillRuns) : undefined;
   const recentActivity = buildRecentActivityItems(conversations, mergedArtifacts, skillRuns, 8);
   const skillRunStats = buildSkillRunHealthStats(skillRuns);
-  const skillRunRows = buildSkillRunHistoryRows(skillRuns, 6);
+  const filteredSkillRuns = useMemo(
+    () => filterSkillRuns(skillRuns, { status: runStatusFilter, mode: runModeFilter, query: runQuery }),
+    [skillRuns, runStatusFilter, runModeFilter, runQuery],
+  );
+  const skillRunRows = buildSkillRunHistoryRows(filteredSkillRuns, 12);
   const selectedRun = selectedRunId ? skillRuns.find((run) => run.id === selectedRunId) : undefined;
   const selectedRunDetail = selectedRun ? buildSkillRunDetail(selectedRun) : undefined;
 
@@ -216,6 +240,46 @@ export function LibraryView() {
             </div>
           </div>
 
+          <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_180px_180px_auto]">
+            <label className="block">
+              <span className="sr-only">Search skill runs</span>
+              <input
+                type="search"
+                value={runQuery}
+                onChange={(event) => setRunQuery(event.target.value)}
+                placeholder="Search runs, providers, jobs, errors…"
+                className="w-full rounded-2xl border border-line bg-ink/70 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-accent"
+              />
+            </label>
+            <label className="block">
+              <span className="sr-only">Filter run status</span>
+              <select
+                value={runStatusFilter}
+                onChange={(event) => setRunStatusFilter(event.target.value as (typeof runStatusOptions)[number]['value'])}
+                className="w-full rounded-2xl border border-line bg-ink/70 px-4 py-3 text-sm text-white outline-none transition focus:border-accent"
+              >
+                {runStatusOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="sr-only">Filter run mode</span>
+              <select
+                value={runModeFilter}
+                onChange={(event) => setRunModeFilter(event.target.value as AppMode | 'all')}
+                className="w-full rounded-2xl border border-line bg-ink/70 px-4 py-3 text-sm text-white outline-none transition focus:border-accent"
+              >
+                {runModeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+            <div className="flex items-center rounded-2xl border border-line bg-ink/40 px-4 py-3 text-xs text-slate-500">
+              Showing {filteredSkillRuns.length} of {skillRuns.length}
+            </div>
+          </div>
+
           <div className="mt-4 grid gap-3 xl:grid-cols-2">
             {isLoadingArtifacts && !skillRunRows.length ? (
               <div className="rounded-2xl border border-dashed border-line p-5 text-sm text-slate-500">
@@ -256,7 +320,7 @@ export function LibraryView() {
               </button>
             )) : (
               <div className="rounded-2xl border border-dashed border-line p-5 text-sm text-slate-500">
-                No skill runs yet. Launch a workflow to start building an auditable run ledger.
+                {skillRuns.length ? 'No runs match these filters. Clear search or choose another status/mode.' : 'No skill runs yet. Launch a workflow to start building an auditable run ledger.'}
               </div>
             )}
           </div>
