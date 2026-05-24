@@ -250,6 +250,11 @@ export interface ArtifactItem {
   createdAt: string;
   conversationTitle?: string | undefined;
   conversationMode?: AppMode | undefined;
+  baseConversationMode?: AppMode | undefined;
+  effectiveMode?: AppMode | undefined;
+  skillRunId?: string | undefined;
+  skillRunName?: string | undefined;
+  skillRunStatus?: SkillRunStatus | undefined;
 }
 
 export interface ResearchSource {
