@@ -3,11 +3,21 @@ import { createProviderSchema, updateProviderSchema } from '@cogentrex/shared';
 import { currentUser, requireAuth, requireAdmin } from '../auth/authMiddleware.js';
 import type { AuthService } from '../auth/authService.js';
 import type { ProviderService } from '../providers/providerService.js';
+import type { AdminAnalyticsService } from './adminAnalyticsService.js';
 
-export function adminRoutes(auth: AuthService, providers: ProviderService): Router {
+export function adminRoutes(auth: AuthService, providers: ProviderService, analytics: AdminAnalyticsService): Router {
   const router = Router();
   router.use(requireAuth(auth));
   router.use(requireAdmin());
+
+  router.get('/analytics', async (req, res, next) => {
+    try {
+      const limit = Number(req.query.limit ?? 500);
+      res.json({ analytics: await analytics.getSummary(Number.isFinite(limit) ? limit : 500) });
+    } catch (error) {
+      next(error);
+    }
+  });
 
   router.get('/providers', async (req, res, next) => {
     try {

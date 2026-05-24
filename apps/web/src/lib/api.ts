@@ -1,4 +1,4 @@
-import type { ArtifactItem, ChatMessage, ConversationSummary, MediaArtifact, ProjectSummary, ProviderConfigView, PublicUser, RequestMetric, StreamEvent, ImageGenerationOptions, GeneratedPost, SocialPlatformConfig, WorkflowReadiness, SkillReadiness, SkillRunSummary, SkillSummary, UpdateSkillInput, UpdateSkillRouteInput } from '@cogentrex/shared';
+import type { AdminAnalyticsSummary, ArtifactItem, ChatMessage, ConversationSummary, MediaArtifact, ProjectSummary, ProviderConfigView, PublicUser, RequestMetric, StreamEvent, ImageGenerationOptions, GeneratedPost, SocialPlatformConfig, WorkflowReadiness, SkillReadiness, SkillRunSummary, SkillSummary, UpdateSkillInput, UpdateSkillRouteInput } from '@cogentrex/shared';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001';
 
@@ -71,6 +71,7 @@ export const api = {
     jsonRequest<{ started: boolean }>('/api/chat/research', { method: 'POST', body: JSON.stringify({ jobId, plan }) }),
   // Admin
   listAdminProviders: () => jsonRequest<{ providers: ProviderConfigView[] }>('/api/admin/providers'),
+  listAdminAnalytics: () => jsonRequest<{ analytics: AdminAnalyticsSummary }>('/api/admin/analytics'),
   createAdminProvider: (input: { name: string; baseUrl: string; apiKey: string; model: string; kind: ProviderConfigView['kind']; defaultForMode?: 'CHAT' | 'DEEP_RESEARCH'; supportsStreaming?: boolean; supportsVision?: boolean; supportsTools?: boolean; supportsSearch?: boolean; supportsImage?: boolean; supportsVideo?: boolean }) =>
     jsonRequest<{ provider: ProviderConfigView }>('/api/admin/providers', { method: 'POST', body: JSON.stringify(input) }),
   updateAdminProvider: (id: string, input: Record<string, unknown>) =>

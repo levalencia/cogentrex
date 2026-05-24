@@ -123,6 +123,13 @@ export function AccountMenu() {
               >
                 Admin skills registry
               </a>
+              <a
+                role="menuitem"
+                href="/settings/admin/analytics"
+                className="block rounded-xl px-3 py-2 text-sm text-accent hover:bg-accent/10"
+              >
+                Workflow analytics
+              </a>
             </div>
           ) : null}
 

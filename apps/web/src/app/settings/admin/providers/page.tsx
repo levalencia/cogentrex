@@ -179,6 +179,9 @@ export default function AdminProvidersPage() {
             <a href="/settings/admin/skills" className="rounded-xl border border-line bg-panel px-4 py-2 text-sm text-accent hover:border-accent">
               Skills registry
             </a>
+            <a href="/settings/admin/analytics" className="rounded-xl border border-line bg-panel px-4 py-2 text-sm text-accent hover:border-accent">
+              Workflow analytics
+            </a>
             <a href="/settings/providers" className="rounded-xl border border-line bg-panel px-4 py-2 text-sm hover:border-accent">
               Back to Providers
             </a>
