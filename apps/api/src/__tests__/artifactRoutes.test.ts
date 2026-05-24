@@ -58,6 +58,40 @@ describe('artifact routes', () => {
     });
   });
 
+  it('uses the latest linked skill run mode when library conversation metadata is stale', async () => {
+    const { agent, database } = await makeTestApp();
+    const user = await registerAndLogin(agent);
+    const { conversationId } = await seedConversationWithAssistantMessage(database, user.id, {
+      title: 'Started as chat',
+      mode: 'CHAT',
+    });
+
+    await database.adapter.prepare(
+      `INSERT INTO skill_runs (
+        id, user_id, skill_id, skill_slug, skill_name, mode, status,
+        conversation_id, job_id, provider_id, started_at, completed_at, duration_ms, observability_json
+      ) VALUES (
+        'skr-stale-research', @userId, 'skl_deep_research', 'deep-research', 'Deep Research', 'DEEP_RESEARCH', 'completed',
+        @conversationId, 'job-1', NULL, '2026-05-22T20:01:00.000Z', '2026-05-22T20:03:00.000Z', 120000, '{"sourceCount":3}'
+      )`,
+    ).run({ userId: user.id, conversationId });
+
+    await database.adapter.prepare(
+      `INSERT INTO artifacts (id, user_id, conversation_id, message_id, type, filename, language, content, size_bytes, created_at)
+       VALUES ('art-stale-research', @userId, @conversationId, 'msg-stale', 'text/markdown', 'Research answer.md', 'markdown', '# Research', 10, '2026-05-22T20:04:00.000Z')`,
+    ).run({ userId: user.id, conversationId });
+
+    const response = await agent.get('/api/artifacts').expect(200);
+
+    expect(response.body.artifacts[0]).toMatchObject({
+      id: 'art-stale-research',
+      conversationTitle: 'Started as chat',
+      conversationMode: 'DEEP_RESEARCH',
+    });
+
+    database.close();
+  });
+
   it('saves an assistant message as a reusable library artifact', async () => {
     const { agent, database } = await makeTestApp();
     const user = await registerAndLogin(agent);
