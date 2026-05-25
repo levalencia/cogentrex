@@ -92,6 +92,57 @@ Why this matters:
 
 ## Common issues
 
+### Deep Research, Skill Assist, Library, and Runs smoke
+
+Current operable loop:
+
+1. Open `/chats` and switch to **Deep Research**.
+2. Optional: enable **Skill Assist** in the composer. In Deep Research this injects relevant native skill guidance into both planning and synthesis prompts.
+3. Submit a bounded research question.
+4. Verify the planning step returns a plan, then start the research run.
+5. Verify streamed evidence:
+   - reasoning / diagnostic events appear during the run
+   - sources are emitted with titles and URLs
+   - final answer includes citations
+6. Save the assistant output to Library.
+7. Verify `/library` shows the saved artifact.
+8. Verify `/runs` shows a Deep Research run with event count, source/artifact observability, status, and conversation/job linkage.
+
+Focused regression commands:
+
+```bash
+pnpm --filter @cogentrex/api test -- src/__tests__/research.test.ts --run
+pnpm --filter @cogentrex/web test -- src/lib/libraryOutputs.test.ts src/lib/skillCockpit.test.ts --run
+```
+
+QA evidence should include screenshots for: Deep Research answer with sources, saved Library artifact, and the `/runs` ledger row/details.
+
+### Skill cockpit and admin governance smoke
+
+Current governance surfaces:
+
+- `/skills` — user-facing skill cockpit: readiness cards, workflow launcher, and recent run health.
+- `/runs` — auditable run ledger for skill-backed workflows.
+- `/settings/admin/skills` — admin-only skill registry and route configuration.
+- `/settings/admin/analytics` — admin-only workflow analytics for run volume, failures, provider usage, and mode breakdowns.
+- `/settings/admin/providers` — admin provider management.
+
+Access checks:
+
+1. Unauthenticated users should be redirected before admin APIs are called.
+2. Signed-in non-admin users should see **Access Denied** for admin pages and receive `403` from admin APIs.
+3. Admin users should be able to load skills, analytics, and providers without console errors.
+4. Analytics CTAs that reference run history should route to `/runs`, not the Library artifact shelf.
+
+Focused regression commands:
+
+```bash
+pnpm --filter @cogentrex/api test -- src/__tests__/skills.test.ts src/__tests__/adminAnalytics.test.ts --run
+pnpm --filter @cogentrex/web test -- src/lib/adminAnalytics.test.ts src/lib/protectedRoute.test.ts src/lib/skillCockpit.test.ts --run
+```
+
+For visual QA, prefer an isolated local SQLite DB and seeded fixture data. Do not mutate DEV PostgreSQL or promote users for admin screenshots unless explicitly approved.
+
 ### User is sent to login after idle time
 
 Check:

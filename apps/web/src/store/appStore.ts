@@ -17,6 +17,7 @@ interface PendingPlan {
   conversationId: string;
   plan: string[];
   question: string;
+  useSkills?: boolean;
   isLoading: boolean;
   loadingMessage?: string | undefined;
   priorSourceCount?: number;
@@ -218,10 +219,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!content.trim() || state.isStreaming) return;
 
     if (state.mode === 'DEEP_RESEARCH') {
-      set({ pendingPlan: { jobId: '', conversationId: state.activeConversationId ?? '', plan: [], question: content, isLoading: true, loadingMessage: 'Reading linked sources...' } });
+      const useSkills = options.useSkills ?? false;
+      set({ pendingPlan: { jobId: '', conversationId: state.activeConversationId ?? '', plan: [], question: content, useSkills, isLoading: true, loadingMessage: 'Reading linked sources...' } });
       try {
-        const { plan, jobId, conversationId, priorSourceCount } = await api.planResearch(content, state.activeProviderId, state.activeConversationId);
-        set({ pendingPlan: { jobId, conversationId, plan, question: content, isLoading: false, priorSourceCount } });
+        const { plan, jobId, conversationId, priorSourceCount } = await api.planResearch(content, state.activeProviderId, state.activeConversationId, useSkills);
+        set({ pendingPlan: { jobId, conversationId, plan, question: content, useSkills, isLoading: false, priorSourceCount } });
       } catch (error) {
         set({ error: error instanceof Error ? error.message : 'Planning failed', pendingPlan: null });
       }

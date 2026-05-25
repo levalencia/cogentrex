@@ -2,9 +2,30 @@ import { describe, expect, it } from 'vitest';
 import { createProvider, makeTestApp, registerAndLogin } from './testApp.js';
 import { extractUrls, buildSeedContext } from '../research/researchService.js';
 import { parsePlanItem } from '../research/researchPlanner.js';
-import { FakeLanguageModelClient } from '../chat/languageModel.js';
+import { FakeLanguageModelClient, type LanguageModelClient, type ModelMessage } from '../chat/languageModel.js';
+import type { ProviderRuntimeConfig } from '../providers/providerService.js';
 import { FakeWebSearchClient } from '../tools/searchClient.js';
 import type { ScrapedPage } from '../tools/searchClient.js';
+
+class RecordingResearchLlm implements LanguageModelClient {
+  completeCalls: ModelMessage[][] = [];
+  streamCalls: ModelMessage[][] = [];
+
+  async complete(_provider: ProviderRuntimeConfig, messages: ModelMessage[]): Promise<string> {
+    this.completeCalls.push(messages);
+    return JSON.stringify({ queries: ['web:agent workflow governance'] });
+  }
+
+  async *streamChat(_provider: ProviderRuntimeConfig, messages: ModelMessage[]): AsyncIterable<string> {
+    this.streamCalls.push(messages);
+    yield 'Grounded answer [1].';
+  }
+}
+
+function firstSystemContent(messages: ModelMessage[][]): string {
+  const content = messages[0]?.find((message) => message.role === 'system')?.content;
+  return typeof content === 'string' ? content : '';
+}
 
 function parseSse(text: string) {
   return text
@@ -100,6 +121,41 @@ describe('deep research API', () => {
       status: 'completed',
       providerId: providerResponse.body.provider.id,
     });
+
+    database.close();
+  });
+
+  it('injects Skill Assist into Deep Research planning when requested', async () => {
+    const llm = new RecordingResearchLlm();
+    const { agent, database } = await makeTestApp({}, { llm });
+    await registerAndLogin(agent);
+    await createProvider(agent);
+
+    await agent
+      .post('/api/chat/plan')
+      .send({ content: 'Research current AI workflow governance evidence', useSkills: true })
+      .expect(200);
+
+    expect(firstSystemContent(llm.completeCalls)).toContain('Cogentrex in Skill Assist mode');
+    expect(firstSystemContent(llm.completeCalls)).toContain('source-grounded-research');
+
+    database.close();
+  });
+
+  it('injects Skill Assist into Deep Research synthesis when requested', async () => {
+    const llm = new RecordingResearchLlm();
+    const { agent, database } = await makeTestApp({}, { llm });
+    await registerAndLogin(agent);
+    await createProvider(agent);
+
+    const response = await agent
+      .post('/api/chat/stream')
+      .send({ content: 'Research current AI workflow governance evidence', mode: 'DEEP_RESEARCH', useSkills: true })
+      .expect(200);
+
+    expect(parseSse(response.text).at(-1)?.type).toBe('done');
+    expect(firstSystemContent(llm.streamCalls)).toContain('Cogentrex in Skill Assist mode');
+    expect(firstSystemContent(llm.streamCalls)).toContain('source-grounded-research');
 
     database.close();
   });

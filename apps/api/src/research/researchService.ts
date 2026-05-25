@@ -6,7 +6,7 @@ import type { ProviderService } from '../providers/providerService.js';
 import type { ProviderUsageRepository } from '../providers/providerUsageRepository.js';
 import type { MetricsRepository } from '../observability/metricsRepository.js';
 import type { ConversationRepository } from '../chat/conversationRepository.js';
-import type { LanguageModelClient } from '../chat/languageModel.js';
+import type { LanguageModelClient, ModelMessage } from '../chat/languageModel.js';
 import type { WebSearchClient, ScrapedPage } from '../tools/searchClient.js';
 import { describeSearchClient, describeFetchClient } from '../tools/searchClient.js';
 import type { ChannelRegistry } from '../tools/channels/channelRegistry.js';
@@ -18,6 +18,8 @@ import { ResearchPlanner, parsePlanItem, type PlanItem } from './researchPlanner
 import { ResearchJobRepository } from './researchJobRepository.js';
 import type { ResearchSourceRepository } from './researchSourceRepository.js';
 import type { SkillRunRepository } from '../skills/skillRunRepository.js';
+import type { SkillService } from '../skills/skillService.js';
+import { withSkillAssistSystemMessage } from '../skills/skillAssist.js';
 
 export function extractUrls(text: string): string[] {
   const urlRegex = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi;
@@ -69,6 +71,7 @@ interface JobEntry {
 export class ResearchService {
   private readonly planner: ResearchPlanner;
   private readonly jobs = new Map<string, JobEntry>();
+  private readonly skillAssistJobs = new Set<string>();
 
   constructor(
     private readonly conversations: ConversationRepository,
@@ -82,11 +85,21 @@ export class ResearchService {
     private readonly usage: ProviderUsageRepository,
     private readonly metrics: MetricsRepository,
     private readonly logger: AppLogger,
+    private readonly skillService?: SkillService,
   ) {
     this.planner = new ResearchPlanner(llm);
   }
 
-  async plan(providerId: string | undefined, userId: string, question: string, conversationId?: string): Promise<{ plan: string[]; jobId: string; conversationId: string; scrapedUrls: string[]; failedUrls: string[]; priorSourceCount: number }> {
+  private async listRegistrySkillsForAssist() {
+    return this.skillService ? this.skillService.listVisibleDetails() : undefined;
+  }
+
+  private async withSkillAssistIfRequested(messages: ModelMessage[], question: string, useSkills: boolean): Promise<{ messages: ModelMessage[]; skillSlugs: string[] }> {
+    if (!useSkills) return { messages, skillSlugs: [] };
+    return withSkillAssistSystemMessage(messages, question, await this.listRegistrySkillsForAssist());
+  }
+
+  async plan(providerId: string | undefined, userId: string, question: string, conversationId?: string, useSkills = false): Promise<{ plan: string[]; jobId: string; conversationId: string; scrapedUrls: string[]; failedUrls: string[]; priorSourceCount: number }> {
     const now = nowIso();
     
     // Reuse existing conversation for follow-ups, or create new one
@@ -183,14 +196,15 @@ export class ResearchService {
     const planningStarted = performance.now();
     const seedContext = buildSeedContext(scrapedPages);
     
+    const registrySkills = useSkills ? await this.listRegistrySkillsForAssist() : undefined;
     let planItems: PlanItem[];
     if (priorSources.length > 0) {
       // Follow-up: limit to 5 new queries, avoid re-searching what's known
       const priorTopics = priorSources.slice(0, 5).map((s) => s.title).join('; ');
-      planItems = (await this.planner.planFollowUp(provider, question, priorSources.length, priorTopics, seedContext)).slice(0, 5);
+      planItems = (await this.planner.planFollowUp(provider, question, priorSources.length, priorTopics, seedContext, useSkills, registrySkills)).slice(0, 5);
     } else {
       // Fresh research: up to 10 queries
-      planItems = (await this.planner.plan(provider, question, seedContext)).slice(0, 10);
+      planItems = (await this.planner.plan(provider, question, seedContext, useSkills, registrySkills)).slice(0, 10);
     }
     
     const planStrings = planItems.map((item) => `${item.channel}:${item.query}`);
@@ -218,6 +232,9 @@ export class ResearchService {
       createdAt: now,
       updatedAt: now,
     });
+    if (useSkills) {
+      this.skillAssistJobs.add(job.id);
+    }
     return { plan: planStrings, jobId: job.id, conversationId: conversation.id, scrapedUrls: scrapedPages.map((p) => p.url), failedUrls, priorSourceCount: priorSources.length };
   }
 
@@ -233,6 +250,7 @@ export class ResearchService {
     await this.jobsRepo.updateStatus(jobId, 'running', nowIso());
 
     const provider = await this.providers.resolveForMode(userId, 'DEEP_RESEARCH', job.providerId ?? undefined);
+    const useSkills = this.skillAssistJobs.has(jobId);
     const skillRun = await this.skillRuns.safeCreate({
       userId,
       skillId: 'skl_deep_research',
@@ -400,7 +418,8 @@ export class ResearchService {
         let content = '';
         const synthesisStarted = performance.now();
         let firstTokenAt: number | null = null;
-        for await (const delta of this.llm.streamChat(provider, createSynthesisMessages(job.question, sourceNotes))) {
+        const synthesisMessages = await this.withSkillAssistIfRequested(createSynthesisMessages(job.question, sourceNotes), job.question, useSkills);
+        for await (const delta of this.llm.streamChat(provider, synthesisMessages.messages)) {
           if (!firstTokenAt) firstTokenAt = performance.now();
           content += delta;
           await emit({ type: 'delta', content: delta });
@@ -535,6 +554,7 @@ export class ResearchService {
       } finally {
         emitter.removeAllListeners();
         await this.jobs.delete(jobId);
+        this.skillAssistJobs.delete(jobId);
       }
     })();
   }
@@ -580,6 +600,7 @@ export class ResearchService {
     question: string;
     conversationId?: string;
     providerId?: string;
+    useSkills?: boolean;
     emit: StreamSink;
   }): Promise<{ conversationId: string; content: string; sources: ResearchSource[] }> {
     const startedAt = performance.now();
@@ -666,7 +687,8 @@ export class ResearchService {
         durationMs: Math.round(performance.now() - scrapeStarted),
       });
       const seedContext = buildSeedContext(scrapedPages);
-      const planItems = (await this.planner.plan(provider, input.question, seedContext)).slice(0, 10);
+      const registrySkills = input.useSkills ? await this.listRegistrySkillsForAssist() : undefined;
+      const planItems = (await this.planner.plan(provider, input.question, seedContext, input.useSkills ?? false, registrySkills)).slice(0, 10);
       queries = planItems.map((item) => `${item.channel}:${item.query}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Planner failed';
@@ -778,7 +800,8 @@ export class ResearchService {
     const synthesisStarted = performance.now();
     let firstTokenAt: number | null = null;
     try {
-      for await (const delta of this.llm.streamChat(provider, createSynthesisMessages(input.question, sourceNotes))) {
+      const synthesisMessages = await this.withSkillAssistIfRequested(createSynthesisMessages(input.question, sourceNotes), input.question, input.useSkills ?? false);
+      for await (const delta of this.llm.streamChat(provider, synthesisMessages.messages)) {
         if (!firstTokenAt) firstTokenAt = performance.now();
         content += delta;
         input.emit({ type: 'delta', content: delta });

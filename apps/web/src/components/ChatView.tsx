@@ -574,7 +574,7 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
 
     setInput('');
     setUploadedFiles([]);
-    onSend(fullContent, { useSkills: mode === 'CHAT' && useSkills });
+    onSend(fullContent, { useSkills: (mode === 'CHAT' || mode === 'DEEP_RESEARCH') && useSkills });
   }, [input, uploadedFiles, chatImages, isStreaming, onSend, mode, useSkills]);
 
   const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -851,8 +851,8 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
               <ProviderPicker />
               {mode !== 'IMAGE_GENERATION' && mode !== 'VIDEO_GENERATION' && mode !== 'SOCIAL_WRITING' ? (
                 <>
-                  {mode === 'CHAT' ? (
-                    <label className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors ${useSkills ? 'border-accent bg-accent/10 text-accent' : 'border-line text-slate-300 hover:border-accent'}`} title="Inject relevant operating skills into this chat turn">
+                  {mode === 'CHAT' || mode === 'DEEP_RESEARCH' ? (
+                    <label className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors ${useSkills ? 'border-accent bg-accent/10 text-accent' : 'border-line text-slate-300 hover:border-accent'}`} title={mode === 'DEEP_RESEARCH' ? 'Inject relevant operating skills into planning and synthesis' : 'Inject relevant operating skills into this chat turn'}>
                       <input
                         type="checkbox"
                         checked={useSkills}
