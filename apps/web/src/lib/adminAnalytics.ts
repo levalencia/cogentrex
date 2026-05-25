@@ -43,8 +43,8 @@ export function buildAdminAnalyticsViewModel(analytics: AdminAnalyticsSummary): 
       healthTone: 'neutral',
       primaryInsight: 'Launch a workflow to populate run volume, failures, providers, and duration metrics.',
       latestActivityAt,
-      primaryCta: { label: 'Open chat workspace', href: '/' },
-      secondaryCta: { label: 'Review run history', href: '/library' },
+      primaryCta: { label: 'Open chat workspace', href: '/chats' },
+      secondaryCta: { label: 'Review run history', href: '/runs' },
     };
   }
 
@@ -55,7 +55,7 @@ export function buildAdminAnalyticsViewModel(analytics: AdminAnalyticsSummary): 
       healthTone: 'danger',
       primaryInsight: `${analytics.totals.failedRuns} failed runs across the latest ${totalRuns} tracked records. Start with recent failures.`,
       latestActivityAt,
-      primaryCta: { label: 'Inspect run history', href: '/library' },
+      primaryCta: { label: 'Inspect run history', href: '/runs' },
       secondaryCta: { label: 'Check skill routes', href: '/settings/admin/skills' },
     };
   }
@@ -67,7 +67,7 @@ export function buildAdminAnalyticsViewModel(analytics: AdminAnalyticsSummary): 
       healthTone: 'success',
       primaryInsight: `${analytics.totals.successRate}% success across ${totalRuns} tracked runs. Keep monitoring active workflows.`,
       latestActivityAt,
-      primaryCta: { label: 'Review run history', href: '/library' },
+      primaryCta: { label: 'Review run history', href: '/runs' },
       secondaryCta: { label: 'Open provider admin', href: '/settings/admin/providers' },
     };
   }
@@ -78,7 +78,7 @@ export function buildAdminAnalyticsViewModel(analytics: AdminAnalyticsSummary): 
     healthTone: 'warning',
     primaryInsight: `${analytics.totals.successRate}% success across ${totalRuns} tracked runs. Watch for provider or skill route drift.`,
     latestActivityAt,
-    primaryCta: { label: 'Review run history', href: '/library' },
+    primaryCta: { label: 'Review run history', href: '/runs' },
     secondaryCta: { label: 'Check skill routes', href: '/settings/admin/skills' },
   };
 }

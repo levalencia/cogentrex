@@ -1,5 +1,7 @@
+import type { SkillDetail } from '@cogentrex/shared';
 import type { ProviderRuntimeConfig } from '../providers/providerService.js';
 import type { LanguageModelClient } from '../chat/languageModel.js';
+import { withSkillAssistSystemMessage } from '../skills/skillAssist.js';
 import { createPlanningMessages, createFollowUpPlanningMessages } from './researchPrompts.js';
 
 export interface PlanItem {
@@ -18,9 +20,11 @@ export function parsePlanItem(raw: string): PlanItem {
 export class ResearchPlanner {
   constructor(private readonly llm: LanguageModelClient) {}
 
-  async plan(provider: ProviderRuntimeConfig, question: string, seedContext?: string): Promise<PlanItem[]> {
+  async plan(provider: ProviderRuntimeConfig, question: string, seedContext?: string, useSkills = false, registrySkills?: SkillDetail[]): Promise<PlanItem[]> {
     try {
-      const text = await this.llm.complete(provider, createPlanningMessages(question, seedContext));
+      const planningMessages = createPlanningMessages(question, seedContext);
+      const messages = useSkills ? withSkillAssistSystemMessage(planningMessages, question, registrySkills).messages : planningMessages;
+      const text = await this.llm.complete(provider, messages);
       const parsed = JSON.parse(text) as { queries?: unknown };
       if (Array.isArray(parsed.queries)) {
         const items = parsed.queries
@@ -39,9 +43,11 @@ export class ResearchPlanner {
     ];
   }
 
-  async planFollowUp(provider: ProviderRuntimeConfig, question: string, priorSourceCount: number, priorTopics: string, seedContext?: string): Promise<PlanItem[]> {
+  async planFollowUp(provider: ProviderRuntimeConfig, question: string, priorSourceCount: number, priorTopics: string, seedContext?: string, useSkills = false, registrySkills?: SkillDetail[]): Promise<PlanItem[]> {
     try {
-      const text = await this.llm.complete(provider, createFollowUpPlanningMessages(question, priorSourceCount, priorTopics, seedContext));
+      const planningMessages = createFollowUpPlanningMessages(question, priorSourceCount, priorTopics, seedContext);
+      const messages = useSkills ? withSkillAssistSystemMessage(planningMessages, question, registrySkills).messages : planningMessages;
+      const text = await this.llm.complete(provider, messages);
       const parsed = JSON.parse(text) as { queries?: unknown };
       if (Array.isArray(parsed.queries)) {
         const items = parsed.queries

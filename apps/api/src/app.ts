@@ -111,7 +111,7 @@ export async function createApp(env: AppEnv, deps: AppDependencies = {}) {
   channelRegistry.register(new ExaChannelClient(env.EXA_API_KEY));
   channelRegistry.register(new ArxivChannelClient());
   channelRegistry.register(new HackerNewsChannelClient());
-  const researchService = new ResearchService(conversationRepository, providerService, llm, search, channelRegistry, researchJobRepository, researchSourceRepository, skillRunRepository, new ProviderUsageRepository(database.adapter), metricsRepository, logger.child({ component: 'ResearchService' }));
+  const researchService = new ResearchService(conversationRepository, providerService, llm, search, channelRegistry, researchJobRepository, researchSourceRepository, skillRunRepository, new ProviderUsageRepository(database.adapter), metricsRepository, logger.child({ component: 'ResearchService' }), skillService);
 
   const mediaRepository = new MediaRepository(database.adapter);
   const apiBaseUrl = env.API_PUBLIC_BASE_URL ?? `http://localhost:${env.API_PORT}`;

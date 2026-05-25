@@ -25,8 +25,8 @@ describe('buildAdminAnalyticsViewModel', () => {
     expect(view.hasRuns).toBe(false);
     expect(view.healthLabel).toBe('No telemetry yet');
     expect(view.primaryInsight).toContain('Launch a workflow');
-    expect(view.primaryCta).toEqual({ label: 'Open chat workspace', href: '/' });
-    expect(view.secondaryCta).toEqual({ label: 'Review run history', href: '/library' });
+    expect(view.primaryCta).toEqual({ label: 'Open chat workspace', href: '/chats' });
+    expect(view.secondaryCta).toEqual({ label: 'Review run history', href: '/runs' });
   });
 
   it('surfaces degraded health and the newest workflow timestamp when failures exist', () => {
@@ -89,7 +89,7 @@ describe('buildAdminAnalyticsViewModel', () => {
     expect(view.healthTone).toBe('danger');
     expect(view.primaryInsight).toBe('3 failed runs across the latest 12 tracked records. Start with recent failures.');
     expect(view.latestActivityAt).toBe('2026-05-24T11:59:00.000Z');
-    expect(view.primaryCta).toEqual({ label: 'Inspect run history', href: '/library' });
+    expect(view.primaryCta).toEqual({ label: 'Inspect run history', href: '/runs' });
     expect(view.secondaryCta).toEqual({ label: 'Check skill routes', href: '/settings/admin/skills' });
   });
 

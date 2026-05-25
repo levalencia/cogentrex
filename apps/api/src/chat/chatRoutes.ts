@@ -154,8 +154,8 @@ export function chatRoutes(auth: AuthService, chat: ChatService, research: Resea
   router.post('/plan', async (req, res, next) => {
     try {
       const user = currentUser(req);
-      const { content, providerId, conversationId } = req.body as { content: string; providerId?: string; conversationId?: string };
-      const result = await research.plan(providerId, user.id, content, conversationId);
+      const { content, providerId, conversationId, useSkills } = req.body as { content: string; providerId?: string; conversationId?: string; useSkills?: boolean };
+      const result = await research.plan(providerId, user.id, content, conversationId, useSkills ?? false);
       res.json(result);
     } catch (error) {
       next(error);
@@ -214,6 +214,7 @@ export function chatRoutes(auth: AuthService, chat: ChatService, research: Resea
           question: input.content,
           ...(input.conversationId ? { conversationId: input.conversationId } : {}),
           ...(input.providerId ? { providerId: input.providerId } : {}),
+          useSkills: input.useSkills,
           emit,
         });
       } else {
