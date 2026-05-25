@@ -112,9 +112,8 @@ describe('buildLibraryModeCards', () => {
         content: 'Brief',
         createdAt: '2026-05-22T20:06:00.000Z',
         conversationTitle: 'Started as chat',
-        conversationMode: 'DEEP_RESEARCH',
+        conversationMode: 'CHAT',
         baseConversationMode: 'CHAT',
-        effectiveMode: 'DEEP_RESEARCH',
         skillRunName: 'Deep Research',
         skillRunStatus: 'completed',
       },
@@ -404,6 +403,60 @@ describe('buildLibraryArtifactRows', () => {
 
     expect(rows[0]?.subtitle).toBe('Started as chat · DEEP RESEARCH · Deep Research completed');
   });
+
+  it('prefers the message-linked skill run over a newer generic run in the same conversation', () => {
+    const rows = buildLibraryArtifactRows([
+      {
+        id: 'art-1',
+        filename: 'Research answer.md',
+        type: 'text/markdown',
+        sizeBytes: 1536,
+        conversationId: 'conv-mixed',
+        messageId: 'msg-deep-research',
+        content: '# Research answer',
+        createdAt: '2026-05-22T20:06:00.000Z',
+        conversationTitle: 'Started as chat',
+        conversationMode: 'CHAT',
+      },
+    ], [
+      {
+        id: 'run-deep-research',
+        userId: 'user-1',
+        skillId: 'skl_deep_research',
+        skillSlug: 'deep-research',
+        skillName: 'Deep Research',
+        mode: 'DEEP_RESEARCH',
+        status: 'completed',
+        conversationId: 'conv-mixed',
+        jobId: 'job-1',
+        providerId: 'provider-1',
+        startedAt: '2026-05-22T20:00:00.000Z',
+        completedAt: '2026-05-22T20:03:00.000Z',
+        durationMs: 180000,
+        errorMessage: null,
+        observability: { messageId: 'msg-deep-research', sourceCount: 3 },
+      },
+      {
+        id: 'run-newer-chat',
+        userId: 'user-1',
+        skillId: 'skl_chat',
+        skillSlug: 'chat',
+        skillName: 'Chat',
+        mode: 'CHAT',
+        status: 'completed',
+        conversationId: 'conv-mixed',
+        jobId: null,
+        providerId: 'provider-1',
+        startedAt: '2026-05-22T20:04:00.000Z',
+        completedAt: '2026-05-22T20:05:00.000Z',
+        durationMs: 60000,
+        errorMessage: null,
+        observability: { messageId: 'msg-newer-chat' },
+      },
+    ]);
+
+    expect(rows[0]?.subtitle).toBe('Started as chat · DEEP RESEARCH');
+  });
 });
 
 describe('buildRecentActivityItems', () => {
@@ -481,7 +534,24 @@ describe('buildRecentActivityItems', () => {
           completedAt: '2026-05-22T20:03:00.000Z',
           durationMs: 180000,
           errorMessage: null,
-          observability: { sourceCount: 3 },
+          observability: { messageId: 'msg-1', sourceCount: 3 },
+        },
+        {
+          id: 'run-newer-chat',
+          userId: 'user-1',
+          skillId: 'skl_chat',
+          skillSlug: 'chat',
+          skillName: 'Chat',
+          mode: 'CHAT',
+          status: 'completed',
+          conversationId: 'conv-stale',
+          jobId: null,
+          providerId: 'provider-1',
+          startedAt: '2026-05-22T20:03:00.000Z',
+          completedAt: '2026-05-22T20:03:30.000Z',
+          durationMs: 30000,
+          errorMessage: null,
+          observability: { messageId: 'msg-newer-chat' },
         },
       ],
     );
