@@ -99,7 +99,7 @@ export async function createApp(env: AppEnv, deps: AppDependencies = {}) {
 
   const skillRunRepository = new SkillRunRepository(database.adapter);
   const adminAnalyticsService = new AdminAnalyticsService(database.adapter);
-  const chatService = new ChatService(conversationRepository, providerService, llm, new ProviderUsageRepository(database.adapter), metricsRepository, logger.child({ component: 'ChatService' }), artifactService, skillRunRepository);
+  const chatService = new ChatService(conversationRepository, providerService, llm, new ProviderUsageRepository(database.adapter), metricsRepository, logger.child({ component: 'ChatService' }), artifactService, skillRunRepository, skillService);
   const researchJobRepository = new ResearchJobRepository(database.adapter);
   const researchSourceRepository = new ResearchSourceRepository(database.adapter);
   const channelRegistry = new ChannelRegistry();

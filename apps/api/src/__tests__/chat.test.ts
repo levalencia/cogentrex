@@ -111,8 +111,23 @@ describe('chat streaming API', () => {
 
     const llm = new CapturingLanguageModelClient();
     const { agent, database } = await makeTestApp({}, { llm });
-    await registerAndLogin(agent);
+    const user = await registerAndLogin(agent);
+    await database.adapter.prepare('UPDATE users SET role = ? WHERE id = ?').run('ADMIN', user.id);
     await createProvider(agent);
+    await agent.patch('/api/admin/skills/flight-search').send({
+      status: 'PUBLISHED',
+      visibility: 'USER_VISIBLE',
+      category: 'Travel Ops',
+    }).expect(200);
+    await agent.put('/api/admin/skills/flight-search/route').send({
+      mode: 'CHAT',
+      config: {
+        skillAssist: {
+          keywords: ['mvp', 'typescript', 'tests'],
+          instructions: ['Use the registry-backed travel workflow playbook and keep the implementation evidence-driven.'],
+        },
+      },
+    }).expect(200);
 
     await agent
       .post('/api/chat/stream')
@@ -122,8 +137,8 @@ describe('chat streaming API', () => {
     expect(llm.calls).toHaveLength(1);
     expect(llm.calls[0]?.[0]).toMatchObject({ role: 'system' });
     expect(llm.calls[0]?.[0]?.content).toContain('Cogentrex in Skill Assist mode');
-    expect(llm.calls[0]?.[0]?.content).toContain('Product scope guardrails');
-    expect(llm.calls[0]?.[0]?.content).toContain('TypeScript full-stack quality');
+    expect(llm.calls[0]?.[0]?.content).toContain('--- Skill: flight-search');
+    expect(llm.calls[0]?.[0]?.content).toContain('Use the registry-backed travel workflow playbook');
 
     const conversations = await agent.get('/api/chat/conversations').expect(200);
     const conversationId = conversations.body.conversations[0].id as string;
@@ -135,7 +150,7 @@ describe('chat streaming API', () => {
       conversationId,
       observability: expect.objectContaining({
         skillAssistEnabled: true,
-        skillAssistSlugs: expect.arrayContaining(['product-scope-guardrails', 'typescript-fullstack-quality']),
+        skillAssistSlugs: expect.arrayContaining(['flight-search']),
       }),
     }));
 
