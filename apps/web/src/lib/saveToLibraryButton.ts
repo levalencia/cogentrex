@@ -5,6 +5,10 @@ interface SaveToLibraryButtonView {
   disabled: boolean;
 }
 
+export function getEffectiveSaveToLibraryState(state: SaveToLibraryState, hasSavedArtifact: boolean): SaveToLibraryState {
+  return hasSavedArtifact ? 'saved' : state;
+}
+
 export function getSaveToLibraryButtonView(state: SaveToLibraryState): SaveToLibraryButtonView {
   if (state === 'saving') {
     return { label: 'Saving…', disabled: true };

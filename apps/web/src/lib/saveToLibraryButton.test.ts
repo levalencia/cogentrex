@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getSaveToLibraryButtonView } from './saveToLibraryButton';
+import { getEffectiveSaveToLibraryState, getSaveToLibraryButtonView } from './saveToLibraryButton';
 
 describe('getSaveToLibraryButtonView', () => {
   it('keeps the saved state visible and disabled after a successful save', () => {
@@ -21,5 +21,11 @@ describe('getSaveToLibraryButtonView', () => {
       label: 'Save to Library',
       disabled: false,
     });
+  });
+
+  it('treats an already persisted message artifact as saved', () => {
+    expect(getEffectiveSaveToLibraryState('idle', true)).toBe('saved');
+    expect(getEffectiveSaveToLibraryState('saving', true)).toBe('saved');
+    expect(getEffectiveSaveToLibraryState('idle', false)).toBe('idle');
   });
 });
