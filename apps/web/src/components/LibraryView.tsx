@@ -1,8 +1,8 @@
 'use client';
 
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import type { ArtifactItem, SkillRunSummary } from '@cogentrex/shared';
-import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/store/appStore';
 import {
   buildArtifactDownload,
@@ -26,6 +26,8 @@ function findArtifact(artifacts: ArtifactItem[], artifactId: string | null): Art
 
 export function LibraryView() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedArtifactId = searchParams.get('artifact');
   const conversations = useAppStore((state) => state.conversations);
   const workspaceArtifacts = useAppStore((state) => state.artifacts);
   const [libraryArtifacts, setLibraryArtifacts] = useState<ArtifactItem[]>([]);
@@ -81,10 +83,14 @@ export function LibraryView() {
       setSelectedArtifactId(null);
       return;
     }
+    if (requestedArtifactId && filteredArtifacts.some((artifact) => artifact.id === requestedArtifactId)) {
+      if (selectedArtifactId !== requestedArtifactId) setSelectedArtifactId(requestedArtifactId);
+      return;
+    }
     if (!selectedArtifactId || !filteredArtifacts.some((artifact) => artifact.id === selectedArtifactId)) {
       setSelectedArtifactId(filteredArtifacts[0]?.id ?? null);
     }
-  }, [filteredArtifacts, selectedArtifactId]);
+  }, [filteredArtifacts, requestedArtifactId, selectedArtifactId]);
 
   async function copySelectedArtifact() {
     if (!selectedArtifact) return;

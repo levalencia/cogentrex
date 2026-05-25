@@ -732,6 +732,9 @@ describe('buildSkillRunDetail', () => {
       { label: 'Platforms', value: 'linkedin, x' },
       { label: 'Saved artifacts', value: '1' },
     ]);
+    expect(detail.savedArtifactLinks).toEqual([
+      { id: 'art-1', href: '/library?artifact=art-1', label: 'Artifact art-1' },
+    ]);
     expect(detail.observabilityEntries).toEqual([
       { key: 'estimatedTokens', value: '1234' },
       { key: 'nested', value: '{"phase":"synthesis"}' },

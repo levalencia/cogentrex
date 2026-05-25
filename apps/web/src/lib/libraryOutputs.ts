@@ -84,6 +84,7 @@ export interface SkillRunDetail {
   providerId: string | null;
   errorMessage: string | null;
   metrics: string[];
+  savedArtifactLinks: Array<{ id: string; href: string; label: string }>;
   criticalObservabilityEntries: Array<{ label: string; value: string }>;
   observabilityEntries: Array<{ key: string; value: string }>;
 }
@@ -313,6 +314,18 @@ function skillRunObservabilityEntries(observability: Record<string, unknown> | n
     .map(([key, value]) => ({ key, value: formatObservabilityValue(value) }));
 }
 
+function skillRunSavedArtifactLinks(observability: Record<string, unknown> | null): SkillRunDetail['savedArtifactLinks'] {
+  const rawIds = observability?.savedArtifactIds;
+  if (!Array.isArray(rawIds)) return [];
+  return rawIds
+    .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+    .map((id) => ({
+      id,
+      href: `/library?artifact=${encodeURIComponent(id)}`,
+      label: `Artifact ${id}`,
+    }));
+}
+
 function metadataEntries(metadata: Record<string, unknown> | null): SkillRunEventRow['metadataEntries'] {
   if (!metadata) return [];
   return Object.entries(metadata)
@@ -351,6 +364,7 @@ export function buildSkillRunDetail(run: SkillRunSummary): SkillRunDetail {
     providerId: run.providerId,
     errorMessage: run.errorMessage,
     metrics: skillRunMetrics(run.observability),
+    savedArtifactLinks: skillRunSavedArtifactLinks(run.observability),
     criticalObservabilityEntries: skillRunCriticalObservabilityEntries(run.observability),
     observabilityEntries: skillRunObservabilityEntries(run.observability),
   };
