@@ -29,7 +29,7 @@ import {
 } from '@/lib/workflowLauncher';
 import { buildResearchWorkspaceCards, type ResearchWorkspaceStatus } from '@/lib/researchWorkspace';
 import { buildReferencedSources, linkCitationMarkers } from '@/lib/citations';
-import { getSaveToLibraryButtonView, type SaveToLibraryState } from '@/lib/saveToLibraryButton';
+import { getEffectiveSaveToLibraryState, getSaveToLibraryButtonView, type SaveToLibraryState } from '@/lib/saveToLibraryButton';
 
 // ── Helper ──────────────────────────────────────────
 function extractImageFilenameFromMarkdown(content: string): string | null {
@@ -45,6 +45,7 @@ interface MessageItemProps {
 
 const MessageItem = memo(function MessageItem({ message, onEditImage }: MessageItemProps) {
   const saveMessageAsArtifact = useAppStore((state) => state.saveMessageAsArtifact);
+  const hasSavedArtifact = useAppStore((state) => state.artifacts.some((artifact) => artifact.messageId === message.id));
   const [saveState, setSaveState] = useState<SaveToLibraryState>('idle');
 
   if (message.role === 'user') {
@@ -90,8 +91,10 @@ const MessageItem = memo(function MessageItem({ message, onEditImage }: MessageI
     && !isLoading,
   );
 
+  const effectiveSaveState = getEffectiveSaveToLibraryState(saveState, hasSavedArtifact);
+
   const handleSaveArtifact = async () => {
-    if (!canSaveArtifact || saveState !== 'idle') return;
+    if (!canSaveArtifact || effectiveSaveState !== 'idle') return;
     setSaveState('saving');
     try {
       await saveMessageAsArtifact(message.id);
@@ -100,7 +103,7 @@ const MessageItem = memo(function MessageItem({ message, onEditImage }: MessageI
       setSaveState('idle');
     }
   };
-  const saveButtonView = getSaveToLibraryButtonView(saveState);
+  const saveButtonView = getSaveToLibraryButtonView(effectiveSaveState);
 
   return (
     <article className="flex justify-start">
