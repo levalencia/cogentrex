@@ -145,6 +145,7 @@ export async function streamMessage(input: {
   mode: 'CHAT' | 'DEEP_RESEARCH' | 'SOCIAL_WRITING';
   providerId?: string;
   conversationId?: string;
+  useSkills?: boolean;
   onEvent: (event: StreamEvent) => void;
 }): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {

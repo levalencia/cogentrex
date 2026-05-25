@@ -377,7 +377,7 @@ function ResearchWorkspacePreview({
   );
 }
 
-function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string) => void; onGenerateSocial: (input: { topic: string; platforms: string[]; imageUrls?: string[]; useResearch?: boolean }) => void }) {
+function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, options?: { useSkills?: boolean }) => void; onGenerateSocial: (input: { topic: string; platforms: string[]; imageUrls?: string[]; useResearch?: boolean }) => void }) {
   const mode = useAppStore((state) => state.mode);
   const providers = useAppStore((state) => state.providers);
   const isStreaming = useAppStore((state) => state.isStreaming);
@@ -409,6 +409,7 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string) => 
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['linkedin', 'x']);
   const [useResearch, setUseResearch] = useState(false);
   const [researchSources, setResearchSources] = useState(5);
+  const [useSkills, setUseSkills] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageUploadRef = useRef<HTMLInputElement>(null);
@@ -573,8 +574,8 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string) => 
 
     setInput('');
     setUploadedFiles([]);
-    onSend(fullContent);
-  }, [input, uploadedFiles, chatImages, isStreaming, onSend]);
+    onSend(fullContent, { useSkills: mode === 'CHAT' && useSkills });
+  }, [input, uploadedFiles, chatImages, isStreaming, onSend, mode, useSkills]);
 
   const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -850,6 +851,18 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string) => 
               <ProviderPicker />
               {mode !== 'IMAGE_GENERATION' && mode !== 'VIDEO_GENERATION' && mode !== 'SOCIAL_WRITING' ? (
                 <>
+                  {mode === 'CHAT' ? (
+                    <label className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors ${useSkills ? 'border-accent bg-accent/10 text-accent' : 'border-line text-slate-300 hover:border-accent'}`} title="Inject relevant operating skills into this chat turn">
+                      <input
+                        type="checkbox"
+                        checked={useSkills}
+                        onChange={(event) => setUseSkills(event.target.checked)}
+                        disabled={isStreaming}
+                        className="rounded border-line bg-panel text-accent"
+                      />
+                      Skill Assist
+                    </label>
+                  ) : null}
                   <input ref={fileInputRef} type="file" multiple accept=".txt,.md,.json,.pdf,.doc,.docx" onChange={handleFileUpload} className="hidden" />
                   <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isStreaming} className="rounded-xl border border-line px-3 py-2 text-sm text-slate-300 hover:border-accent disabled:opacity-50">📎 Attach Files</button>
                 </>
@@ -1019,8 +1032,8 @@ export function ChatView() {
     if (filename) enterEditMode([filename]);
   }, [enterEditMode]);
 
-  const handleSend = useCallback((content: string) => {
-    useAppStore.getState().send(content);
+  const handleSend = useCallback((content: string, options?: { useSkills?: boolean }) => {
+    useAppStore.getState().send(content, options);
   }, []);
 
   const handleGenerateSocial = useCallback((input: { topic: string; platforms: string[]; imageUrls?: string[]; useResearch?: boolean; researchSources?: number }) => {

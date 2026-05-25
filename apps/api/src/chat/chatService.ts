@@ -12,6 +12,7 @@ import type { AppLogger } from '../observability/logger.js';
 import { hashForLog } from '../observability/logger.js';
 import type { ArtifactService } from '../artifacts/artifactService.js';
 import type { SkillRunRepository } from '../skills/skillRunRepository.js';
+import { withSkillAssistSystemMessage } from '../skills/skillAssist.js';
 import { randomBytes } from 'node:crypto';
 
 export type StreamSink = (event: StreamEvent) => void;
@@ -75,6 +76,7 @@ export class ChatService {
     content: string;
     conversationId?: string;
     providerId?: string;
+    useSkills?: boolean;
     emit: StreamSink;
   }): Promise<{ conversationId: string; content: string }> {
     const startedAt = performance.now();
@@ -109,12 +111,22 @@ export class ChatService {
 
     const provider = await this.providers.resolveForMode(input.userId, 'CHAT', input.providerId);
     const history = await this.conversations.listMessages(conversation.id);
-    this.logger.debug({ conversationId: conversation.id, providerId: provider.id, model: provider.model, historyMessages: history.length }, 'chat_model_stream_opening');
+    const baseModelMessages = toModelMessages(history);
+    const assisted = input.useSkills ? withSkillAssistSystemMessage(baseModelMessages, input.content) : null;
+    const modelMessages = assisted?.messages ?? baseModelMessages;
+    this.logger.debug({
+      conversationId: conversation.id,
+      providerId: provider.id,
+      model: provider.model,
+      historyMessages: history.length,
+      skillAssistEnabled: Boolean(input.useSkills),
+      skillAssistSlugs: assisted?.skillSlugs,
+    }, 'chat_model_stream_opening');
     let content = '';
     const streamStarted = performance.now();
     let firstTokenAt: number | null = null;
     try {
-      for await (const delta of this.llm.streamChat(provider, toModelMessages(history))) {
+      for await (const delta of this.llm.streamChat(provider, modelMessages)) {
         if (!firstTokenAt) firstTokenAt = performance.now();
         content += delta;
         input.emit({ type: 'delta', content: delta });
@@ -212,6 +224,8 @@ export class ChatService {
         durationMs,
         ttftMs: ttftMs ?? null,
         tps: tps ?? null,
+        skillAssistEnabled: Boolean(input.useSkills),
+        skillAssistSlugs: assisted?.skillSlugs ?? [],
       };
       const run = await this.skillRuns.safeCreate({
         userId: input.userId,
