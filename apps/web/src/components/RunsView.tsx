@@ -329,6 +329,20 @@ export function RunsView() {
                 </div>
               </section>
 
+              {selectedRunDetail.criticalObservabilityEntries.length ? (
+                <section className="rounded-3xl border border-accent/20 bg-accent/5 p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-accent">Key observability</p>
+                  <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+                    {selectedRunDetail.criticalObservabilityEntries.map((entry) => (
+                      <div key={entry.label} className="rounded-2xl border border-line bg-black/10 p-3">
+                        <dt className="text-[10px] uppercase tracking-[0.16em] text-slate-600">{entry.label}</dt>
+                        <dd className="mt-1 break-words text-sm font-semibold text-white">{entry.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </section>
+              ) : null}
+
               <section className="rounded-3xl border border-line bg-ink/50 p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Metrics</p>
                 {selectedRunDetail.metrics.length ? (
