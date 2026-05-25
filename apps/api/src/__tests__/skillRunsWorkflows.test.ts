@@ -6,7 +6,7 @@ describe('workflow skill runs', () => {
     vi.restoreAllMocks();
   });
 
-  it('records Social Writer generations as observable skill runs', async () => {
+  it('records Social Writer generations as observable skill runs with an auditable event trace', async () => {
     const { agent, database } = await makeTestApp();
     await registerAndLogin(agent);
     await createProvider(agent);
@@ -17,12 +17,39 @@ describe('workflow skill runs', () => {
       .expect(200);
 
     const runs = await agent.get('/api/skills/runs').expect(200);
-    expect(runs.body.runs).toContainEqual(expect.objectContaining({
+    const run = runs.body.runs.find((item: { skillSlug: string }) => item.skillSlug === 'linkedin-writer');
+    expect(run).toEqual(expect.objectContaining({
       skillSlug: 'linkedin-writer',
       mode: 'SOCIAL_WRITING',
       status: 'completed',
       conversationId: response.body.conversationId,
+      eventCount: 2,
     }));
+
+    const events = await agent.get(`/api/skills/runs/${run.id}/events`).expect(200);
+    expect(events.body.events).toEqual([
+      expect.objectContaining({
+        runId: run.id,
+        sequence: 1,
+        eventType: 'run_started',
+        label: 'Social Writer started',
+      }),
+      expect.objectContaining({
+        runId: run.id,
+        sequence: 2,
+        eventType: 'run_completed',
+        label: 'Social Writer completed',
+        metadata: expect.objectContaining({ postCount: 1, platforms: ['linkedin'] }),
+      }),
+    ]);
+
+    await agent.get('/api/skills/runs/skr_missing/events').expect(404);
+
+    await agent
+      .post('/api/auth/register')
+      .send({ email: 'other-reader@example.com', password: 'super-secret-password' })
+      .expect(201);
+    await agent.get(`/api/skills/runs/${run.id}/events`).expect(404);
 
     database.close();
   });

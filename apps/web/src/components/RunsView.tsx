@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import type { AppMode, SkillRunSummary } from '@cogentrex/shared';
+import type { AppMode, SkillRunEvent, SkillRunSummary } from '@cogentrex/shared';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import {
   buildSkillRunDetail,
+  buildSkillRunEventRows,
   buildSkillRunHealthStats,
   buildSkillRunHistoryRows,
   filterSkillRuns,
@@ -46,6 +47,8 @@ export function RunsView() {
   const [runStatusFilter, setRunStatusFilter] = useState<(typeof runStatusOptions)[number]['value']>('all');
   const [runModeFilter, setRunModeFilter] = useState<AppMode | 'all'>('all');
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [selectedRunEvents, setSelectedRunEvents] = useState<SkillRunEvent[]>([]);
+  const [isLoadingRunEvents, setIsLoadingRunEvents] = useState(false);
   const skillRunStats = buildSkillRunHealthStats(skillRuns);
   const filteredSkillRuns = useMemo(
     () => filterSkillRuns(skillRuns, { status: runStatusFilter, mode: runModeFilter, query: runQuery }),
@@ -54,6 +57,7 @@ export function RunsView() {
   const skillRunRows = buildSkillRunHistoryRows(filteredSkillRuns, 50);
   const selectedRun = selectedRunId ? skillRuns.find((run) => run.id === selectedRunId) : undefined;
   const selectedRunDetail = selectedRun ? buildSkillRunDetail(selectedRun) : undefined;
+  const selectedRunEventRows = buildSkillRunEventRows(selectedRunEvents);
 
   useEffect(() => {
     let cancelled = false;
@@ -78,6 +82,29 @@ export function RunsView() {
       setSelectedRunId(null);
     }
   }, [selectedRunId, skillRuns]);
+
+  useEffect(() => {
+    if (!selectedRunId) {
+      setSelectedRunEvents([]);
+      setIsLoadingRunEvents(false);
+      return;
+    }
+    let cancelled = false;
+    setIsLoadingRunEvents(true);
+    api.listSkillRunEvents(selectedRunId)
+      .then((result) => {
+        if (!cancelled) setSelectedRunEvents(result.events);
+      })
+      .catch(() => {
+        if (!cancelled) setSelectedRunEvents([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingRunEvents(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedRunId]);
 
   return (
     <>
@@ -259,6 +286,9 @@ export function RunsView() {
                 <span className="rounded-full border border-line bg-ink/60 px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-slate-400">
                   {selectedRunDetail.durationLabel}
                 </span>
+                <span className="rounded-full border border-line bg-ink/60 px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-slate-400">
+                  {selectedRun?.eventCount ?? 0} events
+                </span>
                 {selectedRunDetail.conversationHref ? (
                   <button
                     type="button"
@@ -311,6 +341,41 @@ export function RunsView() {
                   </div>
                 ) : (
                   <p className="mt-2 text-sm text-slate-500">No compact metrics were captured for this run.</p>
+                )}
+              </section>
+
+              <section className="rounded-3xl border border-line bg-ink/50 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Event trace</p>
+                  {isLoadingRunEvents ? <span className="text-[10px] uppercase tracking-[0.14em] text-slate-600">Loading</span> : null}
+                </div>
+                {selectedRunEventRows.length ? (
+                  <ol className="mt-3 space-y-3">
+                    {selectedRunEventRows.map((event) => (
+                      <li key={event.id} className="rounded-2xl border border-line bg-black/10 p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-medium text-white">{event.label}</p>
+                            <p className="mt-1 text-[10px] uppercase tracking-[0.14em] text-slate-600">{event.sequenceLabel} · {event.eventType}</p>
+                          </div>
+                          <p className="shrink-0 text-xs text-slate-500">{formatDate(event.createdAt)}</p>
+                        </div>
+                        {event.message ? <p className="mt-2 text-xs leading-5 text-slate-400">{event.message}</p> : null}
+                        {event.metadataEntries.length ? (
+                          <dl className="mt-2 grid gap-1 text-xs text-slate-400">
+                            {event.metadataEntries.map((entry) => (
+                              <div key={entry.key} className="grid gap-2 sm:grid-cols-[0.4fr_1fr]">
+                                <dt className="font-mono text-slate-600">{entry.key}</dt>
+                                <dd className="break-words">{entry.value}</dd>
+                              </div>
+                            ))}
+                          </dl>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="mt-2 text-sm text-slate-500">No event trace was captured for this run.</p>
                 )}
               </section>
 

@@ -139,6 +139,7 @@ CREATE TABLE IF NOT EXISTS skill_runs (
   duration_ms INTEGER,
   error_message TEXT,
   observability_json TEXT,
+  event_sequence INTEGER NOT NULL DEFAULT 0,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE CASCADE,
   FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE SET NULL,
@@ -147,6 +148,24 @@ CREATE TABLE IF NOT EXISTS skill_runs (
 
 CREATE INDEX IF NOT EXISTS skill_runs_user_started ON skill_runs(user_id, started_at);
 CREATE INDEX IF NOT EXISTS skill_runs_conversation ON skill_runs(conversation_id);
+
+CREATE TABLE IF NOT EXISTS skill_run_events (
+  id TEXT PRIMARY KEY,
+  run_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  sequence INTEGER NOT NULL,
+  event_type TEXT NOT NULL,
+  label TEXT NOT NULL,
+  message TEXT,
+  metadata_json TEXT,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (run_id) REFERENCES skill_runs(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS skill_run_events_run_sequence_unique ON skill_run_events(run_id, sequence);
+CREATE INDEX IF NOT EXISTS skill_run_events_run_sequence ON skill_run_events(run_id, sequence);
+CREATE INDEX IF NOT EXISTS skill_run_events_user_created ON skill_run_events(user_id, created_at);
 
 CREATE TABLE IF NOT EXISTS research_jobs (
   id TEXT PRIMARY KEY,

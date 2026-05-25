@@ -134,9 +134,9 @@ export class SkillRepository {
   constructor(private readonly db: DbAdapter) {}
 
   async seedNative(seeds: SkillSeed[], now = new Date().toISOString()): Promise<void> {
-    await this.db.transaction(async () => {
+    await this.db.transaction(async (tx) => {
       for (const seed of seeds) {
-        await this.db.prepare(
+        await tx.prepare(
           `INSERT INTO skills (
             id, slug, name, description, kind, status, visibility, category, icon,
             input_schema_json, output_contract_json, tool_requirements_json, created_at, updated_at
@@ -165,7 +165,7 @@ export class SkillRepository {
           updatedAt: now,
         });
 
-        await this.db.prepare(
+        await tx.prepare(
           `INSERT INTO skill_routes (
             id, skill_id, mode, default_provider_id, search_profile, max_budget_cents,
             config_json, created_at, updated_at

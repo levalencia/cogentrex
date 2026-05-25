@@ -89,6 +89,18 @@ export interface SkillReadiness {
 
 export type SkillRunStatus = 'pending' | 'running' | 'completed' | 'failed';
 
+export interface SkillRunEvent {
+  id: string;
+  runId: string;
+  userId: string;
+  sequence: number;
+  eventType: string;
+  label: string;
+  message: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
 export interface SkillRunSummary {
   id: string;
   userId: string;
@@ -105,6 +117,7 @@ export interface SkillRunSummary {
   durationMs: number | null;
   errorMessage: string | null;
   observability: Record<string, unknown> | null;
+  eventCount?: number;
 }
 
 export interface AdminAnalyticsTotals {
