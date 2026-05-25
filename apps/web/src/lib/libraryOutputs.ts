@@ -84,6 +84,7 @@ export interface SkillRunDetail {
   providerId: string | null;
   errorMessage: string | null;
   metrics: string[];
+  criticalObservabilityEntries: Array<{ label: string; value: string }>;
   observabilityEntries: Array<{ key: string; value: string }>;
 }
 
@@ -261,6 +262,35 @@ function skillRunMetrics(observability: Record<string, unknown> | null): string[
   return metrics;
 }
 
+function skillRunCriticalObservabilityEntries(observability: Record<string, unknown> | null): SkillRunDetail['criticalObservabilityEntries'] {
+  if (!observability) return [];
+
+  const entries: SkillRunDetail['criticalObservabilityEntries'] = [];
+  const phase = observability.phase;
+  const sourceCount = readNumericMetric(observability, 'sourceCount');
+  const newSourceCount = readNumericMetric(observability, 'newSourceCount');
+  const planLength = readNumericMetric(observability, 'planLength');
+  const estimatedTokens = readNumericMetric(observability, 'estimatedTokens');
+  const synthesisDurationMs = readNumericMetric(observability, 'synthesisDurationMs');
+  const postCount = readNumericMetric(observability, 'postCount');
+  const promptLength = readNumericMetric(observability, 'promptLength');
+  const savedArtifactCount = readNumericMetric(observability, 'savedArtifactCount');
+  const platforms = observability.platforms;
+
+  if (typeof phase === 'string' && phase.trim()) entries.push({ label: 'Phase', value: phase });
+  if (sourceCount != null) entries.push({ label: 'Sources', value: String(sourceCount) });
+  if (newSourceCount != null) entries.push({ label: 'New sources', value: String(newSourceCount) });
+  if (planLength != null) entries.push({ label: 'Plan steps', value: String(planLength) });
+  if (estimatedTokens != null) entries.push({ label: 'Estimated tokens', value: compactNumber(estimatedTokens) });
+  if (synthesisDurationMs != null) entries.push({ label: 'Synthesis time', value: durationLabel(synthesisDurationMs) });
+  if (Array.isArray(platforms) && platforms.length) entries.push({ label: 'Platforms', value: formatObservabilityValue(platforms) });
+  if (postCount != null) entries.push({ label: 'Posts', value: String(postCount) });
+  if (promptLength != null) entries.push({ label: 'Prompt length', value: String(promptLength) });
+  if (savedArtifactCount != null) entries.push({ label: 'Saved artifacts', value: String(savedArtifactCount) });
+
+  return entries;
+}
+
 function formatObservabilityValue(value: unknown): string {
   if (value == null) return '—';
   if (typeof value === 'string') return value;
@@ -318,6 +348,7 @@ export function buildSkillRunDetail(run: SkillRunSummary): SkillRunDetail {
     providerId: run.providerId,
     errorMessage: run.errorMessage,
     metrics: skillRunMetrics(run.observability),
+    criticalObservabilityEntries: skillRunCriticalObservabilityEntries(run.observability),
     observabilityEntries: skillRunObservabilityEntries(run.observability),
   };
 }

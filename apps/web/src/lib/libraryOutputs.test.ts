@@ -630,7 +630,12 @@ describe('buildSkillRunDetail', () => {
       durationMs: 180000,
       errorMessage: null,
       observability: {
+        phase: 'synthesis',
         sourceCount: 4,
+        newSourceCount: 2,
+        planLength: 5,
+        estimatedTokens: 1234,
+        synthesisDurationMs: 45000,
         platforms: ['linkedin', 'x'],
         savedArtifactCount: 1,
         savedArtifactIds: ['art-1'],
@@ -651,13 +656,28 @@ describe('buildSkillRunDetail', () => {
       providerId: 'provider-1',
       summary: 'Completed with 4 sources.',
     }));
-    expect(detail.metrics).toEqual(['4 sources', '2 platforms', '1 saved artifact']);
+    expect(detail.metrics).toEqual(['4 sources', '2 new', '5 plan steps', '1.2k tokens', '45s synthesis', '2 platforms', '1 saved artifact']);
+    expect(detail.criticalObservabilityEntries).toEqual([
+      { label: 'Phase', value: 'synthesis' },
+      { label: 'Sources', value: '4' },
+      { label: 'New sources', value: '2' },
+      { label: 'Plan steps', value: '5' },
+      { label: 'Estimated tokens', value: '1.2k' },
+      { label: 'Synthesis time', value: '45s' },
+      { label: 'Platforms', value: 'linkedin, x' },
+      { label: 'Saved artifacts', value: '1' },
+    ]);
     expect(detail.observabilityEntries).toEqual([
+      { key: 'estimatedTokens', value: '1234' },
       { key: 'nested', value: '{"phase":"synthesis"}' },
+      { key: 'newSourceCount', value: '2' },
+      { key: 'phase', value: 'synthesis' },
+      { key: 'planLength', value: '5' },
       { key: 'platforms', value: 'linkedin, x' },
       { key: 'savedArtifactCount', value: '1' },
       { key: 'savedArtifactIds', value: 'art-1' },
       { key: 'sourceCount', value: '4' },
+      { key: 'synthesisDurationMs', value: '45000' },
     ]);
   });
 });
