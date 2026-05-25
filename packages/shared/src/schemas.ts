@@ -50,6 +50,7 @@ export const sendMessageSchema = z.object({
   providerId: z.string().optional(),
   content: z.string().trim().min(1).max(20000),
   mode: z.enum(['CHAT', 'DEEP_RESEARCH']).default('CHAT'),
+  useSkills: z.boolean().default(false),
 });
 
 export const workflowIdSchema = z.enum([

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createProviderSchema,
   registerSchema,
+  sendMessageSchema,
   skillStatusSchema,
   updateSkillRouteSchema,
   updateSkillSchema,
@@ -21,6 +22,11 @@ describe('shared schemas', () => {
       model: 'some-model',
     });
     expect(provider.kind).toBe('OPENAI_COMPATIBLE');
+  });
+
+  it('accepts Skill Assist flag on chat stream requests', () => {
+    expect(sendMessageSchema.parse({ content: 'Help me plan this', mode: 'CHAT', useSkills: true }).useSkills).toBe(true);
+    expect(sendMessageSchema.parse({ content: 'Help me plan this', mode: 'CHAT' }).useSkills).toBe(false);
   });
 
   it('validates skill status values', () => {

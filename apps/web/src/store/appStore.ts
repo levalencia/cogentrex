@@ -57,7 +57,7 @@ interface AppState {
   loadArtifacts: (conversationId: string) => Promise<void>;
   saveMessageAsArtifact: (messageId: string) => Promise<void>;
   createProvider: (input: { name: string; baseUrl: string; apiKey: string; model: string; kind: ProviderConfigView['kind']; isDefault: boolean; defaultForMode?: 'CHAT' | 'DEEP_RESEARCH'; supportsStreaming?: boolean; supportsVision?: boolean; supportsTools?: boolean; supportsSearch?: boolean; supportsImage?: boolean; supportsVideo?: boolean }) => Promise<void>;
-  send: (content: string) => Promise<void>;
+  send: (content: string, options?: { useSkills?: boolean }) => Promise<void>;
   generateSocialPosts: (input: { topic: string; platforms: string[]; imageUrls?: string[] | undefined; useResearch?: boolean | undefined; researchSources?: number | undefined }) => Promise<void>;
   startResearch: (plan: string[]) => Promise<void>;
   cancelPlan: () => void;
@@ -213,7 +213,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { providers } = await api.listProviders();
     set({ providers, activeProviderId: providers.find((provider) => provider.isDefault)?.id ?? providers[0]?.id });
   },
-  async send(content) {
+  async send(content, options = {}) {
     const state = get();
     if (!content.trim() || state.isStreaming) return;
 
@@ -440,6 +440,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         mode: state.mode,
         ...(state.activeProviderId ? { providerId: state.activeProviderId } : {}),
         ...(state.activeConversationId ? { conversationId: state.activeConversationId } : {}),
+        ...(options.useSkills ? { useSkills: true } : {}),
         onEvent: handleEvent,
       });
       const { conversations } = await api.listConversations();

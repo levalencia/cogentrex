@@ -222,6 +222,7 @@ export function chatRoutes(auth: AuthService, chat: ChatService, research: Resea
           content: input.content,
           ...(input.conversationId ? { conversationId: input.conversationId } : {}),
           ...(input.providerId ? { providerId: input.providerId } : {}),
+          useSkills: input.useSkills,
           emit,
         });
       }
