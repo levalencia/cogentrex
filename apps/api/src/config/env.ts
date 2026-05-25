@@ -17,6 +17,7 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   FIRECRAWL_API_KEY: z.string().optional(),
   BRAVE_SEARCH_API_KEY: z.string().optional(),
+  EXA_API_KEY: z.string().optional(),
   SCRAPLING_BASE_URL: z.string().url().optional(),
   WEB_SEARCH_ADAPTER: z.enum(['brave', 'firecrawl', 'scrapling', 'fake']).optional(),
   WEB_FETCH_ADAPTER: z.enum(['scrapling', 'firecrawl', 'simple', 'fake']).optional(),
