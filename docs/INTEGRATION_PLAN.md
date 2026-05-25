@@ -304,13 +304,13 @@ Now respond to the user's request using the skills above.
 **Goal:** Add GitHub, Exa, arXiv, and HackerNews as research channels.
 
 **Tasks:**
-1. [ ] Create `githubChannelClient.ts` (public repo/issue/code search)
-2. [ ] Create `exaChannelClient.ts` (semantic web search)
-3. [ ] Create `arxivChannelClient.ts` (academic paper search)
-4. [ ] Create `hackernewsChannelClient.ts` (HN story/comment search)
-5. [ ] Register new clients in `channelRegistry.ts`
-6. [ ] Update `researchPrompts.ts` planner prompt with new channels
-7. [ ] Test end-to-end research flow with new channels
+1. [x] Create `githubChannelClient.ts` (public repo/issue/code search)
+2. [x] Create `exaChannelClient.ts` (semantic web search)
+3. [x] Create `arxivChannelClient.ts` (academic paper search)
+4. [x] Create `hackernewsChannelClient.ts` (HN story/comment search)
+5. [x] Register new clients in `channelRegistry.ts`
+6. [x] Update `researchPrompts.ts` planner prompt with new channels
+7. [x] Test channel normalization with mocked providers
 
 **Estimated effort:** 1–2 days
 

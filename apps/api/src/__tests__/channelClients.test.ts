@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { GitHubChannelClient } from '../tools/channels/githubChannelClient.js';
+import { ExaChannelClient } from '../tools/channels/exaChannelClient.js';
 import { ArxivChannelClient } from '../tools/channels/arxivChannelClient.js';
 import { HackerNewsChannelClient } from '../tools/channels/hackernewsChannelClient.js';
 
@@ -41,6 +42,57 @@ describe('native research channel clients', () => {
     ]);
     expect(results[0]?.markdown).toContain('**Stars:** 42000');
     expect(results[0]?.markdown).toContain('**Language:** Python');
+  });
+
+  it('queries Exa semantic search and normalizes returned sources', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        results: [
+          {
+            title: 'Agent workflow control planes',
+            url: 'https://example.com/control-planes',
+            text: 'A practical taxonomy of agent workflow operations.',
+            publishedDate: '2026-05-22',
+            author: 'Luis Research Lab',
+            score: 0.87,
+          },
+          { title: '', url: '', text: null },
+        ],
+      }),
+    });
+
+    const client = new ExaChannelClient('exa_test_key', fetchMock);
+    const results = await client.search('agent workflow control plane', 4);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.exa.ai/search',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ 'x-api-key': 'exa_test_key', 'User-Agent': 'Cogentrex/1.0' }),
+        body: JSON.stringify({
+          query: 'agent workflow control plane',
+          numResults: 4,
+          contents: { text: { maxCharacters: 1000 } },
+        }),
+      }),
+    );
+    expect(results).toEqual([
+      expect.objectContaining({
+        title: 'Agent workflow control planes',
+        url: 'https://example.com/control-planes',
+        channel: 'exa',
+        description: 'A practical taxonomy of agent workflow operations.',
+      }),
+    ]);
+    expect(results[0]?.markdown).toContain('**Author:** Luis Research Lab');
+    expect(results[0]?.markdown).toContain('**Published:** 2026-05-22');
+  });
+
+  it('returns no Exa results when no API key is configured', async () => {
+    const fetchMock = vi.fn();
+    await expect(new ExaChannelClient(undefined, fetchMock).search('agent workflow control plane', 3)).resolves.toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('queries arXiv and normalizes Atom entries without HTML tags', async () => {
@@ -121,6 +173,7 @@ describe('native research channel clients', () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 429 });
 
     await expect(new GitHubChannelClient(fetchMock).search('rate limited', 1)).resolves.toEqual([]);
+    await expect(new ExaChannelClient('exa_test_key', fetchMock).search('rate limited', 1)).resolves.toEqual([]);
     await expect(new ArxivChannelClient(fetchMock).search('rate limited', 1)).resolves.toEqual([]);
     await expect(new HackerNewsChannelClient(fetchMock).search('rate limited', 1)).resolves.toEqual([]);
   });

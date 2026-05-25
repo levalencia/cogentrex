@@ -28,6 +28,7 @@ import { RedditChannelClient } from './tools/channels/redditChannelClient.js';
 import { RssChannelClient } from './tools/channels/rssChannelClient.js';
 import { YouTubeChannelClient } from './tools/channels/youtubeChannelClient.js';
 import { GitHubChannelClient } from './tools/channels/githubChannelClient.js';
+import { ExaChannelClient } from './tools/channels/exaChannelClient.js';
 import { ArxivChannelClient } from './tools/channels/arxivChannelClient.js';
 import { HackerNewsChannelClient } from './tools/channels/hackernewsChannelClient.js';
 import { chatRoutes } from './chat/chatRoutes.js';
@@ -107,6 +108,7 @@ export async function createApp(env: AppEnv, deps: AppDependencies = {}) {
   channelRegistry.register(new RssChannelClient());
   channelRegistry.register(new YouTubeChannelClient());
   channelRegistry.register(new GitHubChannelClient());
+  channelRegistry.register(new ExaChannelClient(env.EXA_API_KEY));
   channelRegistry.register(new ArxivChannelClient());
   channelRegistry.register(new HackerNewsChannelClient());
   const researchService = new ResearchService(conversationRepository, providerService, llm, search, channelRegistry, researchJobRepository, researchSourceRepository, skillRunRepository, new ProviderUsageRepository(database.adapter), metricsRepository, logger.child({ component: 'ResearchService' }));
