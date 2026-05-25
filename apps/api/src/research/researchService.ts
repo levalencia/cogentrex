@@ -593,6 +593,7 @@ export class ResearchService {
     if (conversation.mode !== 'DEEP_RESEARCH') {
       await this.conversations.setMode(input.userId, conversation.id, 'DEEP_RESEARCH', now);
     }
+    const provider = await this.providers.resolveForMode(input.userId, 'DEEP_RESEARCH', input.providerId);
     const skillRun = await this.skillRuns.safeCreate({
       userId: input.userId,
       skillId: 'skl_deep_research',
@@ -600,14 +601,14 @@ export class ResearchService {
       skillName: 'Deep Research',
       mode: 'DEEP_RESEARCH',
       conversationId: conversation.id,
-      providerId: input.providerId ?? null,
+      providerId: provider.id,
       observability: { phase: 'started' },
     });
     try {
     this.logger.info({
       userId: input.userId,
       conversationId: conversation.id,
-      providerId: input.providerId,
+      providerId: provider.id,
       questionHash: hashForLog(input.question),
       questionLength: input.question.length,
     }, 'research_started');
@@ -617,7 +618,6 @@ export class ResearchService {
     await this.conversations.addMessage({ id: createId('msg'), conversationId: conversation.id, role: 'user', content: input.question, now });
 
     const reasoningLog: StreamEvent[] = [];
-    const provider = await this.providers.resolve(input.userId, input.providerId);
     const emitDiagnostic = (name: string, message: string, metadata: ResearchDiagnosticMetadata, iteration?: number) => {
       const event = createDiagnosticEvent(name, message, metadata, iteration);
       input.emit(event);
