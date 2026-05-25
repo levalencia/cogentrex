@@ -21,6 +21,12 @@ function parseSse(text: string) {
     });
 }
 
+async function registerAdmin(agent: Awaited<ReturnType<typeof makeTestApp>>['agent'], database: Awaited<ReturnType<typeof makeTestApp>>['database']) {
+  const user = await registerAndLogin(agent);
+  await database.adapter.prepare('UPDATE users SET role = ? WHERE id = ?').run('ADMIN', user.id);
+  return user;
+}
+
 describe('deep research API', () => {
   it('streams reasoning, sources, answer deltas, and final citations', async () => {
     const { agent, database } = await makeTestApp();
@@ -50,6 +56,49 @@ describe('deep research API', () => {
       requestedLimit: 5,
       resultCount: 1,
       uniqueAdded: 1,
+    });
+
+    database.close();
+  });
+
+  it('streams Deep Research through a global mode-capable provider when no providerId is supplied', async () => {
+    const { agent, database } = await makeTestApp();
+    await registerAdmin(agent, database);
+
+    const providerResponse = await agent.post('/api/admin/providers').send({
+      name: 'Workspace Research Model',
+      baseUrl: 'https://llm.example.com/v1',
+      apiKey: 'test-api-key',
+      model: 'research-model',
+      kind: 'OPENAI_COMPATIBLE',
+      isDefault: false,
+      supportsStreaming: true,
+    }).expect(201);
+
+    await agent.post('/api/auth/logout').expect(204);
+    await agent.post('/api/auth/register').send({
+      email: 'research-user@example.com',
+      password: 'super-secret-password',
+    }).expect(201);
+
+    const response = await agent
+      .post('/api/chat/stream')
+      .send({ content: 'Research current AI workflow tools', mode: 'DEEP_RESEARCH' })
+      .expect(200);
+
+    const events = parseSse(response.text);
+    expect(events.at(-1)?.type).toBe('done');
+    expect(events.find((event) => event.type === 'diagnostic' && event.name === 'research_started')?.metadata).toMatchObject({
+      providerId: providerResponse.body.provider.id,
+      model: 'research-model',
+    });
+
+    const runsResponse = await agent.get('/api/skills/runs').expect(200);
+    expect(runsResponse.body.runs[0]).toMatchObject({
+      skillSlug: 'deep-research',
+      mode: 'DEEP_RESEARCH',
+      status: 'completed',
+      providerId: providerResponse.body.provider.id,
     });
 
     database.close();
