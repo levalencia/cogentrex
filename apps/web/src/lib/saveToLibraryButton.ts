@@ -5,6 +5,13 @@ interface SaveToLibraryButtonView {
   disabled: boolean;
 }
 
+interface SaveToLibraryEligibilityInput {
+  id: string | undefined;
+  content: string | undefined;
+  isError: boolean;
+  isLoading: boolean;
+}
+
 export function getEffectiveSaveToLibraryState(state: SaveToLibraryState, hasSavedArtifact: boolean): SaveToLibraryState {
   return hasSavedArtifact ? 'saved' : state;
 }
@@ -19,4 +26,20 @@ export function getSaveToLibraryButtonView(state: SaveToLibraryState): SaveToLib
   }
 
   return { label: 'Save to Library', disabled: false };
+}
+
+export function canShowSaveToLibraryButton(input: SaveToLibraryEligibilityInput): boolean {
+  return Boolean(
+    input.id
+    && input.content
+    && !input.id.startsWith('local-')
+    && !input.content.startsWith('Thinking')
+    && !input.isError
+    && !input.isLoading,
+  );
+}
+
+export function getSaveToLibraryButtonTestId(messageId: string): string {
+  const safeMessageId = messageId.trim().replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+  return `save-to-library-${safeMessageId || 'message'}`;
 }
