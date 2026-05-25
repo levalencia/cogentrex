@@ -818,6 +818,38 @@ describe('buildSkillRunDetail', () => {
       { key: 'synthesisDurationMs', value: '45000' },
     ]);
   });
+
+  it('uses saved artifact metadata when building Library links from run observability', () => {
+    const detail = buildSkillRunDetail({
+      id: 'run-1',
+      userId: 'user-1',
+      skillId: 'skill-1',
+      skillSlug: 'linkedin-writer',
+      skillName: 'LinkedIn Writer',
+      mode: 'SOCIAL_WRITING',
+      status: 'completed',
+      conversationId: 'conv-1',
+      jobId: null,
+      providerId: 'provider-1',
+      startedAt: '2026-05-22T20:01:00.000Z',
+      completedAt: '2026-05-22T20:04:00.000Z',
+      durationMs: 180000,
+      errorMessage: null,
+      observability: {
+        savedArtifactIds: ['art-1', 'art-2'],
+        savedArtifacts: [
+          { id: 'art-1', filename: 'LinkedIn launch draft.md', type: 'text/markdown' },
+          { id: 'art-2', filename: 'Follow-up post.md', type: 'text/markdown' },
+        ],
+      },
+    });
+
+    expect(detail.savedArtifactLinks).toEqual([
+      { id: 'art-1', href: '/library?artifact=art-1', label: 'LinkedIn launch draft.md' },
+      { id: 'art-2', href: '/library?artifact=art-2', label: 'Follow-up post.md' },
+    ]);
+    expect(detail.observabilityEntries.some((entry) => entry.key === 'savedArtifacts')).toBe(false);
+  });
 });
 
 describe('buildSkillRunEventRows', () => {

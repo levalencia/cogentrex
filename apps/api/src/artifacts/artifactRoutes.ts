@@ -29,7 +29,11 @@ export function artifactRoutes(auth: AuthService, artifacts: ArtifactRepository,
         res.status(404).json({ error: { message: 'Message not found' } });
         return;
       }
-      await skillRuns?.safeLinkArtifactToMessage(user.id, artifact.conversationId, artifact.messageId, artifact.id);
+      await skillRuns?.safeLinkArtifactToMessage(user.id, artifact.conversationId, artifact.messageId, {
+        id: artifact.id,
+        filename: artifact.filename,
+        type: artifact.type,
+      });
       res.status(201).json({ artifact });
     } catch (error) {
       next(error);

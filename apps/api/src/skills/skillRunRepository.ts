@@ -60,6 +60,12 @@ interface AppendSkillRunEventInput {
   metadata?: Record<string, unknown> | null;
 }
 
+interface SavedArtifactSummary {
+  id: string;
+  filename: string;
+  type: string;
+}
+
 function parseJsonObject(value: string | null | undefined): Record<string, unknown> | null {
   if (!value) return null;
   try {
@@ -110,6 +116,21 @@ const selectRunWithEventCount = `
          (SELECT COUNT(*) FROM skill_run_events WHERE skill_run_events.run_id = skill_runs.id) AS event_count
   FROM skill_runs
 `;
+
+function savedArtifactSummaries(observability: Record<string, unknown>, artifact: SavedArtifactSummary): SavedArtifactSummary[] {
+  const existing = Array.isArray(observability.savedArtifacts)
+    ? observability.savedArtifacts.flatMap((value): SavedArtifactSummary[] => {
+        if (!value || typeof value !== 'object') return [];
+        const item = value as Record<string, unknown>;
+        return typeof item.id === 'string' && typeof item.filename === 'string' && typeof item.type === 'string'
+          ? [{ id: item.id, filename: item.filename, type: item.type }]
+          : [];
+      })
+    : [];
+  const byId = new Map(existing.map((item) => [item.id, item]));
+  byId.set(artifact.id, artifact);
+  return Array.from(byId.values());
+}
 
 export class SkillRunRepository {
   constructor(private readonly db: DbAdapter) {}
@@ -255,7 +276,7 @@ export class SkillRunRepository {
     }
   }
 
-  async linkArtifactToMessage(userId: string, conversationId: string, messageId: string, artifactId: string): Promise<void> {
+  async linkArtifactToMessage(userId: string, conversationId: string, messageId: string, artifact: SavedArtifactSummary): Promise<void> {
     await this.db.transaction(async (tx) => {
       const exactRow = await tx.prepare(
         `SELECT * FROM skill_runs
@@ -277,7 +298,8 @@ export class SkillRunRepository {
       const existingIds = Array.isArray(observability.savedArtifactIds)
         ? observability.savedArtifactIds.filter((value): value is string => typeof value === 'string')
         : [];
-      const savedArtifactIds = existingIds.includes(artifactId) ? existingIds : [...existingIds, artifactId];
+      const savedArtifactIds = existingIds.includes(artifact.id) ? existingIds : [...existingIds, artifact.id];
+      const savedArtifacts = savedArtifactSummaries(observability, artifact);
       await tx.prepare(
         `UPDATE skill_runs
          SET observability_json = @observabilityJson
@@ -287,20 +309,21 @@ export class SkillRunRepository {
         observabilityJson: JSON.stringify({
           ...observability,
           savedArtifactIds,
+          savedArtifacts,
           savedArtifactCount: savedArtifactIds.length,
         }),
       });
       await this.appendEventWithDb(tx, row.id, userId, {
         eventType: 'artifact_saved',
         label: 'Artifact saved to library',
-        metadata: { artifactId, savedArtifactCount: savedArtifactIds.length },
+        metadata: { artifactId: artifact.id, filename: artifact.filename, type: artifact.type, savedArtifactCount: savedArtifactIds.length },
       });
     });
   }
 
-  async safeLinkArtifactToMessage(userId: string, conversationId: string, messageId: string, artifactId: string): Promise<void> {
+  async safeLinkArtifactToMessage(userId: string, conversationId: string, messageId: string, artifact: SavedArtifactSummary): Promise<void> {
     try {
-      await this.linkArtifactToMessage(userId, conversationId, messageId, artifactId);
+      await this.linkArtifactToMessage(userId, conversationId, messageId, artifact);
     } catch {
       // Artifact persistence must remain independent from run-ledger enrichment.
     }
