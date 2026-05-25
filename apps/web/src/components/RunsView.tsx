@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { AppMode, SkillRunEvent, SkillRunSummary } from '@cogentrex/shared';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import {
@@ -348,14 +349,13 @@ export function RunsView() {
                   <p className="text-xs uppercase tracking-[0.18em] text-emerald-200/70">Saved outputs</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {selectedRunDetail.savedArtifactLinks.map((artifact) => (
-                      <button
+                      <Link
                         key={artifact.id}
-                        type="button"
-                        onClick={() => router.push(artifact.href)}
+                        href={artifact.href}
                         className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-100 transition hover:border-emerald-200"
                       >
                         {artifact.label}
-                      </button>
+                      </Link>
                     ))}
                   </div>
                 </section>

@@ -334,20 +334,43 @@ function formatObservabilityValue(value: unknown): string {
 function skillRunObservabilityEntries(observability: Record<string, unknown> | null): SkillRunDetail['observabilityEntries'] {
   if (!observability) return [];
   return Object.entries(observability)
+    .filter(([key]) => key !== 'savedArtifacts')
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([key, value]) => ({ key, value: formatObservabilityValue(value) }));
+}
+
+function savedArtifactMetadataById(observability: Record<string, unknown> | null): Map<string, { filename?: string; type?: string }> {
+  const rawArtifacts = observability?.savedArtifacts;
+  if (!Array.isArray(rawArtifacts)) return new Map();
+
+  const entries = rawArtifacts.flatMap((artifact) => {
+    if (!artifact || typeof artifact !== 'object') return [];
+    const value = artifact as Record<string, unknown>;
+    const id = typeof value.id === 'string' ? value.id.trim() : '';
+    if (!id) return [];
+    const metadata: { filename?: string; type?: string } = {};
+    if (typeof value.filename === 'string' && value.filename.trim()) metadata.filename = value.filename.trim();
+    if (typeof value.type === 'string' && value.type.trim()) metadata.type = value.type.trim();
+    return [[id, metadata] as const];
+  });
+
+  return new Map(entries);
 }
 
 function skillRunSavedArtifactLinks(observability: Record<string, unknown> | null): SkillRunDetail['savedArtifactLinks'] {
   const rawIds = observability?.savedArtifactIds;
   if (!Array.isArray(rawIds)) return [];
+  const metadataById = savedArtifactMetadataById(observability);
   return rawIds
     .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
-    .map((id) => ({
-      id,
-      href: `/library?artifact=${encodeURIComponent(id)}`,
-      label: `Artifact ${id}`,
-    }));
+    .map((id) => {
+      const metadata = metadataById.get(id);
+      return {
+        id,
+        href: `/library?artifact=${encodeURIComponent(id)}`,
+        label: metadata?.filename ?? `Artifact ${id}`,
+      };
+    });
 }
 
 function metadataEntries(metadata: Record<string, unknown> | null): SkillRunEventRow['metadataEntries'] {

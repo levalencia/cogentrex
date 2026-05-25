@@ -1,4 +1,4 @@
-import type { CapabilityStatus, WorkflowReadiness } from '@cogentrex/shared';
+import type { CapabilityReadinessItem, CapabilityStatus, WorkflowReadiness } from '@cogentrex/shared';
 
 interface ReadinessTone {
   label: string;
@@ -22,6 +22,18 @@ const toneByStatus: Record<CapabilityStatus, ReadinessTone> = {
 
 export function getReadinessTone(status: CapabilityStatus): ReadinessTone {
   return toneByStatus[status];
+}
+
+interface CapabilityAction {
+  href: string;
+  label: string;
+}
+
+export function getCapabilityAction(item: CapabilityReadinessItem): CapabilityAction | null {
+  if (item.status === 'ready') return null;
+  return String(item.id).startsWith('web.')
+    ? { href: '/settings/admin/skills', label: 'Review skill routing' }
+    : { href: '/settings/admin/providers', label: 'Configure provider' };
 }
 
 export function getCapabilitySummary(readiness: WorkflowReadiness): string {

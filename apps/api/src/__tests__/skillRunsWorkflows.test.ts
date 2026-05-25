@@ -83,6 +83,11 @@ describe('workflow skill runs', () => {
       observability: expect.objectContaining({
         savedArtifactCount: 1,
         savedArtifactIds: [saved.body.artifact.id],
+        savedArtifacts: [expect.objectContaining({
+          id: saved.body.artifact.id,
+          filename: saved.body.artifact.filename,
+          type: saved.body.artifact.type,
+        })],
       }),
     }));
 

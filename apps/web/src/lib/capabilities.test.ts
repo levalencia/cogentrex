@@ -1,5 +1,5 @@
 import type { WorkflowReadiness } from '@cogentrex/shared';
-import { getCapabilitySummary, getReadinessTone } from './capabilities';
+import { getCapabilityAction, getCapabilitySummary, getReadinessTone } from './capabilities';
 import { describe, expect, it } from 'vitest';
 
 function workflow(overrides: Partial<WorkflowReadiness> = {}): WorkflowReadiness {
@@ -47,5 +47,17 @@ describe('capability readiness helpers', () => {
     expect(getReadinessTone('ready').label).toBe('Ready');
     expect(getReadinessTone('degraded').label).toBe('Degraded');
     expect(getReadinessTone('missing').label).toBe('Missing');
+  });
+
+  it('offers admin/provider next actions for non-ready capabilities', () => {
+    expect(getCapabilityAction({ id: 'text', status: 'missing', message: 'No provider satisfies text.' })).toEqual({
+      href: '/settings/admin/providers',
+      label: 'Configure provider',
+    });
+    expect(getCapabilityAction({ id: 'web.fetch', status: 'degraded', adapterId: 'fake.fetch' })).toEqual({
+      href: '/settings/admin/skills',
+      label: 'Review skill routing',
+    });
+    expect(getCapabilityAction({ id: 'web.search', status: 'ready', adapterId: 'brave.search' })).toBeNull();
   });
 });

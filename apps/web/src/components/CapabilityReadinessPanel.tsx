@@ -1,9 +1,10 @@
 'use client';
 
 import type { CapabilityReadinessItem, WorkflowReadiness } from '@cogentrex/shared';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { formatCapabilityId, getCapabilitySummary, getReadinessTone } from '@/lib/capabilities';
+import { formatCapabilityId, getCapabilityAction, getCapabilitySummary, getReadinessTone } from '@/lib/capabilities';
 
 export function CapabilityReadinessPanel() {
   const [workflows, setWorkflows] = useState<WorkflowReadiness[]>([]);
@@ -109,6 +110,7 @@ function CapabilityGroup({ title, items }: { title: string; items: CapabilityRea
       <div className="mt-2 space-y-2">
         {items.map((capability) => {
           const tone = getReadinessTone(capability.status);
+          const action = getCapabilityAction(capability);
           return (
             <div key={`${capability.id}-${capability.adapterId ?? capability.status}`} className="rounded-xl border border-line bg-panel/50 p-2">
               <div className="flex items-center justify-between gap-2">
@@ -117,6 +119,11 @@ function CapabilityGroup({ title, items }: { title: string; items: CapabilityRea
               </div>
               {capability.adapterId ? <p className="mt-1 text-[11px] text-accent">{capability.adapterId}</p> : null}
               {capability.message ? <p className="mt-1 text-[11px] text-slate-500">{capability.message}</p> : null}
+              {action ? (
+                <Link href={action.href} className="mt-2 inline-flex rounded-lg border border-line px-2 py-1 text-[11px] text-accent hover:border-accent">
+                  {action.label}
+                </Link>
+              ) : null}
             </div>
           );
         })}

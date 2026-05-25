@@ -125,7 +125,7 @@ Current governance surfaces:
 - `/runs` — auditable run ledger for skill-backed workflows.
 - `/settings/admin/skills` — admin-only skill registry and route configuration.
 - `/settings/admin/analytics` — admin-only workflow analytics for run volume, failures, provider usage, and mode breakdowns.
-- `/settings/admin/providers` — admin provider management.
+- `/settings/admin/providers` — admin provider management plus workflow readiness for provider/tool gaps.
 
 Access checks:
 
@@ -133,12 +133,13 @@ Access checks:
 2. Signed-in non-admin users should see **Access Denied** for admin pages and receive `403` from admin APIs.
 3. Admin users should be able to load skills, analytics, and providers without console errors.
 4. Analytics CTAs that reference run history should route to `/runs`, not the Library artifact shelf.
+5. Workflow readiness cards should expose next-action links: provider capability gaps route to `/settings/admin/providers`; web tool gaps route to `/settings/admin/skills`.
 
 Focused regression commands:
 
 ```bash
-pnpm --filter @cogentrex/api test -- src/__tests__/skills.test.ts src/__tests__/adminAnalytics.test.ts --run
-pnpm --filter @cogentrex/web test -- src/lib/adminAnalytics.test.ts src/lib/protectedRoute.test.ts src/lib/skillCockpit.test.ts --run
+pnpm --filter @cogentrex/api test -- src/__tests__/skills.test.ts src/__tests__/adminAnalytics.test.ts src/__tests__/capabilities.test.ts --run
+pnpm --filter @cogentrex/web test -- src/lib/adminAnalytics.test.ts src/lib/capabilities.test.ts src/lib/protectedRoute.test.ts src/lib/skillCockpit.test.ts --run
 ```
 
 For visual QA, prefer an isolated local SQLite DB and seeded fixture data. Do not mutate DEV PostgreSQL or promote users for admin screenshots unless explicitly approved.
