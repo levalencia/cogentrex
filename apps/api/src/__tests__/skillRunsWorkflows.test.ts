@@ -104,7 +104,7 @@ describe('workflow skill runs', () => {
       .send({ jobId: planned.body.jobId, plan: planned.body.plan })
       .expect(200);
 
-    let runs: { body: { runs: Array<{ jobId?: string; status?: string }> } } | undefined;
+    let runs: { body: { runs: Array<{ id: string; jobId?: string; status?: string }> } } | undefined;
     for (let attempt = 0; attempt < 10; attempt += 1) {
       runs = await agent.get('/api/skills/runs').expect(200);
       const run = runs.body.runs.find((item: { jobId?: string; status?: string }) => item.jobId === planned.body.jobId);
@@ -112,12 +112,65 @@ describe('workflow skill runs', () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
     }
 
-    expect(runs?.body.runs).toContainEqual(expect.objectContaining({
+    const run = runs?.body.runs.find((item: { jobId?: string }) => item.jobId === planned.body.jobId);
+    if (!run) throw new Error('Expected Deep Research skill run to be recorded');
+    expect(run).toEqual(expect.objectContaining({
       skillSlug: 'deep-research',
       mode: 'DEEP_RESEARCH',
       status: 'completed',
       conversationId: planned.body.conversationId,
       jobId: planned.body.jobId,
+    }));
+
+    const events = await agent.get(`/api/skills/runs/${run.id}/events`).expect(200);
+    const eventTypes = events.body.events.map((event: { eventType: string }) => event.eventType);
+    expect(eventTypes[0]).toBe('run_started');
+    expect(eventTypes.at(-1)).toBe('run_completed');
+    expect(eventTypes).toEqual(expect.arrayContaining([
+      'research_started',
+      'source_found',
+      'search_completed',
+      'synthesis_completed',
+    ]));
+
+    expect(events.body.events).toContainEqual(expect.objectContaining({ eventType: 'run_started', sequence: 1 }));
+    expect(events.body.events).toContainEqual(expect.objectContaining({
+      eventType: 'research_started',
+      label: 'Research started',
+      metadata: expect.objectContaining({
+        jobId: planned.body.jobId,
+        conversationId: planned.body.conversationId,
+      }),
+    }));
+    expect(events.body.events).toContainEqual(expect.objectContaining({
+      eventType: 'source_found',
+      label: 'Source found',
+      metadata: expect.objectContaining({
+        sourceId: 1,
+        channel: 'web',
+        totalSources: 1,
+      }),
+    }));
+    expect(events.body.events).toContainEqual(expect.objectContaining({
+      eventType: 'search_completed',
+      label: 'Search completed',
+      metadata: expect.objectContaining({
+        channel: 'web',
+        totalSources: 1,
+      }),
+    }));
+    expect(events.body.events).toContainEqual(expect.objectContaining({
+      eventType: 'synthesis_completed',
+      label: 'Synthesis completed',
+      metadata: expect.objectContaining({
+        sourceCount: 1,
+        planLength: expect.any(Number),
+      }),
+    }));
+    expect(events.body.events).toContainEqual(expect.objectContaining({
+      eventType: 'run_completed',
+      label: 'Deep Research completed',
+      metadata: expect.objectContaining({ sourceCount: 1 }),
     }));
 
     database.close();

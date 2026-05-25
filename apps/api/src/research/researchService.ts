@@ -50,6 +50,17 @@ function createDiagnosticEvent(
   };
 }
 
+function redactUrlForEventMetadata(value: string): string {
+  try {
+    const url = new URL(value);
+    url.search = '';
+    url.hash = '';
+    return url.toString();
+  } catch {
+    return value.split(/[?#]/, 1)[0] ?? value;
+  }
+}
+
 interface JobEntry {
   emitter: EventEmitter;
   buffer: StreamEvent[];
@@ -270,7 +281,7 @@ export class ResearchService {
     void (async () => {
       const startedAt = performance.now();
       await emit({ type: 'start', conversationId: conversation.id, messageId: assistantMessageId, mode: 'DEEP_RESEARCH' });
-      await emitDiagnostic('research_started', 'Deep research job started', {
+      const researchStartedMetadata = {
         jobId,
         conversationId: conversation.id,
         providerId: provider.id,
@@ -279,6 +290,12 @@ export class ResearchService {
         searchProvider: describeSearchClient(this.search),
         fetchProvider: describeFetchClient(this.search),
         availableChannels: this.channels.names().join(','),
+      };
+      await emitDiagnostic('research_started', 'Deep research job started', researchStartedMetadata);
+      await this.skillRuns.safeAppendEvent(skillRun?.id, userId, {
+        eventType: 'research_started',
+        label: 'Research started',
+        metadata: researchStartedMetadata,
       });
       try {
         for (const [index, rawQuery] of plan.entries()) {
@@ -306,10 +323,23 @@ export class ResearchService {
             sources.push(source);
             excerpts.set(id, result.markdown.slice(0, 3500));
             await emit({ type: 'source', source, iteration, channel: item.channel });
+            await this.skillRuns.safeAppendEvent(skillRun?.id, userId, {
+              eventType: 'source_found',
+              label: 'Source found',
+              metadata: {
+                sourceId: source.id,
+                title: source.title,
+                url: redactUrlForEventMetadata(source.url),
+                urlHash: hashForLog(source.url),
+                channel: item.channel,
+                iteration,
+                totalSources: sources.length,
+              },
+            });
           }
           const iterationDuration = Math.round(performance.now() - iterationStarted);
           const searchProvider = item.channel === 'web' ? describeSearchClient(this.search) : item.channel;
-          await emitDiagnostic('search_completed', `Search completed for ${item.channel}`, {
+          const searchCompletedMetadata = {
             channel: item.channel,
             searchProvider,
             requestedLimit: 5,
@@ -317,7 +347,13 @@ export class ResearchService {
             uniqueAdded,
             totalSources: sources.length,
             durationMs: iterationDuration,
-          }, iteration);
+          };
+          await emitDiagnostic('search_completed', `Search completed for ${item.channel}`, searchCompletedMetadata, iteration);
+          await this.skillRuns.safeAppendEvent(skillRun?.id, userId, {
+            eventType: 'search_completed',
+            label: 'Search completed',
+            metadata: { ...searchCompletedMetadata, iteration },
+          });
           this.logger.info({
             jobId,
             conversationId: conversation.id,
@@ -435,6 +471,21 @@ export class ResearchService {
           step: 'total_research',
           durationMs: totalDuration,
           metadata: { sourceCount: sources.length, planLength: plan.length },
+        });
+
+        await this.skillRuns.safeAppendEvent(skillRun?.id, userId, {
+          eventType: 'synthesis_completed',
+          label: 'Synthesis completed',
+          metadata: {
+            sourceCount: allSources.length,
+            newSourceCount: sources.length,
+            planLength: plan.length,
+            durationMs: synthesisDuration,
+            estimatedTokens,
+            citationCount: grounded.audit.citationCount,
+            validCitationCount: grounded.audit.validCitationCount,
+            fallbackApplied: grounded.audit.fallbackApplied,
+          },
         });
 
         await this.conversations.addMessage({
