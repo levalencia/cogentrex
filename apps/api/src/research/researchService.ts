@@ -412,6 +412,7 @@ export class ResearchService {
           if (fallbackDelta) emitLive({ type: 'delta', content: fallbackDelta });
         }
         await emitDiagnostic('citation_audit', 'Citation audit completed', {
+          messageId: assistantMessageId,
           sourceCount: allSources.length,
           citationCount: grounded.audit.citationCount,
           validCitationCount: grounded.audit.validCitationCount,
@@ -431,6 +432,7 @@ export class ResearchService {
           conversationId: conversation.id,
           providerId: provider.id,
           model: provider.model,
+          messageId: assistantMessageId,
           sourceCount: allSources.length,
           newSourceCount: sources.length,
           planLength: plan.length,
@@ -477,6 +479,7 @@ export class ResearchService {
           eventType: 'synthesis_completed',
           label: 'Synthesis completed',
           metadata: {
+            messageId: assistantMessageId,
             sourceCount: allSources.length,
             newSourceCount: sources.length,
             planLength: plan.length,
@@ -499,6 +502,7 @@ export class ResearchService {
         await this.skillRuns.safeComplete(skillRun?.id, {
           status: 'completed',
           observability: {
+            messageId: assistantMessageId,
             sourceCount: allSources.length,
             newSourceCount: sources.length,
             planLength: plan.length,
@@ -863,6 +867,7 @@ export class ResearchService {
     await this.skillRuns.safeComplete(skillRun?.id, {
       status: 'completed',
       observability: {
+        messageId: assistantMessageId,
         sourceCount: allSources.length,
         newSourceCount: sources.length,
         planLength: queries.length,

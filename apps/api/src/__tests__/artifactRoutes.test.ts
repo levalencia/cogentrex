@@ -109,6 +109,61 @@ describe('artifact routes', () => {
     database.close();
   });
 
+  it('uses the skill run tied to the saved assistant message instead of a newer chat run', async () => {
+    const { agent, database } = await makeTestApp();
+    const user = await registerAndLogin(agent);
+    const { conversationId, messageId } = await seedConversationWithAssistantMessage(database, user.id, {
+      messageId: 'msg-research-answer',
+      title: 'Started as chat',
+      mode: 'CHAT',
+    });
+
+    await database.adapter.prepare(
+      `INSERT INTO skill_runs (
+        id, user_id, skill_id, skill_slug, skill_name, mode, status,
+        conversation_id, job_id, provider_id, started_at, completed_at, duration_ms, observability_json
+      ) VALUES
+      (
+        'skr-research-message', @userId, 'skl_deep_research', 'deep-research', 'Deep Research', 'DEEP_RESEARCH', 'completed',
+        @conversationId, 'job-1', NULL, '2026-05-22T20:01:00.000Z', '2026-05-22T20:03:00.000Z', 120000, '{"messageId":"msg-research-answer","sourceCount":3}'
+      ),
+      (
+        'skr-later-chat', @userId, 'skl_chat', 'chat', 'Chat', 'CHAT', 'completed',
+        @conversationId, NULL, NULL, '2026-05-22T20:05:00.000Z', '2026-05-22T20:06:00.000Z', 60000, '{"messageId":"msg-later-chat","estimatedTokens":12}'
+      )`,
+    ).run({ userId: user.id, conversationId });
+
+    const response = await agent
+      .post('/api/artifacts/from-message')
+      .send({ messageId })
+      .expect(201);
+
+    expect(response.body.artifact).toMatchObject({
+      conversationTitle: 'Started as chat',
+      conversationMode: 'DEEP_RESEARCH',
+      baseConversationMode: 'CHAT',
+      effectiveMode: 'DEEP_RESEARCH',
+      skillRunId: 'skr-research-message',
+      skillRunName: 'Deep Research',
+      skillRunStatus: 'completed',
+    });
+
+    const listResponse = await agent.get('/api/artifacts').expect(200);
+    expect(listResponse.body.artifacts[0]).toMatchObject({
+      conversationMode: 'DEEP_RESEARCH',
+      skillRunId: 'skr-research-message',
+      skillRunName: 'Deep Research',
+    });
+
+    const runsResponse = await agent.get('/api/skills/runs').expect(200);
+    const researchRun = runsResponse.body.runs.find((run: { id: string }) => run.id === 'skr-research-message');
+    const chatRun = runsResponse.body.runs.find((run: { id: string }) => run.id === 'skr-later-chat');
+    expect(researchRun.observability).toMatchObject({ savedArtifactCount: 1 });
+    expect(chatRun.observability).not.toHaveProperty('savedArtifactCount');
+
+    database.close();
+  });
+
   it('saves an assistant message as a reusable library artifact', async () => {
     const { agent, database } = await makeTestApp();
     const user = await registerAndLogin(agent);

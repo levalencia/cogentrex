@@ -63,6 +63,71 @@ describe('buildLibraryModeCards', () => {
     ]);
   });
 
+  it('counts saved artifact cards by artifact provenance instead of a newer conversation run', () => {
+    const cards = buildLibraryModeCards([
+      { id: 'conv-mixed', title: 'Started as chat', mode: 'CHAT', updatedAt: '2026-05-22T20:05:00.000Z' },
+    ], [
+      {
+        id: 'run-deep-research',
+        userId: 'user-1',
+        skillId: 'skl_deep_research',
+        skillSlug: 'deep-research',
+        skillName: 'Deep Research',
+        mode: 'DEEP_RESEARCH',
+        status: 'completed',
+        conversationId: 'conv-mixed',
+        jobId: 'job-1',
+        providerId: 'provider-1',
+        startedAt: '2026-05-22T20:00:00.000Z',
+        completedAt: '2026-05-22T20:03:00.000Z',
+        durationMs: 180000,
+        errorMessage: null,
+        observability: { messageId: 'msg-deep-research', sourceCount: 3, savedArtifactCount: 1 },
+      },
+      {
+        id: 'run-newer-chat',
+        userId: 'user-1',
+        skillId: 'skl_chat',
+        skillSlug: 'chat',
+        skillName: 'Chat',
+        mode: 'CHAT',
+        status: 'completed',
+        conversationId: 'conv-mixed',
+        jobId: null,
+        providerId: 'provider-1',
+        startedAt: '2026-05-22T20:04:00.000Z',
+        completedAt: '2026-05-22T20:05:00.000Z',
+        durationMs: 60000,
+        errorMessage: null,
+        observability: { messageId: 'msg-newer-chat' },
+      },
+    ], [
+      {
+        id: 'art-deep-research',
+        filename: 'Brief.md',
+        type: 'text/markdown',
+        sizeBytes: 20,
+        conversationId: 'conv-mixed',
+        messageId: 'msg-deep-research',
+        content: 'Brief',
+        createdAt: '2026-05-22T20:06:00.000Z',
+        conversationTitle: 'Started as chat',
+        conversationMode: 'DEEP_RESEARCH',
+        baseConversationMode: 'CHAT',
+        effectiveMode: 'DEEP_RESEARCH',
+        skillRunName: 'Deep Research',
+        skillRunStatus: 'completed',
+      },
+    ]);
+
+    expect(cards.map((card) => [card.id, card.count])).toEqual([
+      ['research', 1],
+      ['social', 0],
+      ['media', 0],
+      ['chat', 0],
+    ]);
+  });
+
   it('uses active Deep Research skill runs to type stale chat conversations before completion', () => {
     const cards = buildLibraryModeCards([
       { id: 'conv-running-research', title: 'Started as chat', mode: 'CHAT', updatedAt: '2026-05-22T20:00:00.000Z' },
