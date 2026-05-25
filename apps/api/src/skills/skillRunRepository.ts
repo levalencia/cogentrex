@@ -255,9 +255,17 @@ export class SkillRunRepository {
     }
   }
 
-  async linkArtifactToConversation(userId: string, conversationId: string, artifactId: string): Promise<void> {
+  async linkArtifactToMessage(userId: string, conversationId: string, messageId: string, artifactId: string): Promise<void> {
     await this.db.transaction(async (tx) => {
-      const row = await tx.prepare(
+      const exactRow = await tx.prepare(
+        `SELECT * FROM skill_runs
+         WHERE user_id = ?
+           AND conversation_id = ?
+           AND observability_json LIKE '%"messageId":"' || ? || '"%'
+         ORDER BY COALESCE(completed_at, started_at) DESC, started_at DESC
+         LIMIT 1`,
+      ).get(userId, conversationId, messageId) as SkillRunRow | undefined;
+      const row = exactRow ?? await tx.prepare(
         `SELECT * FROM skill_runs
          WHERE user_id = ? AND conversation_id = ?
          ORDER BY COALESCE(completed_at, started_at) DESC, started_at DESC
@@ -290,9 +298,9 @@ export class SkillRunRepository {
     });
   }
 
-  async safeLinkArtifactToConversation(userId: string, conversationId: string, artifactId: string): Promise<void> {
+  async safeLinkArtifactToMessage(userId: string, conversationId: string, messageId: string, artifactId: string): Promise<void> {
     try {
-      await this.linkArtifactToConversation(userId, conversationId, artifactId);
+      await this.linkArtifactToMessage(userId, conversationId, messageId, artifactId);
     } catch {
       // Artifact persistence must remain independent from run-ledger enrichment.
     }

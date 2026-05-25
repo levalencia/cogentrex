@@ -46,41 +46,38 @@ interface ArtifactRow {
 const LATEST_SKILL_RUN_FILTER_SQL = 'sr.conversation_id = c.id AND sr.user_id = c.user_id';
 const LATEST_SKILL_RUN_ORDER_SQL = 'COALESCE(sr.completed_at, sr.started_at) DESC, sr.started_at DESC';
 
-const EFFECTIVE_CONVERSATION_MODE_SQL = `COALESCE((
-  SELECT sr.mode
-  FROM skill_runs sr
-  WHERE ${LATEST_SKILL_RUN_FILTER_SQL}
-  ORDER BY ${LATEST_SKILL_RUN_ORDER_SQL}
-  LIMIT 1
-), c.mode)`;
+function skillRunMessageFilterSql(messageIdSql: string): string {
+  return `${LATEST_SKILL_RUN_FILTER_SQL} AND sr.observability_json LIKE '%"messageId":"' || ${messageIdSql} || '"%'`;
+}
 
-const ARTIFACT_PROVENANCE_SELECT_SQL = `
-  c.title AS conversation_title,
-  c.mode AS base_conversation_mode,
-  ${EFFECTIVE_CONVERSATION_MODE_SQL} AS conversation_mode,
-  ${EFFECTIVE_CONVERSATION_MODE_SQL} AS effective_mode,
-  (
-    SELECT sr.id
+function skillRunFieldSql(field: string, messageIdSql: string): string {
+  return `COALESCE((
+    SELECT sr.${field}
+    FROM skill_runs sr
+    WHERE ${skillRunMessageFilterSql(messageIdSql)}
+    ORDER BY ${LATEST_SKILL_RUN_ORDER_SQL}
+    LIMIT 1
+  ), (
+    SELECT sr.${field}
     FROM skill_runs sr
     WHERE ${LATEST_SKILL_RUN_FILTER_SQL}
     ORDER BY ${LATEST_SKILL_RUN_ORDER_SQL}
     LIMIT 1
-  ) AS skill_run_id,
-  (
-    SELECT sr.skill_name
-    FROM skill_runs sr
-    WHERE ${LATEST_SKILL_RUN_FILTER_SQL}
-    ORDER BY ${LATEST_SKILL_RUN_ORDER_SQL}
-    LIMIT 1
-  ) AS skill_run_name,
-  (
-    SELECT sr.status
-    FROM skill_runs sr
-    WHERE ${LATEST_SKILL_RUN_FILTER_SQL}
-    ORDER BY ${LATEST_SKILL_RUN_ORDER_SQL}
-    LIMIT 1
-  ) AS skill_run_status
-`;
+  ))`;
+}
+
+function artifactProvenanceSelectSql(messageIdSql: string): string {
+  const effectiveConversationModeSql = `COALESCE(${skillRunFieldSql('mode', messageIdSql)}, c.mode)`;
+  return `
+    c.title AS conversation_title,
+    c.mode AS base_conversation_mode,
+    ${effectiveConversationModeSql} AS conversation_mode,
+    ${effectiveConversationModeSql} AS effective_mode,
+    ${skillRunFieldSql('id', messageIdSql)} AS skill_run_id,
+    ${skillRunFieldSql('skill_name', messageIdSql)} AS skill_run_name,
+    ${skillRunFieldSql('status', messageIdSql)} AS skill_run_status
+  `;
+}
 
 function mapArtifact(row: ArtifactRow): ArtifactRecord {
   const artifact: ArtifactRecord = {
@@ -167,7 +164,7 @@ export class ArtifactRepository {
 
   async findById(userId: string, id: string): Promise<ArtifactRecord | undefined> {
     const row = await this.db.prepare(
-      `SELECT a.*, ${ARTIFACT_PROVENANCE_SELECT_SQL}
+      `SELECT a.*, ${artifactProvenanceSelectSql('a.message_id')}
        FROM artifacts a
        JOIN conversations c ON c.id = a.conversation_id
        WHERE a.id = ? AND a.user_id = ? AND c.user_id = ?`,
@@ -177,7 +174,7 @@ export class ArtifactRepository {
 
   async listForUser(userId: string): Promise<ArtifactRecord[]> {
     const rows = await this.db.prepare(
-      `SELECT a.*, ${ARTIFACT_PROVENANCE_SELECT_SQL}
+      `SELECT a.*, ${artifactProvenanceSelectSql('a.message_id')}
        FROM artifacts a
        JOIN conversations c ON c.id = a.conversation_id
        WHERE a.user_id = ? AND c.user_id = ?
@@ -188,7 +185,7 @@ export class ArtifactRepository {
 
   async createFromMessage(userId: string, messageId: string): Promise<ArtifactRecord | undefined> {
     const row = await this.db.prepare(
-      `SELECT m.id AS message_id, m.conversation_id, m.content, m.metadata_json, ${ARTIFACT_PROVENANCE_SELECT_SQL}
+      `SELECT m.id AS message_id, m.conversation_id, m.content, m.metadata_json, ${artifactProvenanceSelectSql('m.id')}
        FROM messages m
        JOIN conversations c ON c.id = m.conversation_id
        WHERE c.user_id = ? AND m.id = ? AND m.role = 'assistant'`,
@@ -231,7 +228,7 @@ export class ArtifactRepository {
 
   async listForConversation(userId: string, conversationId: string): Promise<ArtifactRecord[]> {
     const rows = await this.db.prepare(
-      `SELECT a.*, ${ARTIFACT_PROVENANCE_SELECT_SQL}
+      `SELECT a.*, ${artifactProvenanceSelectSql('a.message_id')}
        FROM artifacts a
        JOIN conversations c ON c.id = a.conversation_id
        WHERE a.user_id = ? AND a.conversation_id = ? AND c.user_id = ?
@@ -242,7 +239,7 @@ export class ArtifactRepository {
 
   async listForMessage(userId: string, messageId: string): Promise<ArtifactRecord[]> {
     const rows = await this.db.prepare(
-      `SELECT a.*, ${ARTIFACT_PROVENANCE_SELECT_SQL}
+      `SELECT a.*, ${artifactProvenanceSelectSql('a.message_id')}
        FROM artifacts a
        JOIN conversations c ON c.id = a.conversation_id
        WHERE a.user_id = ? AND a.message_id = ? AND c.user_id = ?

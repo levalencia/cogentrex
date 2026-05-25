@@ -241,6 +241,7 @@ describe('deep research API', () => {
     });
     expect(runsResponse.body.runs[0].durationMs).toEqual(expect.any(Number));
     expect(runsResponse.body.runs[0].observability).toMatchObject({
+      messageId: expect.any(String),
       sourceCount: 1,
       planLength: expect.any(Number),
     });
