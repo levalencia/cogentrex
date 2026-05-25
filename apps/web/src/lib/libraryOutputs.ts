@@ -140,14 +140,17 @@ function artifactProvenanceLabel(artifact: ArtifactItem, mode: AppMode | undefin
   return labels.join(' · ');
 }
 
-export function buildLibraryModeCards(conversations: ConversationLike[], skillRuns: SkillRunSummary[] = []): LibraryModeCard[] {
+export function buildLibraryModeCards(conversations: ConversationLike[], skillRuns: SkillRunSummary[] = [], artifacts: ArtifactItem[] = []): LibraryModeCard[] {
   const skillRunsByConversationId = buildSkillRunModeByConversationId(skillRuns);
-  const conversationModes = conversations.map((conversation) => effectiveConversationMode(conversation, skillRunsByConversationId));
   const linkedConversationIds = new Set(conversations.map((conversation) => conversation.id).filter((id): id is string => Boolean(id)));
   const standaloneRunModes = skillRuns
     .filter((run) => !run.conversationId || !linkedConversationIds.has(run.conversationId))
     .map((run) => run.mode);
-  const modes = [...conversationModes, ...standaloneRunModes];
+  const artifactModes = artifacts
+    .map((artifact) => effectiveArtifactMode(artifact, skillRunsByConversationId))
+    .filter((mode): mode is AppMode => Boolean(mode));
+  const conversationModes = conversations.map((conversation) => effectiveConversationMode(conversation, skillRunsByConversationId));
+  const modes = artifacts.length ? [...artifactModes, ...standaloneRunModes] : [...conversationModes, ...standaloneRunModes];
   const research = modes.filter((mode) => mode === 'DEEP_RESEARCH').length;
   const social = modes.filter((mode) => mode === 'SOCIAL_WRITING').length;
   const media = modes.filter((mode) => mode === 'IMAGE_GENERATION' || mode === 'VIDEO_GENERATION').length;

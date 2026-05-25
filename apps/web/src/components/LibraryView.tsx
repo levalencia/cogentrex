@@ -34,11 +34,11 @@ export function LibraryView() {
   const [artifactQuery, setArtifactQuery] = useState('');
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
-  const cards = buildLibraryModeCards(conversations, skillRuns);
   const mergedArtifacts = useMemo(
     () => mergeLibraryArtifacts(libraryArtifacts, workspaceArtifacts),
     [libraryArtifacts, workspaceArtifacts],
   );
+  const cards = buildLibraryModeCards(conversations, skillRuns, mergedArtifacts);
   const overviewStats = buildLibraryOverviewStats(conversations, mergedArtifacts, skillRuns);
   const filteredArtifacts = useMemo(
     () => filterLibraryArtifacts(mergedArtifacts, artifactQuery),
