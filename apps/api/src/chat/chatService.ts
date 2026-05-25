@@ -12,6 +12,7 @@ import type { AppLogger } from '../observability/logger.js';
 import { hashForLog } from '../observability/logger.js';
 import type { ArtifactService } from '../artifacts/artifactService.js';
 import type { SkillRunRepository } from '../skills/skillRunRepository.js';
+import type { SkillService } from '../skills/skillService.js';
 import { withSkillAssistSystemMessage } from '../skills/skillAssist.js';
 import { randomBytes } from 'node:crypto';
 
@@ -27,6 +28,7 @@ export class ChatService {
     private readonly logger: AppLogger,
     private readonly artifacts?: ArtifactService,
     private readonly skillRuns?: SkillRunRepository,
+    private readonly skills?: SkillService,
   ) {}
 
   async listConversations(userId: string, projectId?: string | null) {
@@ -112,7 +114,14 @@ export class ChatService {
     const provider = await this.providers.resolveForMode(input.userId, 'CHAT', input.providerId);
     const history = await this.conversations.listMessages(conversation.id);
     const baseModelMessages = toModelMessages(history);
-    const assisted = input.useSkills ? withSkillAssistSystemMessage(baseModelMessages, input.content) : null;
+    const registrySkills = input.useSkills && this.skills
+      ? await this.skills.listVisibleDetails().catch((error) => {
+          const message = error instanceof Error ? error.message : 'Skill registry lookup failed';
+          this.logger.warn({ conversationId: conversation.id, errorMessage: message }, 'skill_assist_registry_lookup_failed');
+          return undefined;
+        })
+      : undefined;
+    const assisted = input.useSkills ? withSkillAssistSystemMessage(baseModelMessages, input.content, registrySkills) : null;
     const modelMessages = assisted?.messages ?? baseModelMessages;
     this.logger.debug({
       conversationId: conversation.id,

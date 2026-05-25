@@ -1,3 +1,4 @@
+import type { SkillDetail } from '@cogentrex/shared';
 import type { ModelMessage } from '../chat/languageModel.js';
 
 export interface SkillAssistContext {
@@ -11,6 +12,11 @@ export interface SkillAssistContext {
 export interface SkillAssistSelection {
   contexts: SkillAssistContext[];
   systemPrompt: string;
+}
+
+interface SkillAssistConfig {
+  keywords: string[];
+  instructions: string[];
 }
 
 const SKILL_ASSIST_CATALOG: SkillAssistContext[] = [
@@ -84,13 +90,79 @@ function scoreContext(context: SkillAssistContext, query: string): number {
   }, 0);
 }
 
-export function selectSkillAssistContext(query: string, maxSkills = 3): SkillAssistSelection {
-  const ranked = SKILL_ASSIST_CATALOG
+function getStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0) : [];
+}
+
+function parseSkillAssistConfig(skill: SkillDetail): SkillAssistConfig {
+  const rawConfig = skill.route?.config?.skillAssist;
+  if (!rawConfig || typeof rawConfig !== 'object' || Array.isArray(rawConfig)) {
+    return { keywords: [], instructions: [] };
+  }
+  const record = rawConfig as Record<string, unknown>;
+  return {
+    keywords: getStringArray(record.keywords),
+    instructions: getStringArray(record.instructions),
+  };
+}
+
+function routeModeLabel(skill: SkillDetail): string | null {
+  return skill.route?.mode ?? null;
+}
+
+function registryKeywords(skill: SkillDetail, assistConfig: SkillAssistConfig): string[] {
+  return [
+    skill.slug,
+    skill.name,
+    skill.description,
+    skill.category ?? '',
+    routeModeLabel(skill) ?? '',
+    ...(skill.toolRequirements.map((tool) => tool.name)),
+    ...assistConfig.keywords,
+  ].filter((keyword) => keyword.trim().length > 0);
+}
+
+function registryContent(skill: SkillDetail, assistConfig: SkillAssistConfig): string {
+  const lines = [
+    skill.description,
+    skill.category ? `Category: ${skill.category}` : null,
+    skill.route ? `Route mode: ${skill.route.mode}` : null,
+    skill.route?.searchProfile ? `Search profile: ${skill.route.searchProfile}` : null,
+    skill.toolRequirements.length > 0
+      ? `Tool requirements: ${skill.toolRequirements.map((tool) => `${tool.name}${tool.required ? ' (required)' : ' (optional)'}`).join(', ')}`
+      : null,
+    ...assistConfig.instructions,
+  ];
+  return lines.filter((line): line is string => Boolean(line)).join('\n');
+}
+
+function hasSkillAssistConfig(config: SkillAssistConfig): boolean {
+  return config.keywords.length > 0 || config.instructions.length > 0;
+}
+
+function buildRegistryContexts(skills: SkillDetail[]): SkillAssistContext[] {
+  return skills.flatMap((skill) => {
+    const assistConfig = parseSkillAssistConfig(skill);
+    if (!hasSkillAssistConfig(assistConfig)) return [];
+    return [{
+      slug: skill.slug,
+      name: skill.name,
+      description: skill.description,
+      keywords: registryKeywords(skill, assistConfig),
+      content: registryContent(skill, assistConfig),
+    }];
+  });
+}
+
+export function selectSkillAssistContext(query: string, maxSkills = 3, registrySkills?: SkillDetail[]): SkillAssistSelection {
+  const registryCatalog = registrySkills && registrySkills.length > 0 ? buildRegistryContexts(registrySkills) : [];
+  const catalog = registryCatalog.length > 0 ? [...registryCatalog, ...SKILL_ASSIST_CATALOG] : SKILL_ASSIST_CATALOG;
+  const ranked = catalog
     .map((context) => ({ context, score: scoreContext(context, query) }))
     .filter((item) => item.score > 0)
     .sort((left, right) => right.score - left.score || left.context.name.localeCompare(right.context.name));
 
-  const contexts = (ranked.length ? ranked : SKILL_ASSIST_CATALOG.slice(0, 1).map((context) => ({ context, score: 0 })))
+  const contexts = (ranked.length ? ranked : catalog.slice(0, 1).map((context) => ({ context, score: 0 })))
     .slice(0, maxSkills)
     .map((item) => item.context);
 
@@ -112,8 +184,8 @@ export function selectSkillAssistContext(query: string, maxSkills = 3): SkillAss
   };
 }
 
-export function withSkillAssistSystemMessage(messages: ModelMessage[], query: string): { messages: ModelMessage[]; skillSlugs: string[] } {
-  const selection = selectSkillAssistContext(query);
+export function withSkillAssistSystemMessage(messages: ModelMessage[], query: string, registrySkills?: SkillDetail[]): { messages: ModelMessage[]; skillSlugs: string[] } {
+  const selection = selectSkillAssistContext(query, 3, registrySkills);
   return {
     messages: [{ role: 'system', content: selection.systemPrompt }, ...messages],
     skillSlugs: selection.contexts.map((context) => context.slug),
