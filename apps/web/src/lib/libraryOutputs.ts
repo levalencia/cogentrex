@@ -12,6 +12,7 @@ export interface LibraryArtifactRow {
   filename: string;
   subtitle: string;
   sizeLabel: string;
+  href: string;
   conversationHref: string;
   preview: string;
 }
@@ -539,6 +540,10 @@ function textPreview(content: string): string {
     .slice(0, 180) || 'No preview available';
 }
 
+export function buildLibraryArtifactHref(artifactId: string): string {
+  return `/library?artifact=${encodeURIComponent(artifactId)}`;
+}
+
 function searchableText(artifact: ArtifactItem): string {
   return [
     artifact.filename,
@@ -603,6 +608,7 @@ export function buildLibraryArtifactRows(artifacts: ArtifactItem[], skillRuns: S
       filename: artifact.filename,
       subtitle: artifactProvenanceLabel(artifact, mode),
       sizeLabel: sizeLabel(artifact.sizeBytes),
+      href: buildLibraryArtifactHref(artifact.id),
       conversationHref: `/chats/${artifact.conversationId}`,
       preview: textPreview(artifact.content),
     };
