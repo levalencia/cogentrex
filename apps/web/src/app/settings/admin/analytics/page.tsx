@@ -90,7 +90,7 @@ export default function AdminAnalyticsPage() {
             <h1 className="text-2xl font-semibold">Access Denied</h1>
             <p className="mt-2 text-slate-400">You need admin privileges to view this page.</p>
             <a href="/settings/providers" className="mt-4 inline-block rounded-xl border border-line px-4 py-2 text-sm hover:border-accent">
-              Back to Settings
+              Go to personal provider settings
             </a>
           </div>
         </div>
