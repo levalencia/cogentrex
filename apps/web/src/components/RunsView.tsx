@@ -3,14 +3,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { AppMode, SkillRunEvent, SkillRunSummary } from '@cogentrex/shared';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import {
   buildSkillRunDetail,
   buildSkillRunEventRows,
   buildSkillRunHealthStats,
   buildSkillRunHistoryRows,
+  buildSkillRunHref,
   filterSkillRuns,
+  resolveSkillRunSelection,
 } from '@/lib/libraryOutputs';
 
 function formatDate(value: string): string {
@@ -42,12 +44,15 @@ const runModeOptions: Array<{ value: AppMode | 'all'; label: string }> = [
 
 export function RunsView() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedRunId = searchParams.get('run');
   const [skillRuns, setSkillRuns] = useState<SkillRunSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [runQuery, setRunQuery] = useState('');
   const [runStatusFilter, setRunStatusFilter] = useState<(typeof runStatusOptions)[number]['value']>('all');
   const [runModeFilter, setRunModeFilter] = useState<AppMode | 'all'>('all');
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [requestedRunMissing, setRequestedRunMissing] = useState(false);
   const [selectedRunEvents, setSelectedRunEvents] = useState<SkillRunEvent[]>([]);
   const [isLoadingRunEvents, setIsLoadingRunEvents] = useState(false);
   const skillRunStats = buildSkillRunHealthStats(skillRuns);
@@ -58,6 +63,7 @@ export function RunsView() {
   const skillRunRows = buildSkillRunHistoryRows(filteredSkillRuns, 50);
   const selectedRun = selectedRunId ? skillRuns.find((run) => run.id === selectedRunId) : undefined;
   const selectedRunDetail = selectedRun ? buildSkillRunDetail(selectedRun) : undefined;
+  const selectedRunHref = selectedRun ? buildSkillRunHref(selectedRun.id) : null;
   const selectedRunEventRows = buildSkillRunEventRows(selectedRunEvents);
 
   useEffect(() => {
@@ -79,10 +85,18 @@ export function RunsView() {
   }, []);
 
   useEffect(() => {
+    if (requestedRunId) {
+      const selection = resolveSkillRunSelection(skillRuns, selectedRunId, requestedRunId);
+      setSelectedRunId(selection.selectedRunId);
+      setRequestedRunMissing(selection.requestedRunMissing);
+      return;
+    }
+
+    setRequestedRunMissing(false);
     if (selectedRunId && !skillRuns.some((run) => run.id === selectedRunId)) {
       setSelectedRunId(null);
     }
-  }, [selectedRunId, skillRuns]);
+  }, [requestedRunId, selectedRunId, skillRuns]);
 
   useEffect(() => {
     if (!selectedRunId) {
@@ -106,6 +120,11 @@ export function RunsView() {
       cancelled = true;
     };
   }, [selectedRunId]);
+
+  const closeRunDetails = () => {
+    setSelectedRunId(null);
+    if (requestedRunId) router.push('/runs');
+  };
 
   return (
     <>
@@ -208,15 +227,21 @@ export function RunsView() {
               </div>
             </div>
 
+            {requestedRunMissing ? (
+              <div className="mt-4 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+                Requested run was not found. Showing the latest available run instead.
+              </div>
+            ) : null}
+
             <div className="mt-4 grid gap-3 xl:grid-cols-2">
               {isLoading && !skillRunRows.length ? (
                 <div className="rounded-2xl border border-dashed border-line p-5 text-sm text-slate-500">
                   Loading run history…
                 </div>
               ) : skillRunRows.length ? skillRunRows.map((run) => (
-                <button
+                <Link
                   key={run.id}
-                  type="button"
+                  href={run.href}
                   onClick={() => setSelectedRunId(run.id)}
                   className={`rounded-2xl border p-4 text-left transition ${selectedRunId === run.id ? 'border-accent/70 bg-accent/10' : 'border-line bg-ink/50 hover:border-accent/60 hover:bg-accent/5'}`}
                 >
@@ -245,7 +270,7 @@ export function RunsView() {
                       ))}
                     </div>
                   ) : null}
-                </button>
+                </Link>
               )) : (
                 <div className="rounded-2xl border border-dashed border-line p-5 text-sm text-slate-500">
                   {skillRuns.length ? 'No runs match these filters. Clear search or choose another status/mode.' : 'No skill runs yet. Launch a workflow to start building an auditable run ledger.'}
@@ -261,7 +286,7 @@ export function RunsView() {
           <button
             type="button"
             aria-label="Close run details"
-            onClick={() => setSelectedRunId(null)}
+            onClick={closeRunDetails}
             className="absolute inset-0 cursor-default"
           />
           <aside className="relative z-10 flex h-full w-full max-w-xl flex-col border-l border-line bg-panel shadow-2xl shadow-black/40">
@@ -274,7 +299,7 @@ export function RunsView() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setSelectedRunId(null)}
+                  onClick={closeRunDetails}
                   className="rounded-xl border border-line px-3 py-2 text-xs text-slate-300 transition hover:border-accent"
                 >
                   Close
@@ -290,6 +315,14 @@ export function RunsView() {
                 <span className="rounded-full border border-line bg-ink/60 px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-slate-400">
                   {selectedRun?.eventCount ?? 0} events
                 </span>
+                {selectedRunHref ? (
+                  <Link
+                    href={selectedRunHref}
+                    className="rounded-full border border-line bg-ink/60 px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-slate-300 transition hover:border-accent"
+                  >
+                    Run link
+                  </Link>
+                ) : null}
                 {selectedRunDetail.conversationHref ? (
                   <button
                     type="button"
