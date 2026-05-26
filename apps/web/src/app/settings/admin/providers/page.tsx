@@ -159,7 +159,7 @@ export default function AdminProvidersPage() {
             <h1 className="text-2xl font-semibold">Access Denied</h1>
             <p className="mt-2 text-slate-400">You need admin privileges to view this page.</p>
             <a href="/settings/providers" className="mt-4 inline-block rounded-xl border border-line px-4 py-2 text-sm hover:border-accent">
-              Back to Provider Settings
+              Go to personal provider settings
             </a>
           </div>
         </div>
@@ -183,7 +183,7 @@ export default function AdminProvidersPage() {
               Workflow analytics
             </a>
             <a href="/settings/providers" className="rounded-xl border border-line bg-panel px-4 py-2 text-sm hover:border-accent">
-              Back to Providers
+              Personal provider settings
             </a>
           </div>
         </div>
