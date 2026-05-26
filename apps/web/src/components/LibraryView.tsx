@@ -13,15 +13,12 @@ import {
   filterLibraryArtifacts,
   getLibraryArtifactMode,
   mergeLibraryArtifacts,
+  resolveLibraryArtifactSelection,
 } from '@/lib/libraryOutputs';
 import { api } from '@/lib/api';
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
-}
-
-function findArtifact(artifacts: ArtifactItem[], artifactId: string | null): ArtifactItem | undefined {
-  return artifacts.find((artifact) => artifact.id === artifactId) ?? artifacts[0];
 }
 
 export function LibraryView() {
@@ -35,6 +32,7 @@ export function LibraryView() {
   const [isLoadingArtifacts, setIsLoadingArtifacts] = useState(true);
   const [artifactQuery, setArtifactQuery] = useState('');
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
+  const [requestedArtifactMissing, setRequestedArtifactMissing] = useState(false);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
   const mergedArtifacts = useMemo(
     () => mergeLibraryArtifacts(libraryArtifacts, workspaceArtifacts),
@@ -47,7 +45,7 @@ export function LibraryView() {
     [mergedArtifacts, artifactQuery],
   );
   const artifactRows = buildLibraryArtifactRows(filteredArtifacts, skillRuns);
-  const selectedArtifact = findArtifact(filteredArtifacts, selectedArtifactId);
+  const selectedArtifact = selectedArtifactId ? filteredArtifacts.find((artifact) => artifact.id === selectedArtifactId) : undefined;
   const selectedArtifactMode = selectedArtifact ? getLibraryArtifactMode(selectedArtifact, skillRuns) : undefined;
   const recentActivity = buildRecentActivityItems(conversations, mergedArtifacts, skillRuns, 8);
 
@@ -79,16 +77,10 @@ export function LibraryView() {
   }, []);
 
   useEffect(() => {
-    if (!filteredArtifacts.length) {
-      setSelectedArtifactId(null);
-      return;
-    }
-    if (requestedArtifactId && filteredArtifacts.some((artifact) => artifact.id === requestedArtifactId)) {
-      if (selectedArtifactId !== requestedArtifactId) setSelectedArtifactId(requestedArtifactId);
-      return;
-    }
-    if (!selectedArtifactId || !filteredArtifacts.some((artifact) => artifact.id === selectedArtifactId)) {
-      setSelectedArtifactId(filteredArtifacts[0]?.id ?? null);
+    const nextSelection = resolveLibraryArtifactSelection(filteredArtifacts, selectedArtifactId, requestedArtifactId);
+    setRequestedArtifactMissing(nextSelection.requestedArtifactMissing);
+    if (selectedArtifactId !== nextSelection.selectedArtifactId) {
+      setSelectedArtifactId(nextSelection.selectedArtifactId);
     }
   }, [filteredArtifacts, requestedArtifactId, selectedArtifactId]);
 
@@ -227,6 +219,11 @@ export function LibraryView() {
                 className="mt-2 w-full rounded-2xl border border-line bg-ink/70 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-accent"
               />
               <div className="mt-4 space-y-2">
+                {requestedArtifactMissing ? (
+                  <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4 text-xs leading-5 text-amber-100">
+                    Artifact not found or not accessible. The Library is showing the closest available saved output instead.
+                  </div>
+                ) : null}
                 {isLoadingArtifacts && !artifactRows.length ? (
                   <div className="rounded-2xl border border-dashed border-line p-5 text-sm text-slate-500">
                     Loading saved artifacts…

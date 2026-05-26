@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { ArtifactItem } from '@cogentrex/shared';
 import {
   buildArtifactDownload,
   buildLibraryArtifactRows,
@@ -12,7 +13,65 @@ import {
   filterLibraryArtifacts,
   filterSkillRuns,
   mergeLibraryArtifacts,
+  resolveLibraryArtifactSelection,
 } from './libraryOutputs';
+
+describe('resolveLibraryArtifactSelection', () => {
+  const artifacts: ArtifactItem[] = [
+    {
+      id: 'art-1',
+      filename: 'First.md',
+      type: 'text/markdown',
+      sizeBytes: 10,
+      conversationId: 'conv-1',
+      messageId: 'msg-1',
+      content: 'First',
+      createdAt: '2026-05-22T20:00:00.000Z',
+      conversationTitle: 'First conversation',
+      conversationMode: 'CHAT',
+    },
+    {
+      id: 'art-2',
+      filename: 'Second.md',
+      type: 'text/markdown',
+      sizeBytes: 20,
+      conversationId: 'conv-2',
+      messageId: 'msg-2',
+      content: 'Second',
+      createdAt: '2026-05-22T20:01:00.000Z',
+      conversationTitle: 'Second conversation',
+      conversationMode: 'DEEP_RESEARCH',
+    },
+  ];
+
+  it('selects a requested deep-linked artifact when it exists', () => {
+    expect(resolveLibraryArtifactSelection(artifacts, null, 'art-2')).toEqual({
+      selectedArtifactId: 'art-2',
+      requestedArtifactMissing: false,
+    });
+  });
+
+  it('keeps current selection when a requested artifact is missing and current selection is still visible', () => {
+    expect(resolveLibraryArtifactSelection(artifacts, 'art-1', 'missing-artifact')).toEqual({
+      selectedArtifactId: 'art-1',
+      requestedArtifactMissing: true,
+    });
+  });
+
+  it('falls back to the first visible artifact when selection is missing or invalid', () => {
+    expect(resolveLibraryArtifactSelection(artifacts, 'gone', null)).toEqual({
+      selectedArtifactId: 'art-1',
+      requestedArtifactMissing: false,
+    });
+  });
+
+  it('returns an empty safe state when no artifacts are visible', () => {
+    expect(resolveLibraryArtifactSelection([], 'art-1', 'art-1')).toEqual({
+      selectedArtifactId: null,
+      requestedArtifactMissing: true,
+    });
+  });
+});
 
 describe('buildLibraryModeCards', () => {
   it('groups conversations into library output buckets', () => {

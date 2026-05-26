@@ -30,6 +30,11 @@ export interface LibraryOverviewStats {
   latestActivityAt: string | null;
 }
 
+export interface LibraryArtifactSelectionState {
+  selectedArtifactId: string | null;
+  requestedArtifactMissing: boolean;
+}
+
 export interface ArtifactDownload {
   filename: string;
   content: string;
@@ -224,6 +229,24 @@ export function buildLibraryOverviewStats(conversations: ConversationLike[], art
     savedArtifacts: artifacts.length,
     savedPerWorkflowLabel: savedPerWorkflow,
     latestActivityAt,
+  };
+}
+
+export function resolveLibraryArtifactSelection(
+  artifacts: ArtifactItem[],
+  selectedArtifactId: string | null,
+  requestedArtifactId: string | null,
+): LibraryArtifactSelectionState {
+  const requestedId = requestedArtifactId?.trim() || null;
+  const requestedArtifact = requestedId ? artifacts.find((artifact) => artifact.id === requestedId) : undefined;
+  if (requestedArtifact) {
+    return { selectedArtifactId: requestedArtifact.id, requestedArtifactMissing: false };
+  }
+
+  const currentSelection = selectedArtifactId ? artifacts.find((artifact) => artifact.id === selectedArtifactId) : undefined;
+  return {
+    selectedArtifactId: currentSelection?.id ?? artifacts[0]?.id ?? null,
+    requestedArtifactMissing: Boolean(requestedId),
   };
 }
 
