@@ -36,6 +36,11 @@ export interface LibraryArtifactSelectionState {
   requestedArtifactMissing: boolean;
 }
 
+export interface SkillRunSelectionState {
+  selectedRunId: string | null;
+  requestedRunMissing: boolean;
+}
+
 export interface ArtifactDownload {
   filename: string;
   content: string;
@@ -248,6 +253,24 @@ export function resolveLibraryArtifactSelection(
   return {
     selectedArtifactId: currentSelection?.id ?? artifacts[0]?.id ?? null,
     requestedArtifactMissing: Boolean(requestedId),
+  };
+}
+
+export function resolveSkillRunSelection(
+  skillRuns: SkillRunSummary[],
+  selectedRunId: string | null,
+  requestedRunId: string | null,
+): SkillRunSelectionState {
+  const requestedId = requestedRunId?.trim() || null;
+  const requestedRun = requestedId ? skillRuns.find((run) => run.id === requestedId) : undefined;
+  if (requestedRun) {
+    return { selectedRunId: requestedRun.id, requestedRunMissing: false };
+  }
+
+  const currentSelection = selectedRunId ? skillRuns.find((run) => run.id === selectedRunId) : undefined;
+  return {
+    selectedRunId: currentSelection?.id ?? skillRuns[0]?.id ?? null,
+    requestedRunMissing: Boolean(requestedId),
   };
 }
 
@@ -502,9 +525,13 @@ export function buildSkillRunHistoryRows(skillRuns: SkillRunSummary[], limit = 6
       summary: skillRunSummary(run),
       durationLabel: durationLabel(run.durationMs),
       timestamp,
-      href: run.conversationId ? `/chats/${run.conversationId}` : '/',
+      href: buildSkillRunHref(run.id),
       metrics: skillRunMetrics(run.observability),
     }));
+}
+
+export function buildSkillRunHref(runId: string): string {
+  return `/runs?run=${encodeURIComponent(runId)}`;
 }
 
 function workflowActivityDescription(mode: AppMode): string {
@@ -643,7 +670,7 @@ export function buildRecentActivityItems(
     title: run.skillName,
     eyebrow: `${modeLabel(run.mode)} · ${run.status}`,
     description: skillRunDescription(run),
-    href: run.conversationId ? `/chats/${run.conversationId}` : '/',
+    href: buildSkillRunHref(run.id),
     timestamp: run.completedAt ?? run.startedAt,
     mode: run.mode,
   }));

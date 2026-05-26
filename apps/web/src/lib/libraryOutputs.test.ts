@@ -11,11 +11,67 @@ import {
   buildSkillRunEventRows,
   buildSkillRunHealthStats,
   buildSkillRunHistoryRows,
+  buildSkillRunHref,
   filterLibraryArtifacts,
   filterSkillRuns,
   mergeLibraryArtifacts,
   resolveLibraryArtifactSelection,
+  resolveSkillRunSelection,
 } from './libraryOutputs';
+
+describe('resolveSkillRunSelection', () => {
+  const runs = [
+    {
+      id: 'run-1',
+      userId: 'user-1',
+      skillId: 'skill-1',
+      skillSlug: 'chat',
+      skillName: 'Chat',
+      mode: 'CHAT' as const,
+      status: 'completed' as const,
+      conversationId: 'conv-1',
+      jobId: null,
+      providerId: null,
+      startedAt: '2026-05-22T20:00:00.000Z',
+      completedAt: '2026-05-22T20:01:00.000Z',
+      durationMs: 60000,
+      errorMessage: null,
+      observability: null,
+    },
+    {
+      id: 'run-2',
+      userId: 'user-1',
+      skillId: 'skill-2',
+      skillSlug: 'deep-research',
+      skillName: 'Deep Research',
+      mode: 'DEEP_RESEARCH' as const,
+      status: 'completed' as const,
+      conversationId: 'conv-2',
+      jobId: 'job-2',
+      providerId: 'provider-1',
+      startedAt: '2026-05-22T20:02:00.000Z',
+      completedAt: '2026-05-22T20:03:00.000Z',
+      durationMs: 60000,
+      errorMessage: null,
+      observability: null,
+    },
+  ];
+
+  it('selects the requested run from a shareable runs URL when it exists', () => {
+    expect(resolveSkillRunSelection(runs, null, 'run-2')).toEqual({ selectedRunId: 'run-2', requestedRunMissing: false });
+  });
+
+  it('preserves the current or newest run when a requested run is missing', () => {
+    expect(resolveSkillRunSelection(runs, 'run-1', 'missing-run')).toEqual({ selectedRunId: 'run-1', requestedRunMissing: true });
+    expect(resolveSkillRunSelection(runs, null, 'missing-run')).toEqual({ selectedRunId: 'run-1', requestedRunMissing: true });
+  });
+});
+
+describe('buildSkillRunHref', () => {
+  it('builds stable encoded run ledger deep links', () => {
+    expect(buildSkillRunHref('run 1/with?chars')).toBe('/runs?run=run%201%2Fwith%3Fchars');
+  });
+});
 
 describe('resolveLibraryArtifactSelection', () => {
   const artifacts: ArtifactItem[] = [
@@ -659,7 +715,7 @@ describe('buildRecentActivityItems', () => {
     );
 
     expect(items.map((item) => [item.id, item.kind, item.title, item.href])).toEqual([
-      ['skill-run-run-1', 'workflow', 'Deep Research', '/chats/conv-1'],
+      ['skill-run-run-1', 'workflow', 'Deep Research', '/runs?run=run-1'],
     ]);
     expect(items[0]?.eyebrow).toBe('DEEP RESEARCH · completed');
     expect(items[0]?.description).toBe('Completed skill run in 180s.');
@@ -797,7 +853,7 @@ describe('buildSkillRunHistoryRows', () => {
       statusLabel: 'Failed',
       statusTone: 'danger',
       durationLabel: '60s',
-      href: '/',
+      href: '/runs?run=run-2',
       summary: 'Provider unavailable',
     }));
     expect(rows[1]).toEqual(expect.objectContaining({
@@ -806,7 +862,7 @@ describe('buildSkillRunHistoryRows', () => {
       statusLabel: 'Completed',
       statusTone: 'success',
       durationLabel: '3m',
-      href: '/chats/conv-1',
+      href: '/runs?run=run-1',
       timestamp: '2026-05-22T20:04:00.000Z',
       summary: 'Completed with 4 sources.',
     }));
