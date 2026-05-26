@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ArtifactItem } from '@cogentrex/shared';
 import {
   buildArtifactDownload,
+  buildLibraryArtifactHref,
   buildLibraryArtifactRows,
   buildLibraryModeCards,
   buildLibraryOverviewStats,
@@ -410,6 +411,12 @@ describe('mergeLibraryArtifacts', () => {
   });
 });
 
+describe('buildLibraryArtifactHref', () => {
+  it('builds a stable encoded artifact deep-link', () => {
+    expect(buildLibraryArtifactHref('art 1/with?chars')).toBe('/library?artifact=art%201%2Fwith%3Fchars');
+  });
+});
+
 describe('buildLibraryArtifactRows', () => {
   it('summarizes persisted artifacts with source conversation context', () => {
     const rows = buildLibraryArtifactRows([
@@ -433,6 +440,7 @@ describe('buildLibraryArtifactRows', () => {
         filename: 'AI research brief.md',
         subtitle: 'AI strategy research · DEEP RESEARCH',
         sizeLabel: '1.5 KB',
+        href: '/library?artifact=art-1',
         conversationHref: '/chats/conv-1',
         preview: 'Brief',
       },

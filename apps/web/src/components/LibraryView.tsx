@@ -6,6 +6,7 @@ import type { ArtifactItem, SkillRunSummary } from '@cogentrex/shared';
 import { useAppStore } from '@/store/appStore';
 import {
   buildArtifactDownload,
+  buildLibraryArtifactHref,
   buildLibraryArtifactRows,
   buildLibraryModeCards,
   buildLibraryOverviewStats,
@@ -46,6 +47,7 @@ export function LibraryView() {
   );
   const artifactRows = buildLibraryArtifactRows(filteredArtifacts, skillRuns);
   const selectedArtifact = selectedArtifactId ? filteredArtifacts.find((artifact) => artifact.id === selectedArtifactId) : undefined;
+  const selectedArtifactHref = selectedArtifact ? buildLibraryArtifactHref(selectedArtifact.id) : null;
   const selectedArtifactMode = selectedArtifact ? getLibraryArtifactMode(selectedArtifact, skillRuns) : undefined;
   const recentActivity = buildRecentActivityItems(conversations, mergedArtifacts, skillRuns, 8);
 
@@ -84,14 +86,40 @@ export function LibraryView() {
     }
   }, [filteredArtifacts, requestedArtifactId, selectedArtifactId]);
 
+  async function copyTextToClipboard(text: string): Promise<boolean> {
+    const clipboard = navigator.clipboard;
+    if (clipboard?.writeText) {
+      try {
+        await clipboard.writeText(text);
+        return true;
+      } catch {
+        // Fall back below for browser/automation contexts that block the async Clipboard API.
+      }
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const didCopy = document.execCommand('copy');
+    textarea.remove();
+    return didCopy;
+  }
+
   async function copySelectedArtifact() {
     if (!selectedArtifact) return;
-    try {
-      await navigator.clipboard.writeText(selectedArtifact.content);
-      setCopyStatus('Copied Markdown');
-    } catch {
-      setCopyStatus('Copy failed');
-    }
+    const didCopy = await copyTextToClipboard(selectedArtifact.content);
+    setCopyStatus(didCopy ? 'Copied Markdown' : 'Copy failed');
+  }
+
+  async function copySelectedArtifactLink() {
+    if (!selectedArtifactHref) return;
+    const absoluteHref = `${window.location.origin}${selectedArtifactHref}`;
+    const didCopy = await copyTextToClipboard(absoluteHref);
+    setCopyStatus(didCopy ? 'Copied link' : `Link ready: ${absoluteHref}`);
   }
 
   function downloadSelectedArtifact() {
@@ -229,17 +257,22 @@ export function LibraryView() {
                     Loading saved artifacts…
                   </div>
                 ) : artifactRows.length ? artifactRows.map((artifact) => (
-                  <button
+                  <a
                     key={artifact.id}
-                    type="button"
-                    onClick={() => setSelectedArtifactId(artifact.id)}
-                    className={`w-full rounded-2xl border px-4 py-3 text-left transition ${selectedArtifact?.id === artifact.id ? 'border-accent/70 bg-accent/10' : 'border-line bg-ink/50 hover:border-accent/60 hover:bg-accent/5'}`}
+                    href={artifact.href}
+                    onClick={(event) => {
+                      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+                      event.preventDefault();
+                      setSelectedArtifactId(artifact.id);
+                      router.push(artifact.href);
+                    }}
+                    className={`block w-full rounded-2xl border px-4 py-3 text-left transition ${selectedArtifact?.id === artifact.id ? 'border-accent/70 bg-accent/10' : 'border-line bg-ink/50 hover:border-accent/60 hover:bg-accent/5'}`}
                   >
                     <p className="truncate text-sm font-medium text-white">{artifact.filename}</p>
                     <p className="mt-1 truncate text-xs text-slate-500">{artifact.subtitle}</p>
                     <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">{artifact.preview}</p>
                     <p className="mt-2 text-xs text-slate-600">{artifact.sizeLabel}</p>
-                  </button>
+                  </a>
                 )) : (
                   <div className="rounded-2xl border border-dashed border-line p-5 text-sm text-slate-500">
                     {artifactQuery ? 'No artifacts match this search.' : 'No saved artifacts yet. Use “Save to Library” on an assistant answer to pin it here.'}
@@ -273,6 +306,13 @@ export function LibraryView() {
                         className="rounded-xl border border-line px-3 py-2 text-xs text-slate-300 transition hover:border-accent"
                       >
                         Copy Markdown
+                      </button>
+                      <button
+                        type="button"
+                        onClick={copySelectedArtifactLink}
+                        className="rounded-xl border border-line px-3 py-2 text-xs text-slate-300 transition hover:border-accent"
+                      >
+                        Copy link
                       </button>
                       <button
                         type="button"
