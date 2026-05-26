@@ -98,11 +98,6 @@ GitHub Actions runs: `install --frozen-lockfile` → `typecheck` → `build` →
 
 #### Critical / Blocking
 1. **Rotate exposed secrets** — PostgreSQL password, `JWT_SECRET`, `APP_ENCRYPTION_KEY`, `FIRECRAWL_API_KEY`, `LINKEDIN_CLIENT_SECRET` appeared in logs/chat history
-2. **LinkedIn OAuth** — redirect URL `https://api.cogentrex.com/api/linkedin/callback` must be added in LinkedIn Developer Portal
-3. **Image generation timeout** — Azure Foundry `gpt-image-2` endpoint timing out at 220s. Need to:
-   - Verify model deployment status in Azure AI Foundry
-   - Consider switching to DALL-E 3 or another provider
-   - Check Foundry quota/usage limits
 
 #### Medium Priority
 4. **Update documentation**:
@@ -166,7 +161,6 @@ GitHub Actions runs: `install --frozen-lockfile` → `typecheck` → `build` →
 ### Next Actions (Immediate)
 1. Review the UI refactor master plan/design artifacts before choosing the next product slice
 2. Rotate exposed secrets
-3. Fix image generation (verify Azure Foundry deployment/quotas)
 
 ---
 
