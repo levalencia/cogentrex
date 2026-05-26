@@ -91,6 +91,8 @@ export class QaFixtureService {
         synthesisDurationMs: 45000,
         platforms: ['web', 'exa'],
         savedArtifactCount: 1,
+        savedArtifactIds: [artifactId],
+        savedArtifacts: [{ id: artifactId, filename: FIXTURE_FILENAME, type: 'text/markdown' }],
         note: 'Conversation row remains CHAT by design.',
       }),
     });

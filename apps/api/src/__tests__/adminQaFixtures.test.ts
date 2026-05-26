@@ -40,6 +40,33 @@ describe('admin QA fixtures', () => {
       conversationTitle: '[QA Fixture] Deep Research Classification',
       conversationMode: 'DEEP_RESEARCH',
     });
+
+    const runsResponse = await targetAgent.get('/api/skills/runs?limit=10').expect(200);
+
+    expect(runsResponse.body.runs).toHaveLength(1);
+    expect(runsResponse.body.runs[0]).toMatchObject({
+      id: seedResponse.body.fixture.skillRunId,
+      mode: 'DEEP_RESEARCH',
+      status: 'completed',
+      conversationId: seedResponse.body.fixture.conversationId,
+      observability: {
+        sourceCount: 4,
+        newSourceCount: 3,
+        planLength: 5,
+        estimatedTokens: 1234,
+        synthesisDurationMs: 45000,
+        platforms: ['web', 'exa'],
+        savedArtifactCount: 1,
+        savedArtifactIds: [seedResponse.body.fixture.artifactId],
+        savedArtifacts: [
+          {
+            id: seedResponse.body.fixture.artifactId,
+            filename: 'QA Deep Research classification fixture.md',
+            type: 'text/markdown',
+          },
+        ],
+      },
+    });
   });
 
   it('keeps QA fixture seeding disabled unless explicitly enabled', async () => {
