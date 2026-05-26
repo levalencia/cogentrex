@@ -14,12 +14,17 @@ function isActivePath(pathname: string | null | undefined, href: string): boolea
   return current === href || current.startsWith(`${href}/`);
 }
 
+function isSkillsPath(pathname: string | null | undefined): boolean {
+  const current = pathname ?? '/';
+  return current === '/' || current === '/skills' || current.startsWith('/skills/');
+}
+
 export function getCockpitNavItems(role: PublicUser['role'] | undefined, pathname: string | null | undefined): CockpitNavItem[] {
   const items: Array<Omit<CockpitNavItem, 'isActive'>> = [
     {
       id: 'skills',
       label: 'Skills',
-      href: '/',
+      href: '/skills',
       description: 'Launch focused workflows',
     },
     {
@@ -55,6 +60,8 @@ export function getCockpitNavItems(role: PublicUser['role'] | undefined, pathnam
     ...item,
     isActive: item.id === 'admin'
       ? Boolean(pathname?.startsWith('/settings/admin'))
-      : isActivePath(pathname, item.href) && !(item.href === '/' && pathname?.startsWith('/settings/admin')),
+      : item.id === 'skills'
+        ? isSkillsPath(pathname)
+        : isActivePath(pathname, item.href),
   }));
 }
