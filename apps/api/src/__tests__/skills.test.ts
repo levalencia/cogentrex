@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { setSkillKitImportFetchForTests } from '../skills/skillKitImporter.js';
 import { makeTestApp, registerAndLogin } from './testApp.js';
 
 async function registerAdmin(agent: Awaited<ReturnType<typeof makeTestApp>>['agent'], database: Awaited<ReturnType<typeof makeTestApp>>['database']) {
@@ -147,6 +148,101 @@ describe('skill registry API', () => {
     });
 
     database.close();
+  });
+
+  it('imports one skill kit from a specific GitHub folder and ignores sibling skills', async () => {
+    const { agent, database } = await makeTestApp();
+    await registerAdmin(agent, database);
+    const fetchedUrls: string[] = [];
+    setSkillKitImportFetchForTests((async (url: string | URL | Request) => {
+      const href = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;
+      fetchedUrls.push(href);
+      if (href === 'https://api.github.com/repos/acme/agent-skills/git/trees/main?recursive=1') {
+        return new Response(JSON.stringify({
+          tree: [
+            { path: 'skills/excalidraw/SKILL.md', type: 'blob', size: 340 },
+            { path: 'skills/excalidraw/references/color-palette.md', type: 'blob', size: 120 },
+            { path: 'skills/excalidraw/scripts/render.py', type: 'blob', size: 80 },
+            { path: 'skills/other-skill/SKILL.md', type: 'blob', size: 240 },
+          ],
+        }), { status: 200 });
+      }
+      const rawPrefix = 'https://raw.githubusercontent.com/acme/agent-skills/main/';
+      if (href === `${rawPrefix}skills/excalidraw/SKILL.md`) {
+        return new Response('---\nname: Excalidraw Diagram\ndescription: Generate practical Excalidraw diagrams.\n---\n\nUse references/color-palette.md for colors.', { status: 200 });
+      }
+      if (href === `${rawPrefix}skills/excalidraw/references/color-palette.md`) {
+        return new Response('# Color Palette\n\nUse purple and cyan.', { status: 200 });
+      }
+      if (href === `${rawPrefix}skills/excalidraw/scripts/render.py`) {
+        return new Response('print("stored but not executable")', { status: 200 });
+      }
+      return new Response('not found', { status: 404 });
+    }) as typeof fetch);
+
+    try {
+      const res = await agent.post('/api/admin/skills/import-kit').send({
+        sourceUrl: 'https://github.com/acme/agent-skills',
+        folderPath: 'skills/excalidraw',
+      }).expect(201);
+
+      expect(res.body.skill.slug).toBe('excalidraw-diagram');
+      expect(res.body.skill.kind).toBe('IMPORTED');
+      expect(res.body.skill.status).toBe('DRAFT');
+      expect(res.body.skill.visibility).toBe('ADMIN_ONLY');
+      expect(res.body.files.map((file: { path: string }) => file.path)).toEqual([
+        'SKILL.md',
+        'references/color-palette.md',
+        'scripts/render.py',
+      ]);
+      expect(res.body.warnings).toEqual(expect.arrayContaining([
+        expect.stringContaining('scripts/render.py'),
+      ]));
+      expect(fetchedUrls).not.toContain('https://raw.githubusercontent.com/acme/agent-skills/main/skills/other-skill/SKILL.md');
+
+      const stored = await database.adapter.prepare('SELECT path, kind, executable FROM skill_files WHERE skill_id = ? ORDER BY path ASC').all(res.body.skill.id) as Array<{ path: string; kind: string; executable: number }>;
+      expect(stored).toEqual([
+        { path: 'SKILL.md', kind: 'skill', executable: 0 },
+        { path: 'references/color-palette.md', kind: 'reference', executable: 0 },
+        { path: 'scripts/render.py', kind: 'script', executable: 0 },
+      ]);
+    } finally {
+      setSkillKitImportFetchForTests(null);
+      database.close();
+    }
+  });
+
+  it('accepts GitHub tree URLs as direct folder imports', async () => {
+    const { agent, database } = await makeTestApp();
+    await registerAdmin(agent, database);
+    setSkillKitImportFetchForTests((async (url: string | URL | Request) => {
+      const href = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;
+      if (href === 'https://api.github.com/repos/acme/many-skills/git/trees/main?recursive=1') {
+        return new Response(JSON.stringify({
+          tree: [
+            { path: 'catalog/writing/SKILL.md', type: 'blob', size: 220 },
+            { path: 'catalog/writing/references/style.md', type: 'blob', size: 80 },
+            { path: 'catalog/diagram/SKILL.md', type: 'blob', size: 220 },
+          ],
+        }), { status: 200 });
+      }
+      const rawPrefix = 'https://raw.githubusercontent.com/acme/many-skills/main/';
+      if (href === `${rawPrefix}catalog/writing/SKILL.md`) return new Response('---\nname: Writing Coach\ndescription: Improve user writing.\n---\n\nFollow the brief.', { status: 200 });
+      if (href === `${rawPrefix}catalog/writing/references/style.md`) return new Response('# Style', { status: 200 });
+      return new Response('not found', { status: 404 });
+    }) as typeof fetch);
+
+    try {
+      const res = await agent.post('/api/admin/skills/import-kit').send({
+        sourceUrl: 'https://github.com/acme/many-skills/tree/main/catalog/writing',
+      }).expect(201);
+
+      expect(res.body.skill.slug).toBe('writing-coach');
+      expect(res.body.files.map((file: { path: string }) => file.path)).toEqual(['SKILL.md', 'references/style.md']);
+    } finally {
+      setSkillKitImportFetchForTests(null);
+      database.close();
+    }
   });
 
   it('seeds native skills idempotently across repeated startup', async () => {

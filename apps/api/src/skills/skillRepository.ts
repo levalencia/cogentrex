@@ -12,6 +12,37 @@ import type {
 } from '@cogentrex/shared';
 import type { DbAdapter } from '../db/adapter.js';
 
+export type SkillFileKind = 'skill' | 'reference' | 'template' | 'asset' | 'script';
+
+export interface ImportedSkillFile {
+  id: string;
+  path: string;
+  kind: SkillFileKind;
+  content: string;
+  contentType: string;
+  sha256: string;
+  sizeBytes: number;
+  executable: boolean;
+}
+
+export interface ImportedSkillKitSnapshot {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  sourceUrl: string;
+  sourceRef: string;
+  sourcePath: string;
+  files: ImportedSkillFile[];
+  warnings: string[];
+}
+
+export interface ImportedSkillKitResult {
+  skill: SkillDetail;
+  files: ImportedSkillFile[];
+  warnings: string[];
+}
+
 export interface SkillSeed {
   id: string;
   slug: string;
@@ -308,5 +339,90 @@ export class SkillRepository {
     });
 
     return (await this.findBySlug(slug))?.route ?? null;
+  }
+
+  async importSkillKit(snapshot: ImportedSkillKitSnapshot, now = new Date().toISOString()): Promise<ImportedSkillKitResult | null> {
+    const existing = await this.findBySlug(snapshot.slug);
+    if (existing?.kind === 'NATIVE') return null;
+    const skillId = existing?.id ?? `skl_imp_${snapshot.slug.replaceAll('-', '_')}`;
+    const routeId = existing?.route?.id ?? `skr_${snapshot.slug.replaceAll('-', '_')}`;
+    const createdAt = existing?.createdAt ?? now;
+
+    await this.db.transaction(async (tx) => {
+      await tx.prepare(
+        `INSERT INTO skills (
+          id, slug, name, description, kind, status, visibility, category, icon,
+          input_schema_json, output_contract_json, tool_requirements_json, created_at, updated_at
+        ) VALUES (
+          @id, @slug, @name, @description, 'IMPORTED', 'DRAFT', 'ADMIN_ONLY', 'Imported', 'sparkles',
+          NULL, NULL, '[]', @createdAt, @updatedAt
+        ) ON CONFLICT(slug) DO UPDATE SET
+          name = excluded.name,
+          description = excluded.description,
+          category = excluded.category,
+          icon = excluded.icon,
+          updated_at = excluded.updated_at`,
+      ).run({
+        id: skillId,
+        slug: snapshot.slug,
+        name: snapshot.name,
+        description: snapshot.description,
+        createdAt,
+        updatedAt: now,
+      });
+
+      await tx.prepare(
+        `INSERT INTO skill_routes (
+          id, skill_id, mode, default_provider_id, search_profile, max_budget_cents, config_json, created_at, updated_at
+        ) VALUES (
+          @id, @skillId, 'CHAT', NULL, NULL, NULL, @configJson, @createdAt, @updatedAt
+        ) ON CONFLICT(skill_id) DO UPDATE SET
+          config_json = excluded.config_json,
+          updated_at = excluded.updated_at`,
+      ).run({
+        id: routeId,
+        skillId,
+        configJson: JSON.stringify({
+          importedSkillKit: {
+            sourceUrl: snapshot.sourceUrl,
+            sourceRef: snapshot.sourceRef,
+            sourcePath: snapshot.sourcePath,
+          },
+        }),
+        createdAt,
+        updatedAt: now,
+      });
+
+      await tx.prepare('DELETE FROM skill_files WHERE skill_id = ?').run(skillId);
+      for (const file of snapshot.files) {
+        await tx.prepare(
+          `INSERT INTO skill_files (
+            id, skill_id, path, kind, content, content_type, sha256, size_bytes, executable, created_at, updated_at
+          ) VALUES (
+            @id, @skillId, @path, @kind, @content, @contentType, @sha256, @sizeBytes, @executable, @createdAt, @updatedAt
+          )`,
+        ).run({
+          id: `skf_${skillId}_${file.path.replace(/[^a-zA-Z0-9]+/g, '_')}`,
+          skillId,
+          path: file.path,
+          kind: file.kind,
+          content: file.content,
+          contentType: file.contentType,
+          sha256: file.sha256,
+          sizeBytes: file.sizeBytes,
+          executable: file.executable ? 1 : 0,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+    });
+
+    const skill = await this.findBySlug(snapshot.slug);
+    if (!skill) return null;
+    return {
+      skill,
+      files: snapshot.files.map((file) => ({ ...file, id: `skf_${skillId}_${file.path.replace(/[^a-zA-Z0-9]+/g, '_')}` })),
+      warnings: snapshot.warnings,
+    };
   }
 }

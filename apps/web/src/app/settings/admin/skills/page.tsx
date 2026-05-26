@@ -12,8 +12,10 @@ import {
   buildSkillDetailModel,
   buildSkillRoutePayload,
   buildSkillUpdatePayload,
+  buildSkillKitImportPayload,
   getSkillRouteDraft,
   getSkillUpdateDraft,
+  type SkillKitImportDraft,
   type SkillRouteDraft,
   type SkillUpdateDraft,
 } from '@/lib/skills';
@@ -43,6 +45,8 @@ export default function AdminSkillsPage() {
   const [editingSlug, setEditingSlug] = useState<string | null>(null);
   const [skillDraft, setSkillDraft] = useState<SkillUpdateDraft | null>(null);
   const [routeDraft, setRouteDraft] = useState<SkillRouteDraft | null>(null);
+  const [importDraft, setImportDraft] = useState<SkillKitImportDraft>({ sourceUrl: '', folderPath: '', ref: '' });
+  const [importing, setImporting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const [success, setSuccess] = useState<string>();
@@ -132,6 +136,23 @@ export default function AdminSkillsPage() {
     }
   }
 
+  async function importSkillKit(event: FormEvent) {
+    event.preventDefault();
+    setImporting(true);
+    setError(undefined);
+    setSuccess(undefined);
+    try {
+      const result = await api.importAdminSkillKit(buildSkillKitImportPayload(importDraft));
+      setSuccess(`Imported ${result.skill.name} from ${result.files.length} file${result.files.length === 1 ? '' : 's'}${result.warnings.length ? ` (${result.warnings.length} warning${result.warnings.length === 1 ? '' : 's'})` : ''}.`);
+      setImportDraft({ sourceUrl: '', folderPath: '', ref: '' });
+      await loadAdminData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not import skill kit');
+    } finally {
+      setImporting(false);
+    }
+  }
+
   if (routeState.status === 'loading' || routeState.status === 'redirect') {
     return (
       <main className="flex h-screen items-center justify-center bg-ink text-slate-100">
@@ -190,6 +211,35 @@ export default function AdminSkillsPage() {
 
         {error ? <p className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</p> : null}
         {success ? <p className="mb-4 rounded-xl border border-green-500/30 bg-green-500/10 p-3 text-sm text-green-200">{success}</p> : null}
+
+        <section className="mb-6 rounded-3xl border border-line bg-panel/70 p-6">
+          <div className="mb-4">
+            <p className="text-xs uppercase tracking-[0.16em] text-accent">Skill Kit Import</p>
+            <h2 className="mt-1 text-xl font-semibold">Import one skill from a GitHub folder</h2>
+            <p className="mt-2 text-sm text-slate-400">
+              Scope imports to a folder with its own SKILL.md so large repos with hundreds of skills do not get pulled in accidentally.
+            </p>
+          </div>
+          <form onSubmit={importSkillKit} className="grid gap-3 lg:grid-cols-[1.5fr_1fr_0.6fr_auto]">
+            <label className="block text-sm text-slate-400">
+              GitHub repo or tree URL
+              <input value={importDraft.sourceUrl} onChange={(e) => setImportDraft({ ...importDraft, sourceUrl: e.target.value })} placeholder="https://github.com/org/skills-repo" className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 text-white outline-none focus:border-accent" />
+            </label>
+            <label className="block text-sm text-slate-400">
+              Folder path
+              <input value={importDraft.folderPath} onChange={(e) => setImportDraft({ ...importDraft, folderPath: e.target.value })} placeholder="skills/excalidraw" className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 text-white outline-none focus:border-accent" />
+            </label>
+            <label className="block text-sm text-slate-400">
+              Ref
+              <input value={importDraft.ref} onChange={(e) => setImportDraft({ ...importDraft, ref: e.target.value })} placeholder="main" className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 text-white outline-none focus:border-accent" />
+            </label>
+            <div className="flex items-end">
+              <button type="submit" disabled={importing} className="w-full rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50">
+                {importing ? 'Importing…' : 'Import kit'}
+              </button>
+            </div>
+          </form>
+        </section>
 
         <section className="rounded-3xl border border-line bg-panel/70 p-6">
           <div className="mb-4 flex items-center justify-between">
