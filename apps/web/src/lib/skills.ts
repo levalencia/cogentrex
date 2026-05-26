@@ -1,4 +1,4 @@
-import type { AppMode, SkillStatus, SkillSummary, SkillVisibility, UpdateSkillInput, UpdateSkillRouteInput } from '@cogentrex/shared';
+import type { AdminAnalyticsSummary, AppMode, CapabilityStatus, SkillReadiness, SkillStatus, SkillSummary, SkillVisibility, UpdateSkillInput, UpdateSkillRouteInput } from '@cogentrex/shared';
 
 export interface SkillBadge {
   label: string;
@@ -18,6 +18,25 @@ export interface SkillRouteDraft {
   searchProfile: string;
   maxBudgetCents: string;
   configJson: string;
+}
+
+export interface AdminSkillCatalogRow {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  priority: string;
+  readinessLabel: string;
+  readinessTone: 'ready' | 'degraded' | 'missing' | 'neutral';
+  usageLabel: string;
+  routeLabel: string;
+  badges: SkillBadge[];
+  skill: SkillSummary;
+}
+
+export interface AdminSkillDetailModel extends AdminSkillCatalogRow {
+  nextAction: string;
+  dependencySummaries: string[];
 }
 
 const statusBadges: Record<SkillStatus, SkillBadge> = {
@@ -108,6 +127,90 @@ export function buildSkillRoutePayload(draft: SkillRouteDraft): UpdateSkillRoute
     maxBudgetCents: parseNullableCents(draft.maxBudgetCents),
     config: parseNullableConfig(draft.configJson),
   };
+}
+
+export function buildAdminSkillCatalog(
+  skills: SkillSummary[],
+  readiness: SkillReadiness[] = [],
+  analytics?: AdminAnalyticsSummary | null,
+): AdminSkillCatalogRow[] {
+  return skills
+    .map((skill) => buildSkillDetailModel(skill, readiness.find((item) => item.skill.slug === skill.slug), analytics))
+    .sort((left, right) => priorityRank(left) - priorityRank(right) || left.name.localeCompare(right.name));
+}
+
+export function buildSkillDetailModel(
+  skill: SkillSummary,
+  readiness?: SkillReadiness | null,
+  analytics?: AdminAnalyticsSummary | null,
+): AdminSkillDetailModel {
+  const readinessInfo = summarizeSkillReadiness(readiness);
+  const usage = analytics?.topSkills.find((row) => row.skillSlug === skill.slug);
+  const base: AdminSkillCatalogRow = {
+    id: skill.id,
+    slug: skill.slug,
+    name: skill.name,
+    description: skill.description,
+    priority: getSkillPriority(skill, readinessInfo.label),
+    readinessLabel: readinessInfo.label,
+    readinessTone: readinessInfo.tone,
+    usageLabel: usage ? `${usage.totalRuns} runs · ${usage.successRate}% success` : 'No runs yet',
+    routeLabel: formatSkillRoute(skill),
+    badges: getSkillBadges(skill),
+    skill,
+  };
+  return {
+    ...base,
+    nextAction: getSkillNextAction(skill, readinessInfo.status),
+    dependencySummaries: readiness?.dependencies.length
+      ? readiness.dependencies.map((dependency) => `${dependency.label}: ${readinessInfo.label} — ${dependency.message ?? dependency.status}`)
+      : ['No readiness dependencies reported yet.'],
+  };
+}
+
+function summarizeSkillReadiness(readiness?: SkillReadiness | null): { status: CapabilityStatus | 'unchecked'; label: string; tone: AdminSkillCatalogRow['readinessTone'] } {
+  if (!readiness) return { status: 'unchecked', label: 'Not checked', tone: 'neutral' };
+  if (readiness.status === 'ready') return { status: 'ready', label: 'Ready', tone: 'ready' };
+  if (readiness.status === 'degraded') return { status: 'degraded', label: 'Limited', tone: 'degraded' };
+  return { status: 'missing', label: 'Needs setup', tone: 'missing' };
+}
+
+function getSkillPriority(skill: SkillSummary, readinessLabel: string): string {
+  if (skill.status === 'DISABLED') return 'Disabled';
+  if (readinessLabel === 'Needs setup') return 'Needs setup';
+  if (readinessLabel === 'Limited') return 'Limited';
+  if (!skill.route) return 'Needs route';
+  return 'Ready';
+}
+
+function priorityRank(row: AdminSkillCatalogRow): number {
+  const ranks: Record<string, number> = {
+    'Needs setup': 0,
+    Limited: 1,
+    'Needs route': 2,
+    Ready: 3,
+    Disabled: 4,
+  };
+  return ranks[row.priority] ?? 5;
+}
+
+function getSkillNextAction(skill: SkillSummary, status: CapabilityStatus | 'unchecked'): string {
+  if (skill.status === 'DISABLED') return 'Enable or keep disabled intentionally before exposing to users.';
+  if (status === 'missing') return 'Configure required provider/tool dependencies before publishing broadly.';
+  if (status === 'degraded') return 'Verify optional dependencies or provider route quality.';
+  if (!skill.route) return 'Configure a route so the workflow has an explicit mode, provider, and budget policy.';
+  if (status === 'unchecked') return 'Refresh readiness to confirm provider and tool configuration.';
+  return 'Monitor usage and failures after each release.';
+}
+
+function formatSkillRoute(skill: SkillSummary): string {
+  if (!skill.route) return 'No route configured';
+  return [
+    formatSkillMode(skill.route.mode),
+    skill.route.defaultProviderId ?? 'no provider',
+    skill.route.searchProfile ?? 'no search',
+    skill.route.maxBudgetCents === null || skill.route.maxBudgetCents === undefined ? 'no budget' : `${skill.route.maxBudgetCents}¢`,
+  ].join(' · ');
 }
 
 function nullableTrim(value: string): string | null {

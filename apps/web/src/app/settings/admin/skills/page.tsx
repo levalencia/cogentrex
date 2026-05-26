@@ -3,15 +3,15 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import type { ProviderConfigView, SkillStatus, SkillSummary, SkillVisibility } from '@cogentrex/shared';
+import type { AdminAnalyticsSummary, ProviderConfigView, SkillReadiness, SkillStatus, SkillSummary, SkillVisibility } from '@cogentrex/shared';
 import { api } from '@/lib/api';
 import { getProtectedRouteState } from '@/lib/protectedRoute';
 import {
   appModeOptions,
+  buildAdminSkillCatalog,
+  buildSkillDetailModel,
   buildSkillRoutePayload,
   buildSkillUpdatePayload,
-  formatSkillMode,
-  getSkillBadges,
   getSkillRouteDraft,
   getSkillUpdateDraft,
   type SkillRouteDraft,
@@ -37,6 +37,8 @@ export default function AdminSkillsPage() {
   const bootstrap = useAppStore((state) => state.bootstrap);
   const [skills, setSkills] = useState<SkillSummary[]>([]);
   const [providers, setProviders] = useState<ProviderConfigView[]>([]);
+  const [readiness, setReadiness] = useState<SkillReadiness[]>([]);
+  const [analytics, setAnalytics] = useState<AdminAnalyticsSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [editingSlug, setEditingSlug] = useState<string | null>(null);
   const [skillDraft, setSkillDraft] = useState<SkillUpdateDraft | null>(null);
@@ -63,12 +65,16 @@ export default function AdminSkillsPage() {
     setLoading(true);
     setError(undefined);
     try {
-      const [{ skills: nextSkills }, { providers: nextProviders }] = await Promise.all([
+      const [{ skills: nextSkills }, { providers: nextProviders }, readinessResult, analyticsResult] = await Promise.all([
         api.listAdminSkills(),
         api.listAdminProviders(),
+        api.getSkillReadiness().catch(() => ({ skills: [] as SkillReadiness[] })),
+        api.listAdminAnalytics().catch(() => ({ analytics: null as AdminAnalyticsSummary | null })),
       ]);
       setSkills(nextSkills);
       setProviders(nextProviders);
+      setReadiness(readinessResult.skills);
+      setAnalytics(analyticsResult.analytics);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load skills');
     } finally {
@@ -153,6 +159,11 @@ export default function AdminSkillsPage() {
     );
   }
 
+  const catalogRows = buildAdminSkillCatalog(skills, readiness, analytics);
+  const editingSkill = editingSlug ? skills.find((skill) => skill.slug === editingSlug) : null;
+  const editingReadiness = editingSlug ? readiness.find((item) => item.skill.slug === editingSlug) : null;
+  const detailModel = editingSkill ? buildSkillDetailModel(editingSkill, editingReadiness, analytics) : null;
+
   return (
     <main className="min-h-screen bg-ink text-slate-100">
       <div className="mx-auto max-w-6xl px-4 py-8">
@@ -194,7 +205,8 @@ export default function AdminSkillsPage() {
             <p className="py-8 text-center text-slate-500">No skills seeded yet.</p>
           ) : (
             <div className="space-y-4">
-              {skills.map((skill) => {
+              {catalogRows.map((row) => {
+                const skill = row.skill;
                 const editing = editingSlug === skill.slug;
                 return (
                   <article key={skill.id} className="rounded-2xl border border-line bg-ink/50 p-4">
@@ -207,19 +219,18 @@ export default function AdminSkillsPage() {
                         </div>
                         <p className="mt-2 max-w-3xl text-sm text-slate-400">{skill.description}</p>
                         <div className="mt-3 flex flex-wrap gap-2">
-                          {getSkillBadges(skill).map((badge) => (
+                          {row.badges.map((badge) => (
                             <span key={`${skill.id}-${badge.label}`} className={`rounded-full border px-2.5 py-1 text-xs ${badge.className}`}>
                               {badge.label}
                             </span>
                           ))}
+                          <span className={`rounded-full border px-2.5 py-1 text-xs ${readinessClass(row.readinessTone)}`}>{row.readinessLabel}</span>
+                          <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-xs text-accent">{row.priority}</span>
                         </div>
-                        {skill.route ? (
-                          <p className="mt-3 text-xs text-slate-500">
-                            Route: {formatSkillMode(skill.route.mode)} · Provider: {providerName(providers, skill.route.defaultProviderId)} · Search: {skill.route.searchProfile ?? 'none'} · Budget: {skill.route.maxBudgetCents ?? 'none'}¢
-                          </p>
-                        ) : (
-                          <p className="mt-3 text-xs text-slate-500">No route configured yet.</p>
-                        )}
+                        <div className="mt-3 grid gap-2 text-xs text-slate-500 sm:grid-cols-2">
+                          <p>Route: {row.routeLabel}</p>
+                          <p>Usage: {row.usageLabel}</p>
+                        </div>
                       </div>
                       <button type="button" onClick={() => editing ? cancelEdit() : startEdit(skill)} className="rounded-xl border border-line px-4 py-2 text-sm text-slate-300 hover:border-accent">
                         {editing ? 'Close' : 'Configure'}
@@ -227,7 +238,23 @@ export default function AdminSkillsPage() {
                     </div>
 
                     {editing && skillDraft && routeDraft ? (
-                      <div className="mt-5 grid gap-4 border-t border-line pt-5 lg:grid-cols-2">
+                      <div className="mt-5 space-y-4 border-t border-line pt-5">
+                        {detailModel ? (
+                          <section className="rounded-2xl border border-accent/20 bg-accent/10 p-4 text-sm text-slate-200">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <p className="text-xs uppercase tracking-[0.16em] text-accent">Skill detail</p>
+                                <h4 className="mt-1 font-semibold text-white">{detailModel.nextAction}</h4>
+                                <p className="mt-2 text-xs text-slate-400">{detailModel.usageLabel} · {detailModel.routeLabel}</p>
+                              </div>
+                              <span className={`rounded-full border px-2.5 py-1 text-xs ${readinessClass(detailModel.readinessTone)}`}>{detailModel.readinessLabel}</span>
+                            </div>
+                            <ul className="mt-3 space-y-1 text-xs text-slate-400">
+                              {detailModel.dependencySummaries.map((summary) => <li key={summary}>{summary}</li>)}
+                            </ul>
+                          </section>
+                        ) : null}
+                        <div className="grid gap-4 lg:grid-cols-2">
                         <form onSubmit={saveSkillMetadata} className="rounded-2xl border border-line bg-panel/50 p-4">
                           <h4 className="font-semibold text-white">Visibility & lifecycle</h4>
                           <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -290,6 +317,7 @@ export default function AdminSkillsPage() {
                             Save route
                           </button>
                         </form>
+                        </div>
                       </div>
                     ) : null}
                   </article>
@@ -303,7 +331,9 @@ export default function AdminSkillsPage() {
   );
 }
 
-function providerName(providers: ProviderConfigView[], id: string | null): string {
-  if (!id) return 'none';
-  return providers.find((provider) => provider.id === id)?.name ?? id;
+function readinessClass(tone: 'ready' | 'degraded' | 'missing' | 'neutral'): string {
+  if (tone === 'ready') return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200';
+  if (tone === 'degraded') return 'border-yellow-500/30 bg-yellow-500/10 text-yellow-200';
+  if (tone === 'missing') return 'border-red-500/30 bg-red-500/10 text-red-200';
+  return 'border-slate-500/30 bg-slate-500/10 text-slate-300';
 }

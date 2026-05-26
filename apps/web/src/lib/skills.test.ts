@@ -1,6 +1,8 @@
-import type { SkillSummary } from '@cogentrex/shared';
+import type { AdminAnalyticsSummary, SkillReadiness, SkillSummary } from '@cogentrex/shared';
 import { describe, expect, it } from 'vitest';
 import {
+  buildAdminSkillCatalog,
+  buildSkillDetailModel,
   buildSkillRoutePayload,
   buildSkillUpdatePayload,
   getSkillBadges,
@@ -22,6 +24,36 @@ function skill(overrides: Partial<SkillSummary> = {}): SkillSummary {
     createdAt: '2026-05-22T00:00:00.000Z',
     updatedAt: '2026-05-22T00:00:00.000Z',
     ...overrides,
+  };
+}
+
+function readiness(slug: string, status: SkillReadiness['status'], message = 'Configure search.'): SkillReadiness {
+  return {
+    skill: skill({ id: `skill-${slug}`, slug, status: 'PUBLISHED', visibility: 'USER_VISIBLE' }),
+    status,
+    dependencies: [{ kind: 'tool', id: 'web.search', label: 'Web search', required: true, status, message }],
+  };
+}
+
+function analytics(): AdminAnalyticsSummary {
+  return {
+    generatedAt: '2026-05-22T00:00:00.000Z',
+    totals: { totalRuns: 12, completedRuns: 9, failedRuns: 3, activeRuns: 0, successRate: 75, averageDurationMs: 1200 },
+    topSkills: [{
+      skillSlug: 'deep-research',
+      skillName: 'Deep Research',
+      mode: 'DEEP_RESEARCH',
+      totalRuns: 12,
+      completedRuns: 9,
+      failedRuns: 3,
+      activeRuns: 0,
+      successRate: 75,
+      averageDurationMs: 1200,
+      latestRunAt: '2026-05-22T01:00:00.000Z',
+    }],
+    modeBreakdown: [],
+    providerUsage: [],
+    recentFailures: [],
   };
 }
 
@@ -99,6 +131,62 @@ describe('admin skill helpers', () => {
       searchProfile: 'web-deep',
       maxBudgetCents: 250,
       config: { temperature: 0.2 },
+    });
+  });
+
+  it('builds admin catalog rows with readiness, usage, and action priority', () => {
+    const deepResearch = skill({
+      id: 'skill-deep',
+      slug: 'deep-research',
+      status: 'PUBLISHED',
+      visibility: 'USER_VISIBLE',
+      route: {
+        id: 'route-deep',
+        skillId: 'skill-deep',
+        mode: 'DEEP_RESEARCH',
+        defaultProviderId: 'provider-1',
+        searchProfile: 'web-deep',
+        maxBudgetCents: 250,
+        config: null,
+        createdAt: '2026-05-22T00:00:00.000Z',
+        updatedAt: '2026-05-22T00:00:00.000Z',
+      },
+    });
+    const disabledChat = skill({ id: 'skill-chat', slug: 'chat', name: 'Chat', status: 'DISABLED', visibility: 'ADMIN_ONLY', route: null });
+
+    const rows = buildAdminSkillCatalog([disabledChat, deepResearch], [readiness('deep-research', 'missing')], analytics());
+
+    expect(rows.map((row) => ({ slug: row.slug, priority: row.priority, readinessLabel: row.readinessLabel, usageLabel: row.usageLabel, routeLabel: row.routeLabel }))).toEqual([
+      {
+        slug: 'deep-research',
+        priority: 'Needs setup',
+        readinessLabel: 'Needs setup',
+        usageLabel: '12 runs · 75% success',
+        routeLabel: 'Deep Research · provider-1 · web-deep · 250¢',
+      },
+      {
+        slug: 'chat',
+        priority: 'Disabled',
+        readinessLabel: 'Not checked',
+        usageLabel: 'No runs yet',
+        routeLabel: 'No route configured',
+      },
+    ]);
+  });
+
+  it('builds a skill detail model with admin next action and dependency copy', () => {
+    const model = buildSkillDetailModel(
+      skill({ id: 'skill-deep', slug: 'deep-research', status: 'PUBLISHED', visibility: 'USER_VISIBLE' }),
+      readiness('deep-research', 'degraded', 'Source fetch is unavailable.'),
+      analytics(),
+    );
+
+    expect(model).toMatchObject({
+      slug: 'deep-research',
+      readinessLabel: 'Limited',
+      nextAction: 'Verify optional dependencies or provider route quality.',
+      usageLabel: '12 runs · 75% success',
+      dependencySummaries: ['Web search: Limited — Source fetch is unavailable.'],
     });
   });
 
