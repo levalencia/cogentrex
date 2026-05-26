@@ -1,4 +1,4 @@
-import type { AdminAnalyticsSummary, AppMode, CapabilityStatus, SkillReadiness, SkillStatus, SkillSummary, SkillVisibility, UpdateSkillInput, UpdateSkillRouteInput } from '@cogentrex/shared';
+import type { AdminAnalyticsSummary, AppMode, CapabilityStatus, ImportSkillKitInput, SkillReadiness, SkillStatus, SkillSummary, SkillVisibility, UpdateSkillInput, UpdateSkillRouteInput } from '@cogentrex/shared';
 
 export interface SkillBadge {
   label: string;
@@ -18,6 +18,12 @@ export interface SkillRouteDraft {
   searchProfile: string;
   maxBudgetCents: string;
   configJson: string;
+}
+
+export interface SkillKitImportDraft {
+  sourceUrl: string;
+  folderPath: string;
+  ref: string;
 }
 
 export interface AdminSkillCatalogRow {
@@ -126,6 +132,21 @@ export function buildSkillRoutePayload(draft: SkillRouteDraft): UpdateSkillRoute
     searchProfile: nullableTrim(draft.searchProfile),
     maxBudgetCents: parseNullableCents(draft.maxBudgetCents),
     config: parseNullableConfig(draft.configJson),
+  };
+}
+
+export function buildSkillKitImportPayload(draft: SkillKitImportDraft): ImportSkillKitInput {
+  const sourceUrl = draft.sourceUrl.trim();
+  if (!sourceUrl) throw new Error('GitHub repository or folder URL is required');
+  const folderPath = draft.folderPath.trim().replace(/^\/+|\/+$/g, '').replace(/\/+/g, '/');
+  if (folderPath.split('/').some((part) => part === '.' || part === '..')) {
+    throw new Error('Folder path cannot contain . or .. segments');
+  }
+  const ref = draft.ref.trim();
+  return {
+    sourceUrl,
+    ...(folderPath ? { folderPath } : {}),
+    ...(ref ? { ref } : {}),
   };
 }
 

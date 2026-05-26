@@ -105,6 +105,12 @@ export const updateSkillRouteSchema = z.object({
   config: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
+export const importSkillKitSchema = z.object({
+  sourceUrl: z.string().trim().url().max(1000),
+  folderPath: z.string().trim().min(1).max(500).optional(),
+  ref: z.string().trim().min(1).max(200).optional(),
+});
+
 export const createArtifactFromMessageSchema = z.object({
   messageId: z.string().trim().min(1),
 });
@@ -120,4 +126,5 @@ export type ToolCapabilityInput = z.infer<typeof toolCapabilitySchema>;
 export type CapabilityStatusInput = z.infer<typeof capabilityStatusSchema>;
 export type UpdateSkillInput = z.infer<typeof updateSkillSchema>;
 export type UpdateSkillRouteInput = z.infer<typeof updateSkillRouteSchema>;
+export type ImportSkillKitInput = z.infer<typeof importSkillKitSchema>;
 export type CreateArtifactFromMessageInput = z.infer<typeof createArtifactFromMessageSchema>;

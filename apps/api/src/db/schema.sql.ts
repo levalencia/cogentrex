@@ -98,6 +98,24 @@ CREATE TABLE IF NOT EXISTS skill_routes (
 
 CREATE INDEX IF NOT EXISTS skill_routes_skill ON skill_routes(skill_id);
 
+CREATE TABLE IF NOT EXISTS skill_files (
+  id TEXT PRIMARY KEY,
+  skill_id TEXT NOT NULL,
+  path TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  content TEXT NOT NULL,
+  content_type TEXT NOT NULL DEFAULT 'text/markdown',
+  sha256 TEXT NOT NULL,
+  size_bytes INTEGER NOT NULL DEFAULT 0,
+  executable INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE CASCADE,
+  UNIQUE(skill_id, path)
+);
+
+CREATE INDEX IF NOT EXISTS skill_files_skill_path ON skill_files(skill_id, path);
+
 CREATE TABLE IF NOT EXISTS conversations (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,

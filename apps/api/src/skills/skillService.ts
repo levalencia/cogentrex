@@ -1,7 +1,8 @@
 import type { SkillSeed } from './skillRepository.js';
 import { SkillRepository } from './skillRepository.js';
-import { notFound } from '../http/errors.js';
-import type { UpdateSkillInput, UpdateSkillRouteInput } from '@cogentrex/shared';
+import { notFound, conflict } from '../http/errors.js';
+import { importSkillKitFromGitHub } from './skillKitImporter.js';
+import type { ImportSkillKitInput, UpdateSkillInput, UpdateSkillRouteInput } from '@cogentrex/shared';
 import type { AppLogger } from '../observability/logger.js';
 
 export const nativeSkillSeeds: SkillSeed[] = [
@@ -153,5 +154,13 @@ export class SkillService {
     if (!route) throw notFound('Skill not found');
     this.logger.info({ slug, mode: route.mode, searchProfile: route.searchProfile }, 'skill_route_updated');
     return route;
+  }
+
+  async importSkillKit(input: ImportSkillKitInput) {
+    const snapshot = await importSkillKitFromGitHub(input);
+    const result = await this.repository.importSkillKit(snapshot);
+    if (!result) throw conflict('Imported skill slug conflicts with an existing native skill');
+    this.logger.info({ slug: result.skill.slug, fileCount: result.files.length, sourcePath: snapshot.sourcePath }, 'skill_kit_imported');
+    return result;
   }
 }

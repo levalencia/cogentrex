@@ -5,6 +5,7 @@ import {
   buildSkillDetailModel,
   buildSkillRoutePayload,
   buildSkillUpdatePayload,
+  buildSkillKitImportPayload,
   getSkillBadges,
   getSkillRouteDraft,
 } from './skills';
@@ -132,6 +133,26 @@ describe('admin skill helpers', () => {
       maxBudgetCents: 250,
       config: { temperature: 0.2 },
     });
+  });
+
+  it('builds skill kit import payloads from repo URL plus scoped folder', () => {
+    expect(buildSkillKitImportPayload({
+      sourceUrl: '  https://github.com/acme/agent-skills  ',
+      folderPath: ' /skills/excalidraw/ ',
+      ref: ' main ',
+    })).toEqual({
+      sourceUrl: 'https://github.com/acme/agent-skills',
+      folderPath: 'skills/excalidraw',
+      ref: 'main',
+    });
+  });
+
+  it('rejects unsafe skill kit folder paths before import', () => {
+    expect(() => buildSkillKitImportPayload({
+      sourceUrl: 'https://github.com/acme/agent-skills',
+      folderPath: 'skills/../secrets',
+      ref: '',
+    })).toThrow('Folder path cannot contain . or .. segments');
   });
 
   it('builds admin catalog rows with readiness, usage, and action priority', () => {
