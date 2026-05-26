@@ -5,7 +5,7 @@ import type { SkillReadiness, SkillRunSummary } from '@cogentrex/shared';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { buildSkillCockpitModel } from '@/lib/skillCockpit';
-import { getLauncherToneClasses, getReadinessBadgeClasses, type LauncherItem } from '@/lib/workflowLauncher';
+import { buildWorkflowSelectionGroups, getLauncherToneClasses, getReadinessBadgeClasses, type LauncherItem } from '@/lib/workflowLauncher';
 import { useAppStore } from '@/store/appStore';
 
 const readinessPills = [
@@ -24,6 +24,37 @@ function runStatusClass(tone: string): string {
   if (tone === 'warning') return 'border-amber-400/30 bg-amber-400/10 text-amber-200';
   if (tone === 'danger') return 'border-rose-400/30 bg-rose-400/10 text-rose-200';
   return 'border-slate-500/30 bg-slate-500/10 text-slate-300';
+}
+
+function WorkflowCard({ card, compact = false, onLaunch }: { card: LauncherItem; compact?: boolean; onLaunch: (item: LauncherItem) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onLaunch(card)}
+      className={`rounded-3xl border p-4 text-left transition ${getLauncherToneClasses(card.tone, false)} hover:-translate-y-0.5`}
+    >
+      <span className="text-[10px] uppercase tracking-[0.18em] opacity-70">{card.eyebrow}</span>
+      <span className="mt-2 flex items-start justify-between gap-3 text-lg font-semibold">
+        {card.label}
+        {card.readiness ? (
+          <span className={`shrink-0 rounded-full border px-2 py-1 text-[9px] uppercase tracking-[0.12em] ${getReadinessBadgeClasses(card.readiness.status)}`}>
+            {card.readiness.label}
+          </span>
+        ) : null}
+      </span>
+      <span className="mt-2 block text-sm leading-6 opacity-75">{card.description}</span>
+      {card.readiness ? <span className="mt-3 block text-xs leading-5 opacity-70">{card.readiness.message}</span> : null}
+      {!compact ? (
+        <span className="mt-4 grid gap-2 rounded-2xl border border-current/10 bg-black/10 p-3 text-xs leading-5 opacity-80">
+          <span><strong>Needs:</strong> {card.capabilitySummary.required.join(', ')}</span>
+          <span><strong>Optional:</strong> {card.capabilitySummary.optional.join(', ') || 'none'}</span>
+          <span><strong>Outputs:</strong> {card.capabilitySummary.outputs.join(', ')}</span>
+          <span className="opacity-70">{card.operatorNote}</span>
+        </span>
+      ) : null}
+      <span className="mt-4 inline-flex rounded-full border border-current/20 px-3 py-1 text-xs font-medium opacity-90">Open composer</span>
+    </button>
+  );
 }
 
 export function SkillCockpitView() {
@@ -56,6 +87,7 @@ export function SkillCockpitView() {
   }, []);
 
   const cockpit = useMemo(() => buildSkillCockpitModel(readiness, skillRuns), [readiness, skillRuns]);
+  const workflowGroups = useMemo(() => buildWorkflowSelectionGroups(cockpit.cards), [cockpit.cards]);
 
   function launchWorkflow(item: LauncherItem) {
     setMode(item.mode);
@@ -103,27 +135,26 @@ export function SkillCockpitView() {
               {isLoading ? <span className="rounded-full border border-line px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-slate-500">Checking live config</span> : null}
             </div>
             <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-              {cockpit.cards.map((card) => (
-                <button
-                  key={card.id}
-                  type="button"
-                  onClick={() => launchWorkflow(card)}
-                  className={`rounded-3xl border p-4 text-left transition ${getLauncherToneClasses(card.tone, false)} hover:-translate-y-0.5`}
-                >
-                  <span className="text-[10px] uppercase tracking-[0.18em] opacity-70">{card.eyebrow}</span>
-                  <span className="mt-2 flex items-start justify-between gap-3 text-lg font-semibold">
-                    {card.label}
-                    {card.readiness ? (
-                      <span className={`shrink-0 rounded-full border px-2 py-1 text-[9px] uppercase tracking-[0.12em] ${getReadinessBadgeClasses(card.readiness.status)}`}>
-                        {card.readiness.label}
-                      </span>
-                    ) : null}
-                  </span>
-                  <span className="mt-2 block text-sm leading-6 opacity-75">{card.description}</span>
-                  {card.readiness ? <span className="mt-3 block text-xs leading-5 opacity-70">{card.readiness.message}</span> : null}
-                  <span className="mt-4 inline-flex rounded-full border border-current/20 px-3 py-1 text-xs font-medium opacity-90">Open composer</span>
-                </button>
+              {workflowGroups.primaryWorkflows.map((card) => (
+                <WorkflowCard key={card.id} card={card} onLaunch={launchWorkflow} />
               ))}
+            </div>
+
+            <div className="rounded-3xl border border-line bg-panel/60 p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Output skills</p>
+                  <h3 className="mt-1 text-lg font-semibold text-white">Reusable outputs after a workflow runs</h3>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+                    Diagram, brief, and artifact affordances should enhance a workflow result; they are not separate research engines in this slice.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {workflowGroups.outputAffordances.map((card) => (
+                  <WorkflowCard key={card.id} card={card} onLaunch={launchWorkflow} compact />
+                ))}
+              </div>
             </div>
           </section>
 

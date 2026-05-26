@@ -16,6 +16,12 @@ export interface LauncherReadinessSummary {
   unconfigured: number;
 }
 
+export interface LauncherCapabilitySummary {
+  required: string[];
+  optional: string[];
+  outputs: string[];
+}
+
 export interface LauncherItem {
   id: string;
   label: string;
@@ -25,7 +31,14 @@ export interface LauncherItem {
   status: LauncherItemStatus;
   tone: LauncherItemTone;
   placeholder: string;
+  capabilitySummary: LauncherCapabilitySummary;
+  operatorNote: string;
   readiness?: LauncherReadinessBadge | undefined;
+}
+
+export interface WorkflowSelectionGroups {
+  primaryWorkflows: LauncherItem[];
+  outputAffordances: LauncherItem[];
 }
 
 const launcherItems: LauncherItem[] = [
@@ -38,6 +51,12 @@ const launcherItems: LauncherItem[] = [
     status: 'available',
     tone: 'slate',
     placeholder: 'Ask Cogentrex... (Press Enter to send)',
+    capabilitySummary: {
+      required: ['Text model'],
+      optional: ['Vision', 'File context', 'Tool calling'],
+      outputs: ['Answer', 'Saved artifact'],
+    },
+    operatorNote: 'Chat is the general workflow surface; providers and tools stay behind routing.',
   },
   {
     id: 'deep-research',
@@ -48,6 +67,12 @@ const launcherItems: LauncherItem[] = [
     status: 'available',
     tone: 'emerald',
     placeholder: 'What should Cogentrex research with sources?',
+    capabilitySummary: {
+      required: ['Text model', 'Web search'],
+      optional: ['Source fetch', 'Streaming trace'],
+      outputs: ['Cited answer', 'Saved artifact', 'Diagram-ready outline'],
+    },
+    operatorNote: 'Research uses capabilities and adapters; diagram or artifact output is an output affordance, not a separate research engine.',
   },
   {
     id: 'social-writer',
@@ -58,6 +83,12 @@ const launcherItems: LauncherItem[] = [
     status: 'available',
     tone: 'blue',
     placeholder: 'Topic or idea for your social posts...',
+    capabilitySummary: {
+      required: ['Text model'],
+      optional: ['Vision', 'Web research', 'LinkedIn publishing'],
+      outputs: ['Platform drafts', 'Saved artifact'],
+    },
+    operatorNote: 'Social Writing drafts content first; OAuth publishing readiness remains separate from draft generation.',
   },
   {
     id: 'image-studio',
@@ -68,6 +99,12 @@ const launcherItems: LauncherItem[] = [
     status: 'available',
     tone: 'purple',
     placeholder: 'Describe the image you want to generate...',
+    capabilitySummary: {
+      required: ['Image provider'],
+      optional: ['Text prompt enhancement', 'Vision context'],
+      outputs: ['Image artifact', 'Prompt notes'],
+    },
+    operatorNote: 'Image Studio requires an image-capable provider; prompt enhancement is optional.',
   },
   {
     id: 'video-studio',
@@ -78,6 +115,12 @@ const launcherItems: LauncherItem[] = [
     status: 'available',
     tone: 'pink',
     placeholder: 'Describe the video you want to generate...',
+    capabilitySummary: {
+      required: ['Video provider'],
+      optional: ['Text prompt enhancement'],
+      outputs: ['Video artifact', 'Storyboard notes'],
+    },
+    operatorNote: 'Video Studio is provider-backed and should degrade clearly when no video provider is configured.',
   },
   {
     id: 'artifact-brief',
@@ -88,6 +131,12 @@ const launcherItems: LauncherItem[] = [
     status: 'near_existing',
     tone: 'amber',
     placeholder: 'What brief, memo, or artifact should Cogentrex draft?',
+    capabilitySummary: {
+      required: ['Text model'],
+      optional: ['Research context', 'Source citations'],
+      outputs: ['Markdown artifact', 'Reusable brief'],
+    },
+    operatorNote: 'Artifact Writer is an output affordance on Chat today, not a separate runtime engine.',
   },
 ];
 
@@ -114,6 +163,13 @@ export function getLauncherItem(id: string): LauncherItem | undefined {
 
 export function getDefaultLauncherIdForMode(mode: AppMode): string {
   return getPrimaryLauncherItems().find((item) => item.mode === mode)?.id ?? 'ask-chat';
+}
+
+export function buildWorkflowSelectionGroups(items: LauncherItem[]): WorkflowSelectionGroups {
+  return {
+    primaryWorkflows: items.filter((item) => item.status === 'available'),
+    outputAffordances: items.filter((item) => item.status === 'near_existing'),
+  };
 }
 
 export function getLauncherPlaceholder(itemId: string): string {
@@ -167,12 +223,30 @@ function summarizeReadiness(readiness: SkillReadiness): LauncherReadinessBadge {
   if (readiness.status === 'ready') {
     return { status: 'ready', label: 'Ready', message: 'Ready to launch.' };
   }
-  const dependencyMessage = readiness.dependencies.find((dependency) => dependency.status !== 'ready' && dependency.message)?.message;
+  const dependency = readiness.dependencies.find((item) => item.status !== 'ready');
   return {
     status: readiness.status,
     label: readiness.status === 'missing' ? 'Needs setup' : 'Limited',
-    message: dependencyMessage ?? (readiness.status === 'missing' ? 'Required provider or tool configuration is missing.' : 'Some optional capability is unavailable.'),
+    message: safeDependencyMessage(readiness.status, dependency),
   };
+}
+
+function safeDependencyMessage(status: CapabilityStatus, dependency: SkillReadiness['dependencies'][number] | undefined): string {
+  if (!dependency) {
+    return status === 'missing' ? 'Required provider or tool configuration is missing.' : 'Some optional capability is unavailable.';
+  }
+  const label = dependency.label.trim() || (dependency.kind === 'tool' ? 'tool' : 'provider');
+  const isOptional = !dependency.required || status === 'degraded';
+  if (dependency.kind === 'tool' && dependency.id === 'web.search') {
+    return isOptional ? 'Optional web search capability is unavailable.' : 'Required web search setup is missing.';
+  }
+  if (dependency.kind === 'provider' && dependency.id === 'vision') {
+    return isOptional ? 'Optional vision capability is unavailable.' : 'Required vision provider setup is missing.';
+  }
+  if (dependency.message && !/[A-Z0-9_]{6,}|api[_ -]?key|secret|token|password/i.test(dependency.message)) {
+    return dependency.message;
+  }
+  return `${isOptional ? 'Optional' : 'Required'} ${label.toLowerCase()} ${dependency.kind} is ${status === 'missing' ? 'missing' : 'unavailable'}.`;
 }
 
 function unconfiguredReadiness(): LauncherReadinessBadge {

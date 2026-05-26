@@ -408,16 +408,18 @@ function skillRunSavedArtifactLinks(observability: Record<string, unknown> | nul
   const rawIds = observability?.savedArtifactIds;
   if (!Array.isArray(rawIds)) return [];
   const metadataById = savedArtifactMetadataById(observability);
-  return rawIds
+  const uniqueIds = Array.from(new Set(rawIds
     .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
-    .map((id) => {
-      const metadata = metadataById.get(id);
-      return {
-        id,
-        href: `/library?artifact=${encodeURIComponent(id)}`,
-        label: metadata?.filename ?? `Artifact ${id}`,
-      };
-    });
+    .map((id) => id.trim())));
+
+  return uniqueIds.map((id) => {
+    const metadata = metadataById.get(id);
+    return {
+      id,
+      href: `/library?artifact=${encodeURIComponent(id)}`,
+      label: metadata?.filename ?? `Artifact ${id}`,
+    };
+  });
 }
 
 function metadataEntries(metadata: Record<string, unknown> | null): SkillRunEventRow['metadataEntries'] {
