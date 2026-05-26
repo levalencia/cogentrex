@@ -21,7 +21,7 @@ export function AppShell() {
   const conversationId = params?.id as string | undefined;
   const isLibraryRoute = pathname?.startsWith('/library') ?? false;
   const isRunsRoute = pathname?.startsWith('/runs') ?? false;
-  const isSkillsRoute = pathname === '/';
+  const isSkillsRoute = pathname === '/' || pathname?.startsWith('/skills');
 
   useEffect(() => {
     void bootstrap();
