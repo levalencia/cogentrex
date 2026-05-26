@@ -29,7 +29,13 @@ import {
 } from '@/lib/workflowLauncher';
 import { buildResearchWorkspaceCards, type ResearchWorkspaceStatus } from '@/lib/researchWorkspace';
 import { buildReferencedSources, linkCitationMarkers } from '@/lib/citations';
-import { getEffectiveSaveToLibraryState, getSaveToLibraryButtonView, type SaveToLibraryState } from '@/lib/saveToLibraryButton';
+import {
+  canShowSaveToLibraryButton,
+  getEffectiveSaveToLibraryState,
+  getSaveToLibraryButtonTestId,
+  getSaveToLibraryButtonView,
+  type SaveToLibraryState,
+} from '@/lib/saveToLibraryButton';
 
 // ── Helper ──────────────────────────────────────────
 function extractImageFilenameFromMarkdown(content: string): string | null {
@@ -82,14 +88,12 @@ const MessageItem = memo(function MessageItem({ message, onEditImage }: MessageI
   const referencedSources = buildReferencedSources(message.content, messageSources);
   const processedContent = referencedSources.length ? linkCitationMarkers(message.content, referencedSources) : message.content;
   const messageReasoning = toDisplayReasoningEntries(message.metadata?.reasoning);
-  const canSaveArtifact = Boolean(
-    message.id
-    && message.content
-    && !message.id.startsWith('local-')
-    && !message.content.startsWith('Thinking')
-    && !isError
-    && !isLoading,
-  );
+  const canSaveArtifact = canShowSaveToLibraryButton({
+    id: message.id,
+    content: message.content,
+    isError,
+    isLoading,
+  });
 
   const effectiveSaveState = getEffectiveSaveToLibraryState(saveState, hasSavedArtifact);
 
@@ -145,6 +149,9 @@ const MessageItem = memo(function MessageItem({ message, onEditImage }: MessageI
             type="button"
             onClick={handleSaveArtifact}
             disabled={saveButtonView.disabled}
+            aria-label={`Save assistant message ${message.id} to Library`}
+            data-testid={getSaveToLibraryButtonTestId(message.id)}
+            data-save-state={effectiveSaveState}
             className="mt-2 rounded-lg border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-medium text-accent transition hover:bg-accent/20 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {saveButtonView.label}
