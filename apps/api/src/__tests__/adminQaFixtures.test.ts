@@ -49,6 +49,7 @@ describe('admin QA fixtures', () => {
       mode: 'DEEP_RESEARCH',
       status: 'completed',
       conversationId: seedResponse.body.fixture.conversationId,
+      eventCount: 4,
       observability: {
         sourceCount: 4,
         newSourceCount: 3,
@@ -67,6 +68,42 @@ describe('admin QA fixtures', () => {
         ],
       },
     });
+
+    const eventsResponse = await targetAgent
+      .get(`/api/skills/runs/${seedResponse.body.fixture.skillRunId}/events`)
+      .expect(200);
+
+    expect(eventsResponse.body.events).toHaveLength(4);
+    expect(eventsResponse.body.events).toEqual([
+      expect.objectContaining({
+        runId: seedResponse.body.fixture.skillRunId,
+        sequence: 1,
+        eventType: 'run_started',
+        label: 'Deep Research started',
+        metadata: expect.objectContaining({ mode: 'DEEP_RESEARCH', skillSlug: 'deep-research' }),
+      }),
+      expect.objectContaining({
+        runId: seedResponse.body.fixture.skillRunId,
+        sequence: 2,
+        eventType: 'research_sources_collected',
+        label: 'Sources collected',
+        metadata: expect.objectContaining({ sourceCount: 4, newSourceCount: 3 }),
+      }),
+      expect.objectContaining({
+        runId: seedResponse.body.fixture.skillRunId,
+        sequence: 3,
+        eventType: 'artifact_saved',
+        label: 'Artifact saved to library',
+        metadata: expect.objectContaining({ artifactId: seedResponse.body.fixture.artifactId, savedArtifactCount: 1 }),
+      }),
+      expect.objectContaining({
+        runId: seedResponse.body.fixture.skillRunId,
+        sequence: 4,
+        eventType: 'run_completed',
+        label: 'Deep Research completed',
+        metadata: expect.objectContaining({ phase: 'synthesis', savedArtifactCount: 1 }),
+      }),
+    ]);
   });
 
   it('keeps QA fixture seeding disabled unless explicitly enabled', async () => {
