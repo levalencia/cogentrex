@@ -211,6 +211,9 @@ export class SkillRepository {
             slug = excluded.slug,
             name = CASE WHEN skills.kind = 'NATIVE' THEN excluded.name ELSE skills.name END,
             description = CASE WHEN skills.kind = 'NATIVE' THEN excluded.description ELSE skills.description END,
+            input_schema_json = CASE WHEN skills.kind = 'NATIVE' THEN excluded.input_schema_json ELSE skills.input_schema_json END,
+            output_contract_json = CASE WHEN skills.kind = 'NATIVE' THEN excluded.output_contract_json ELSE skills.output_contract_json END,
+            tool_requirements_json = CASE WHEN skills.kind = 'NATIVE' THEN excluded.tool_requirements_json ELSE skills.tool_requirements_json END,
             updated_at = skills.updated_at`,
         ).run({
           id: seed.id,

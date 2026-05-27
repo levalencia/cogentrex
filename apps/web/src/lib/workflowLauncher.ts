@@ -145,7 +145,6 @@ const launcherSkillSlugs: Record<string, string> = {
   'deep-research': 'deep-research',
   'social-writer': 'linkedin-writer',
   'image-studio': 'image-studio',
-  'video-studio': 'video-lab',
   'artifact-brief': 'artifact-writer',
 };
 
@@ -170,6 +169,10 @@ export function buildWorkflowSelectionGroups(items: LauncherItem[]): WorkflowSel
     primaryWorkflows: items.filter((item) => item.status === 'available'),
     outputAffordances: items.filter((item) => item.status === 'near_existing'),
   };
+}
+
+export function getLauncherSkillSlug(itemId: string): string | null {
+  return launcherSkillSlugs[itemId] ?? null;
 }
 
 export function getLauncherPlaceholder(itemId: string): string {

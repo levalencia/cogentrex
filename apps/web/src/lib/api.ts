@@ -1,4 +1,4 @@
-import type { AdminAnalyticsSummary, ArtifactItem, ChatMessage, ConversationSummary, MediaArtifact, ProjectSummary, ProviderConfigView, PublicUser, RequestMetric, StreamEvent, ImageGenerationOptions, GeneratedPost, SocialPlatformConfig, WorkflowReadiness, SkillReadiness, SkillRunEvent, SkillRunSummary, SkillSummary, SkillFileSummary, CreateSkillInput, ImportSkillKitInput, UpdateSkillInput, UpdateSkillRouteInput } from '@cogentrex/shared';
+import type { AdminAnalyticsSummary, ArtifactItem, ChatMessage, ConversationSummary, MediaArtifact, ProjectSummary, ProviderConfigView, PublicUser, RequestMetric, StreamEvent, ImageGenerationOptions, GeneratedPost, SocialPlatformConfig, WorkflowReadiness, SkillDetail, SkillReadiness, SkillRunEvent, SkillRunSummary, SkillSummary, SkillFileSummary, CreateSkillInput, ImportSkillKitInput, UpdateSkillInput, UpdateSkillRouteInput } from '@cogentrex/shared';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001';
 
@@ -49,6 +49,7 @@ export const api = {
   testProvider: (id: string) => jsonRequest<{ ok: boolean; status: 'ok' | 'fail'; error?: string }>(`/api/providers/${id}/test`, { method: 'POST' }),
   getCatalog: () => jsonRequest<{ catalog: { id: string; name: string; description: string; kind: ProviderConfigView['kind']; baseUrl?: string; baseUrlTemplate?: string; models: string[]; features: { chat: boolean; vision: boolean; tools: boolean; image: boolean; video: boolean }; docsUrl: string }[] }>('/api/providers/catalog'),
   getCapabilities: () => jsonRequest<{ workflows: WorkflowReadiness[] }>('/api/capabilities'),
+  getSkill: (slug: string) => jsonRequest<{ skill: SkillDetail }>(`/api/skills/${encodeURIComponent(slug)}`),
   getSkillReadiness: () => jsonRequest<{ skills: SkillReadiness[] }>('/api/skills/readiness'),
   listSkillRuns: () => jsonRequest<{ runs: SkillRunSummary[] }>('/api/skills/runs'),
   listSkillRunEvents: (runId: string) => jsonRequest<{ events: SkillRunEvent[] }>(`/api/skills/runs/${runId}/events`),

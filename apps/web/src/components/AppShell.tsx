@@ -8,6 +8,7 @@ import { LibraryView } from './LibraryView';
 import { RunsView } from './RunsView';
 import { Sidebar } from './Sidebar';
 import { SkillCockpitView } from './SkillCockpitView';
+import { SkillDetailView } from './SkillDetailView';
 import { useAppStore } from '@/store/appStore';
 
 export function AppShell() {
@@ -21,7 +22,8 @@ export function AppShell() {
   const conversationId = params?.id as string | undefined;
   const isLibraryRoute = pathname?.startsWith('/library') ?? false;
   const isRunsRoute = pathname?.startsWith('/runs') ?? false;
-  const isSkillsRoute = pathname === '/' || pathname?.startsWith('/skills');
+  const isSkillDetailRoute = pathname?.startsWith('/skills/') ?? false;
+  const isSkillsRoute = pathname === '/' || pathname === '/skills';
 
   useEffect(() => {
     void bootstrap();
@@ -53,7 +55,7 @@ export function AppShell() {
   return (
     <div className="flex h-screen overflow-hidden bg-ink text-slate-100">
       <Sidebar />
-      {isRunsRoute ? <RunsView /> : isLibraryRoute ? <LibraryView /> : isSkillsRoute ? <SkillCockpitView /> : <ChatView />}
+      {isRunsRoute ? <RunsView /> : isLibraryRoute ? <LibraryView /> : isSkillDetailRoute ? <SkillDetailView /> : isSkillsRoute ? <SkillCockpitView /> : <ChatView />}
     </div>
   );
 }

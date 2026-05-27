@@ -5,6 +5,7 @@ import {
   buildWorkflowSelectionGroups,
   getLauncherItems,
   getLauncherPlaceholder,
+  getLauncherSkillSlug,
   getPrimaryLauncherItems,
   summarizeLauncherReadiness,
 } from './workflowLauncher';
@@ -33,6 +34,12 @@ describe('workflow launcher helpers', () => {
       ['image-studio', 'IMAGE_GENERATION'],
       ['video-studio', 'VIDEO_GENERATION'],
     ]);
+  });
+
+  it('maps launcher cards to published skill slugs for detail routing', () => {
+    expect(getLauncherSkillSlug('deep-research')).toBe('deep-research');
+    expect(getLauncherSkillSlug('social-writer')).toBe('linkedin-writer');
+    expect(getLauncherSkillSlug('missing')).toBeNull();
   });
 
   it('returns mode-aware composer placeholder copy', () => {
