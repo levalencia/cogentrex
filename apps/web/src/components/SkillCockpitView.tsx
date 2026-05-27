@@ -196,7 +196,7 @@ export function SkillCockpitView() {
                   <button
                     key={run.id}
                     type="button"
-                    onClick={() => router.push('/runs')}
+                    onClick={() => router.push(run.href)}
                     className="w-full rounded-2xl border border-line bg-ink/50 p-3 text-left transition hover:border-accent"
                   >
                     <div className="flex items-start justify-between gap-2">

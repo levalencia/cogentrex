@@ -28,6 +28,7 @@ describe('buildSkillCockpitModel', () => {
       ['artifact-brief', 'Not enabled'],
     ]);
     expect(model.recentRuns.map((run) => run.id)).toEqual(['run-active', 'run-failed', 'run-done']);
+    expect(model.recentRuns.map((run) => run.href)).toEqual(['/runs?run=run-active', '/runs?run=run-failed', '/runs?run=run-done']);
   });
 });
 
