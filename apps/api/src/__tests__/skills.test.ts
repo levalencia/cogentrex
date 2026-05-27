@@ -150,6 +150,48 @@ describe('skill registry API', () => {
     database.close();
   });
 
+  it('allows admins to create a draft imported skill and read SKILL.md instructions from stored files', async () => {
+    const { agent, database } = await makeTestApp();
+    await registerAdmin(agent, database);
+
+    const createRes = await agent.post('/api/admin/skills').send({
+      slug: 'manual-skill',
+      name: 'Manual Skill',
+      description: 'A small draft skill created from the admin catalog.',
+      category: 'Imported',
+      icon: '✨',
+      instructions: '# Manual Skill\n\nFollow the user brief and stay concise.',
+    }).expect(201);
+
+    expect(createRes.body.skill).toMatchObject({
+      slug: 'manual-skill',
+      kind: 'IMPORTED',
+      status: 'DRAFT',
+      visibility: 'ADMIN_ONLY',
+    });
+    expect(createRes.body.files).toHaveLength(1);
+    expect(createRes.body.files[0]).toMatchObject({
+      path: 'SKILL.md',
+      kind: 'skill',
+      content: '# Manual Skill\n\nFollow the user brief and stay concise.',
+      executable: false,
+    });
+
+    const filesRes = await agent.get('/api/admin/skills/manual-skill/files').expect(200);
+    expect(filesRes.body.files).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        path: 'SKILL.md',
+        content: '# Manual Skill\n\nFollow the user brief and stay concise.',
+        contentType: 'text/markdown',
+        sizeBytes: Buffer.byteLength('# Manual Skill\n\nFollow the user brief and stay concise.', 'utf8'),
+      }),
+    ]));
+
+    await agent.get('/api/admin/skills/missing-skill/files').expect(404);
+
+    database.close();
+  });
+
   it('imports one skill kit from a specific GitHub folder and ignores sibling skills', async () => {
     const { agent, database } = await makeTestApp();
     await registerAdmin(agent, database);

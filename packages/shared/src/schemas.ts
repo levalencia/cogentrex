@@ -105,6 +105,15 @@ export const updateSkillRouteSchema = z.object({
   config: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
+export const createSkillSchema = z.object({
+  slug: z.string().trim().min(1).max(120).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug must use lowercase letters, numbers, and dashes'),
+  name: z.string().trim().min(1).max(120),
+  description: z.string().trim().min(1).max(1000),
+  category: z.string().trim().min(1).max(80).nullable().optional(),
+  icon: z.string().trim().min(1).max(80).nullable().optional(),
+  instructions: z.string().trim().min(1).max(40000),
+});
+
 export const importSkillKitSchema = z.object({
   sourceUrl: z.string().trim().url().max(1000),
   folderPath: z.string().trim().min(1).max(500).optional(),
@@ -126,5 +135,6 @@ export type ToolCapabilityInput = z.infer<typeof toolCapabilitySchema>;
 export type CapabilityStatusInput = z.infer<typeof capabilityStatusSchema>;
 export type UpdateSkillInput = z.infer<typeof updateSkillSchema>;
 export type UpdateSkillRouteInput = z.infer<typeof updateSkillRouteSchema>;
+export type CreateSkillInput = z.infer<typeof createSkillSchema>;
 export type ImportSkillKitInput = z.infer<typeof importSkillKitSchema>;
 export type CreateArtifactFromMessageInput = z.infer<typeof createArtifactFromMessageSchema>;

@@ -1,4 +1,4 @@
-import type { AdminAnalyticsSummary, ArtifactItem, ChatMessage, ConversationSummary, MediaArtifact, ProjectSummary, ProviderConfigView, PublicUser, RequestMetric, StreamEvent, ImageGenerationOptions, GeneratedPost, SocialPlatformConfig, WorkflowReadiness, SkillReadiness, SkillRunEvent, SkillRunSummary, SkillSummary, ImportSkillKitInput, UpdateSkillInput, UpdateSkillRouteInput } from '@cogentrex/shared';
+import type { AdminAnalyticsSummary, ArtifactItem, ChatMessage, ConversationSummary, MediaArtifact, ProjectSummary, ProviderConfigView, PublicUser, RequestMetric, StreamEvent, ImageGenerationOptions, GeneratedPost, SocialPlatformConfig, WorkflowReadiness, SkillReadiness, SkillRunEvent, SkillRunSummary, SkillSummary, SkillFileSummary, CreateSkillInput, ImportSkillKitInput, UpdateSkillInput, UpdateSkillRouteInput } from '@cogentrex/shared';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001';
 
@@ -79,8 +79,11 @@ export const api = {
     jsonRequest<{ provider: ProviderConfigView }>(`/api/admin/providers/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
   deleteAdminProvider: (id: string) => jsonRequest<void>(`/api/admin/providers/${id}`, { method: 'DELETE' }),
   listAdminSkills: () => jsonRequest<{ skills: SkillSummary[]; admin: PublicUser }>('/api/admin/skills'),
+  listAdminSkillFiles: (slug: string) => jsonRequest<{ files: SkillFileSummary[] }>(`/api/admin/skills/${slug}/files`),
+  createAdminSkill: (input: CreateSkillInput) =>
+    jsonRequest<{ skill: SkillSummary; files: SkillFileSummary[] }>(`/api/admin/skills`, { method: 'POST', body: JSON.stringify(input) }),
   importAdminSkillKit: (input: ImportSkillKitInput) =>
-    jsonRequest<{ skill: SkillSummary; files: Array<{ id: string; path: string; kind: string; contentType: string; sha256: string; sizeBytes: number; executable: boolean }>; warnings: string[] }>('/api/admin/skills/import-kit', { method: 'POST', body: JSON.stringify(input) }),
+    jsonRequest<{ skill: SkillSummary; files: SkillFileSummary[]; warnings: string[] }>('/api/admin/skills/import-kit', { method: 'POST', body: JSON.stringify(input) }),
   updateAdminSkill: (slug: string, input: UpdateSkillInput) =>
     jsonRequest<{ skill: SkillSummary }>(`/api/admin/skills/${slug}`, { method: 'PATCH', body: JSON.stringify(input) }),
   updateAdminSkillRoute: (slug: string, input: UpdateSkillRouteInput) =>

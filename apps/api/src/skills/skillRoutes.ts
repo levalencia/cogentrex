@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { importSkillKitSchema, updateSkillRouteSchema, updateSkillSchema } from '@cogentrex/shared';
+import { createSkillSchema, importSkillKitSchema, updateSkillRouteSchema, updateSkillSchema } from '@cogentrex/shared';
 import { currentUser, requireAuth, requireAdmin } from '../auth/authMiddleware.js';
 import type { AuthService } from '../auth/authService.js';
 import type { AppEnv } from '../config/env.js';
@@ -88,6 +88,24 @@ export function adminSkillRoutes(auth: AuthService, skills: SkillService): Route
       const input = importSkillKitSchema.parse(req.body);
       const result = await skills.importSkillKit(input);
       res.status(201).json(result);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post('/', async (req, res, next) => {
+    try {
+      const input = createSkillSchema.parse(req.body);
+      const result = await skills.createSkill(input);
+      res.status(201).json(result);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get('/:slug/files', async (req, res, next) => {
+    try {
+      res.json({ files: await skills.listFiles(req.params.slug) });
     } catch (error) {
       next(error);
     }
