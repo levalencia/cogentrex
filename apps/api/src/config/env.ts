@@ -30,6 +30,7 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   QA_FIXTURES_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+  QA_FIXTURE_ADMIN_TOKEN: z.string().min(24).optional(),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;
@@ -42,6 +43,9 @@ export function readEnv(overrides: NodeJS.ProcessEnv = process.env): AppEnv {
     }
     if (env.APP_ENCRYPTION_KEY.startsWith('test-only')) {
       throw new Error('APP_ENCRYPTION_KEY must be configured in production');
+    }
+    if (env.QA_FIXTURES_ENABLED && !env.QA_FIXTURE_ADMIN_TOKEN) {
+      throw new Error('QA_FIXTURE_ADMIN_TOKEN must be configured when QA fixtures are enabled in production');
     }
   }
   return env;

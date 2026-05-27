@@ -26,6 +26,7 @@ export async function makeTestApp(overrides: Partial<AppEnv> = {}, deps: { searc
     DEFAULT_PROVIDER_NAME: 'Microsoft Foundry Kimi',
     DEFAULT_PROVIDER_BASE_URL: 'https://foundry.example.com/openai/v1',
     DEFAULT_PROVIDER_MODEL: 'Kimi 2.6',
+    QA_FIXTURE_ADMIN_TOKEN: undefined,
     LOG_LEVEL: 'silent',
     QA_FIXTURES_ENABLED: false,
     ...overrides,
