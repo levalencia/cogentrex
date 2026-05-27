@@ -52,6 +52,14 @@ export interface AdminSkillMetric {
   tone: 'accent' | 'ready' | 'warning' | 'danger' | 'neutral';
 }
 
+export type AdminSkillPanelMode = 'detail' | 'import' | 'create';
+
+export interface AdminSkillPanelCopy {
+  eyebrow: string;
+  title: string;
+  description: string;
+}
+
 export interface SkillFileView {
   id: string;
   path: string;
@@ -215,6 +223,28 @@ export function buildSkillFileViews(files: SkillFileSummary[]): SkillFileView[] 
       executable: file.executable,
     };
   });
+}
+
+export function getAdminSkillPanelCopy(mode: AdminSkillPanelMode): AdminSkillPanelCopy {
+  if (mode === 'import') {
+    return {
+      eyebrow: 'Skill Kit Import',
+      title: 'Import Skill Kit',
+      description: 'Pull one scoped GitHub folder into the registry, then inspect stored files in the drawer.',
+    };
+  }
+  if (mode === 'create') {
+    return {
+      eyebrow: 'Manual draft',
+      title: 'Create manual draft',
+      description: 'Create read-only SKILL.md instructions for a new workflow before routing or publishing it.',
+    };
+  }
+  return {
+    eyebrow: 'Skill detail',
+    title: 'Configure selected skill',
+    description: 'Review lifecycle, provider route, and read-only kit files without leaving the catalog.',
+  };
 }
 
 export function buildSkillDetailModel(

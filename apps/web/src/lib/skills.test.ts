@@ -8,6 +8,7 @@ import {
   buildSkillRoutePayload,
   buildSkillUpdatePayload,
   buildSkillKitImportPayload,
+  getAdminSkillPanelCopy,
   getSkillBadges,
   getSkillRouteDraft,
 } from './skills';
@@ -273,6 +274,16 @@ describe('admin skill helpers', () => {
       { label: 'Ready routes', value: '1', hint: '1 need route/setup' },
       { label: 'Run health', value: '75%', hint: '12 runs · 3 failed' },
     ]);
+  });
+
+  it('returns operator copy for drawer panel modes', () => {
+    expect(getAdminSkillPanelCopy('detail')).toEqual({
+      eyebrow: 'Skill detail',
+      title: 'Configure selected skill',
+      description: 'Review lifecycle, provider route, and read-only kit files without leaving the catalog.',
+    });
+    expect(getAdminSkillPanelCopy('import')).toMatchObject({ title: 'Import Skill Kit' });
+    expect(getAdminSkillPanelCopy('create')).toMatchObject({ title: 'Create manual draft' });
   });
 
   it('rejects route config JSON that is not an object', () => {
