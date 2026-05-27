@@ -573,11 +573,16 @@ export function buildLibraryArtifactHref(artifactId: string): string {
   return `/library?artifact=${encodeURIComponent(artifactId)}`;
 }
 
-function searchableText(artifact: ArtifactItem): string {
+function searchableText(artifact: ArtifactItem, mode: AppMode | undefined): string {
   return [
     artifact.filename,
     artifact.conversationTitle,
     artifact.conversationMode,
+    artifact.effectiveMode,
+    mode,
+    modeLabel(mode),
+    artifact.skillRunName,
+    artifact.skillRunStatus,
     artifact.content,
   ].filter(Boolean).join(' ').toLowerCase();
 }
@@ -696,10 +701,15 @@ export function buildRecentActivityItems(
   return sortTimestampDesc([...artifactItems, ...runItems, ...workflowItems]).slice(0, activityLimit);
 }
 
-export function filterLibraryArtifacts(artifacts: ArtifactItem[], query: string): ArtifactItem[] {
+export function filterLibraryArtifacts(artifacts: ArtifactItem[], query: string, skillRuns: SkillRunSummary[] = []): ArtifactItem[] {
   const normalized = query.trim().toLowerCase();
   if (!normalized) return artifacts;
-  return artifacts.filter((artifact) => searchableText(artifact).includes(normalized));
+  const skillRunsByConversationId = buildSkillRunModeByConversationId(skillRuns);
+  const skillRunsByMessageId = buildSkillRunModeByMessageId(skillRuns);
+  return artifacts.filter((artifact) => {
+    const mode = effectiveArtifactMode(artifact, skillRunsByConversationId, skillRunsByMessageId);
+    return searchableText(artifact, mode).includes(normalized);
+  });
 }
 
 export function buildArtifactDownload(artifact: ArtifactItem): ArtifactDownload {

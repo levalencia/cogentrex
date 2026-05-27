@@ -42,8 +42,8 @@ export function LibraryView() {
   const cards = buildLibraryModeCards(conversations, skillRuns, mergedArtifacts);
   const overviewStats = buildLibraryOverviewStats(conversations, mergedArtifacts, skillRuns);
   const filteredArtifacts = useMemo(
-    () => filterLibraryArtifacts(mergedArtifacts, artifactQuery),
-    [mergedArtifacts, artifactQuery],
+    () => filterLibraryArtifacts(mergedArtifacts, artifactQuery, skillRuns),
+    [mergedArtifacts, artifactQuery, skillRuns],
   );
   const artifactRows = buildLibraryArtifactRows(filteredArtifacts, skillRuns);
   const selectedArtifact = selectedArtifactId ? filteredArtifacts.find((artifact) => artifact.id === selectedArtifactId) : undefined;

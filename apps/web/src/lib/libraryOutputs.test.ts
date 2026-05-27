@@ -1155,6 +1155,43 @@ describe('filterLibraryArtifacts', () => {
     expect(filterLibraryArtifacts(artifacts, 'social').map((artifact) => artifact.id)).toEqual(['art-2']);
     expect(filterLibraryArtifacts(artifacts, '').map((artifact) => artifact.id)).toEqual(['art-1', 'art-2']);
   });
+
+  it('searches Deep Research provenance from a message-linked skill run when artifact metadata is stale', () => {
+    const staleArtifact: ArtifactItem = {
+      id: 'art-stale',
+      filename: 'Brief.md',
+      type: 'text/markdown',
+      sizeBytes: 1536,
+      conversationId: 'conv-stale',
+      messageId: 'msg-deep-research',
+      content: 'Reusable answer with cited evidence.',
+      createdAt: '2026-05-22T20:03:00.000Z',
+      conversationTitle: 'Started as chat',
+      conversationMode: 'CHAT',
+    };
+
+    const skillRuns = [
+      {
+        id: 'run-deep-research',
+        userId: 'user-1',
+        skillId: 'skl_deep_research',
+        skillSlug: 'deep-research',
+        skillName: 'Deep Research',
+        mode: 'DEEP_RESEARCH' as const,
+        status: 'completed' as const,
+        conversationId: 'conv-stale',
+        jobId: 'job-1',
+        providerId: 'provider-1',
+        startedAt: '2026-05-22T20:00:00.000Z',
+        completedAt: '2026-05-22T20:02:00.000Z',
+        durationMs: 120000,
+        errorMessage: null,
+        observability: { messageId: 'msg-deep-research', sourceCount: 3 },
+      },
+    ];
+
+    expect(filterLibraryArtifacts([staleArtifact], 'deep research', skillRuns).map((artifact) => artifact.id)).toEqual(['art-stale']);
+  });
 });
 
 describe('buildArtifactDownload', () => {
