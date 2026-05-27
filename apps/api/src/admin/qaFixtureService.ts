@@ -136,6 +136,16 @@ export class QaFixtureService {
       createdAt: completedAt,
     });
 
+    await this.seedSkillRunEvents({
+      userId: user.id,
+      skillRunId,
+      conversationId,
+      messageId,
+      artifactId,
+      startedAt: now,
+      completedAt,
+    });
+
     return {
       targetUserId: user.id,
       targetEmail: user.email,
@@ -148,6 +158,98 @@ export class QaFixtureService {
       effectiveMode: 'DEEP_RESEARCH',
       artifactFilename: FIXTURE_FILENAME,
     };
+  }
+
+  private async seedSkillRunEvents(input: {
+    userId: string;
+    skillRunId: string;
+    conversationId: string;
+    messageId: string;
+    artifactId: string;
+    startedAt: string;
+    completedAt: string;
+  }): Promise<void> {
+    const eventInsert = this.db.prepare(
+      `INSERT INTO skill_run_events (
+        id, run_id, user_id, sequence, event_type, label, message, metadata_json, created_at
+      ) VALUES (
+        @id, @runId, @userId, @sequence, @eventType, @label, @message, @metadataJson, @createdAt
+      )`,
+    );
+    const eventTimes = [
+      input.startedAt,
+      new Date(new Date(input.startedAt).getTime() + 10_000).toISOString(),
+      new Date(new Date(input.startedAt).getTime() + 20_000).toISOString(),
+      input.completedAt,
+    ];
+    const events = [
+      {
+        sequence: 1,
+        eventType: 'run_started',
+        label: 'Deep Research started',
+        message: 'QA fixture started a Deep Research run from an existing chat conversation.',
+        metadata: {
+          mode: 'DEEP_RESEARCH',
+          skillSlug: FIXTURE_SKILL_SLUG,
+          conversationId: input.conversationId,
+          jobId: 'qa-library-fixture',
+        },
+      },
+      {
+        sequence: 2,
+        eventType: 'research_sources_collected',
+        label: 'Sources collected',
+        message: 'Fixture captured source and planning metrics for the run detail trace.',
+        metadata: {
+          sourceCount: 4,
+          newSourceCount: 3,
+          planLength: 5,
+          platforms: ['web', 'exa'],
+        },
+      },
+      {
+        sequence: 3,
+        eventType: 'artifact_saved',
+        label: 'Artifact saved to library',
+        message: 'Fixture saved the synthesized Deep Research output as a Library artifact.',
+        metadata: {
+          artifactId: input.artifactId,
+          messageId: input.messageId,
+          filename: FIXTURE_FILENAME,
+          type: 'text/markdown',
+          savedArtifactCount: 1,
+        },
+      },
+      {
+        sequence: 4,
+        eventType: 'run_completed',
+        label: 'Deep Research completed',
+        message: 'Fixture completed the run with saved output metadata for Library navigation.',
+        metadata: {
+          phase: 'synthesis',
+          synthesisDurationMs: 45000,
+          savedArtifactCount: 1,
+          savedArtifactIds: [input.artifactId],
+        },
+      },
+    ];
+
+    for (const event of events) {
+      await eventInsert.run({
+        id: createId('ske'),
+        runId: input.skillRunId,
+        userId: input.userId,
+        sequence: event.sequence,
+        eventType: event.eventType,
+        label: event.label,
+        message: event.message,
+        metadataJson: JSON.stringify(event.metadata),
+        createdAt: eventTimes[event.sequence - 1],
+      });
+    }
+
+    await this.db.prepare('UPDATE skill_runs SET event_sequence = ? WHERE id = ? AND user_id = ?')
+      .run(events.length, input.skillRunId, input.userId);
   }
 
   private async deleteExistingLibraryClassificationFixture(userId: string): Promise<void> {
