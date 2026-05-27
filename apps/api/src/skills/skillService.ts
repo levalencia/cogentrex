@@ -5,6 +5,14 @@ import { importSkillKitFromGitHub } from './skillKitImporter.js';
 import type { CreateSkillInput, ImportSkillKitInput, UpdateSkillInput, UpdateSkillRouteInput } from '@cogentrex/shared';
 import type { AppLogger } from '../observability/logger.js';
 
+function promptInput(label = 'Prompt', helpText = 'Describe what this skill should do.'): Record<string, unknown> {
+  return { fields: [{ name: 'prompt', label, type: 'textarea', required: true, helpText }] };
+}
+
+function outputContract(artifacts: string[], savesToLibrary = true): Record<string, unknown> {
+  return { artifacts, savesToLibrary };
+}
+
 export const nativeSkillSeeds: SkillSeed[] = [
   {
     id: 'skl_chat',
@@ -16,8 +24,8 @@ export const nativeSkillSeeds: SkillSeed[] = [
     visibility: 'USER_VISIBLE',
     category: 'Core',
     icon: 'message-circle',
-    inputSchema: null,
-    outputContract: null,
+    inputSchema: promptInput('Message', 'Ask for an answer, analysis, draft, or artifact.'),
+    outputContract: outputContract(['Answer', 'Saved artifact']),
     toolRequirements: [],
     route: { id: 'skr_chat', mode: 'CHAT', defaultProviderId: null, searchProfile: null, maxBudgetCents: null, config: null },
   },
@@ -31,8 +39,11 @@ export const nativeSkillSeeds: SkillSeed[] = [
     visibility: 'USER_VISIBLE',
     category: 'Research',
     icon: 'search',
-    inputSchema: null,
-    outputContract: null,
+    inputSchema: { fields: [
+      { name: 'question', label: 'Research question', type: 'textarea', required: true, helpText: 'Ask a bounded research question that needs live sources.' },
+      { name: 'sourceLimit', label: 'Source limit', type: 'number', required: false, helpText: 'Optional target number of sources to consult.' },
+    ] },
+    outputContract: outputContract(['Cited answer', 'Source list', 'Reasoning trace']),
     toolRequirements: [{ name: 'web.search', required: true, description: 'Discover live public sources' }],
     route: { id: 'skr_deep_research', mode: 'DEEP_RESEARCH', defaultProviderId: null, searchProfile: 'default-web', maxBudgetCents: null, config: null },
   },
@@ -46,8 +57,8 @@ export const nativeSkillSeeds: SkillSeed[] = [
     visibility: 'USER_VISIBLE',
     category: 'Social',
     icon: 'linkedin',
-    inputSchema: null,
-    outputContract: null,
+    inputSchema: promptInput('Topic or draft brief', 'Describe the post idea, audience, and angle.'),
+    outputContract: outputContract(['Platform draft', 'Research context', 'Saved artifact']),
     toolRequirements: [],
     route: { id: 'skr_linkedin_writer', mode: 'SOCIAL_WRITING', defaultProviderId: null, searchProfile: null, maxBudgetCents: null, config: null },
   },
@@ -61,8 +72,8 @@ export const nativeSkillSeeds: SkillSeed[] = [
     visibility: 'USER_VISIBLE',
     category: 'Media',
     icon: 'image',
-    inputSchema: null,
-    outputContract: null,
+    inputSchema: promptInput('Image prompt', 'Describe the image, style, composition, and constraints.'),
+    outputContract: outputContract(['Image artifact', 'Prompt notes']),
     toolRequirements: [],
     route: { id: 'skr_image_studio', mode: 'IMAGE_GENERATION', defaultProviderId: null, searchProfile: null, maxBudgetCents: null, config: null },
   },
@@ -76,8 +87,8 @@ export const nativeSkillSeeds: SkillSeed[] = [
     visibility: 'ADMIN_ONLY',
     category: 'Media',
     icon: 'video',
-    inputSchema: null,
-    outputContract: null,
+    inputSchema: promptInput('Video prompt', 'Describe the short video, camera movement, and visual style.'),
+    outputContract: outputContract(['Video artifact', 'Storyboard notes']),
     toolRequirements: [],
     route: { id: 'skr_video_lab', mode: 'VIDEO_GENERATION', defaultProviderId: null, searchProfile: null, maxBudgetCents: null, config: null },
   },
@@ -91,8 +102,8 @@ export const nativeSkillSeeds: SkillSeed[] = [
     visibility: 'USER_VISIBLE',
     category: 'Creation',
     icon: 'file-text',
-    inputSchema: null,
-    outputContract: null,
+    inputSchema: promptInput('Artifact brief', 'Describe the reusable output you want Cogentrex to draft.'),
+    outputContract: outputContract(['Markdown artifact', 'Reusable brief']),
     toolRequirements: [],
     route: { id: 'skr_artifact_writer', mode: 'CHAT', defaultProviderId: null, searchProfile: null, maxBudgetCents: null, config: { artifacts: true } },
   },
@@ -106,8 +117,11 @@ export const nativeSkillSeeds: SkillSeed[] = [
     visibility: 'ADMIN_ONLY',
     category: 'Travel',
     icon: 'plane',
-    inputSchema: null,
-    outputContract: null,
+    inputSchema: { fields: [
+      { name: 'tripBrief', label: 'Trip brief', type: 'textarea', required: true, helpText: 'Include route, dates, passenger count, budget, and constraints.' },
+      { name: 'sourceLimit', label: 'Source limit', type: 'number', required: false },
+    ] },
+    outputContract: outputContract(['Travel research summary', 'Source links']),
     toolRequirements: [{ name: 'web.search', required: true, description: 'Find current travel results' }],
     route: { id: 'skr_flight_search', mode: 'DEEP_RESEARCH', defaultProviderId: null, searchProfile: 'travel-web', maxBudgetCents: null, config: null },
   },

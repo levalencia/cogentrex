@@ -38,6 +38,8 @@ describe('skill registry API', () => {
       expect(res.body.skill.visibility).toBe('USER_VISIBLE');
       expect(res.body.skill.route.mode).toBe('DEEP_RESEARCH');
       expect(Array.isArray(res.body.skill.toolRequirements)).toBe(true);
+      expect(res.body.skill.inputSchema.fields[0]).toMatchObject({ name: 'question', label: 'Research question', type: 'textarea', required: true });
+      expect(res.body.skill.outputContract.artifacts).toContain('Cited answer');
     });
 
     await agent.get('/api/skills/video-lab').expect(404);

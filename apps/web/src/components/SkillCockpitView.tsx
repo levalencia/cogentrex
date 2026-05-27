@@ -5,7 +5,7 @@ import type { SkillReadiness, SkillRunSummary } from '@cogentrex/shared';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { buildSkillCockpitModel } from '@/lib/skillCockpit';
-import { buildWorkflowSelectionGroups, getLauncherToneClasses, getReadinessBadgeClasses, type LauncherItem } from '@/lib/workflowLauncher';
+import { buildWorkflowSelectionGroups, getLauncherSkillSlug, getLauncherToneClasses, getReadinessBadgeClasses, type LauncherItem } from '@/lib/workflowLauncher';
 import { useAppStore } from '@/store/appStore';
 
 const readinessPills = [
@@ -52,7 +52,7 @@ function WorkflowCard({ card, compact = false, onLaunch }: { card: LauncherItem;
           <span className="opacity-70">{card.operatorNote}</span>
         </span>
       ) : null}
-      <span className="mt-4 inline-flex rounded-full border border-current/20 px-3 py-1 text-xs font-medium opacity-90">Open composer</span>
+      <span className="mt-4 inline-flex rounded-full border border-current/20 px-3 py-1 text-xs font-medium opacity-90">Open skill</span>
     </button>
   );
 }
@@ -89,7 +89,12 @@ export function SkillCockpitView() {
   const cockpit = useMemo(() => buildSkillCockpitModel(readiness, skillRuns), [readiness, skillRuns]);
   const workflowGroups = useMemo(() => buildWorkflowSelectionGroups(cockpit.cards), [cockpit.cards]);
 
-  function launchWorkflow(item: LauncherItem) {
+  function openSkill(item: LauncherItem) {
+    const skillSlug = getLauncherSkillSlug(item.id);
+    if (skillSlug) {
+      router.push(`/skills/${skillSlug}`);
+      return;
+    }
     setMode(item.mode);
     clearChat();
     router.push('/chats');
@@ -136,7 +141,7 @@ export function SkillCockpitView() {
             </div>
             <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
               {workflowGroups.primaryWorkflows.map((card) => (
-                <WorkflowCard key={card.id} card={card} onLaunch={launchWorkflow} />
+                <WorkflowCard key={card.id} card={card} onLaunch={openSkill} />
               ))}
             </div>
 
@@ -152,7 +157,7 @@ export function SkillCockpitView() {
               </div>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 {workflowGroups.outputAffordances.map((card) => (
-                  <WorkflowCard key={card.id} card={card} onLaunch={launchWorkflow} compact />
+                  <WorkflowCard key={card.id} card={card} onLaunch={openSkill} compact />
                 ))}
               </div>
             </div>
