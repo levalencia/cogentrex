@@ -1,4 +1,4 @@
-import type { AdminAnalyticsSummary, AppMode, CapabilityStatus, ImportSkillKitInput, SkillReadiness, SkillStatus, SkillSummary, SkillVisibility, UpdateSkillInput, UpdateSkillRouteInput } from '@cogentrex/shared';
+import type { AdminAnalyticsSummary, AppMode, CapabilityStatus, ImportSkillKitInput, SkillFileSummary, SkillReadiness, SkillStatus, SkillSummary, SkillVisibility, UpdateSkillInput, UpdateSkillRouteInput } from '@cogentrex/shared';
 
 export interface SkillBadge {
   label: string;
@@ -43,6 +43,25 @@ export interface AdminSkillCatalogRow {
 export interface AdminSkillDetailModel extends AdminSkillCatalogRow {
   nextAction: string;
   dependencySummaries: string[];
+}
+
+export interface AdminSkillMetric {
+  label: string;
+  value: string;
+  hint: string;
+  tone: 'accent' | 'ready' | 'warning' | 'danger' | 'neutral';
+}
+
+export interface SkillFileView {
+  id: string;
+  path: string;
+  label: string;
+  role: string;
+  byteLabel: string;
+  checksumLabel: string;
+  preview: string;
+  content: string;
+  executable: boolean;
 }
 
 const statusBadges: Record<SkillStatus, SkillBadge> = {
@@ -160,6 +179,44 @@ export function buildAdminSkillCatalog(
     .sort((left, right) => priorityRank(left) - priorityRank(right) || left.name.localeCompare(right.name));
 }
 
+export function buildAdminSkillMetrics(rows: AdminSkillCatalogRow[], analytics?: AdminAnalyticsSummary | null): AdminSkillMetric[] {
+  const total = rows.length;
+  const published = rows.filter((row) => row.skill.status === 'PUBLISHED').length;
+  const disabled = rows.filter((row) => row.skill.status === 'DISABLED').length;
+  const userVisible = rows.filter((row) => row.skill.visibility === 'USER_VISIBLE').length;
+  const readyRoutes = rows.filter((row) => row.priority === 'Ready').length;
+  const needsRouteOrSetup = rows.filter((row) => row.priority === 'Needs route' || row.priority === 'Needs setup').length;
+  const runHealth = analytics?.totals.successRate ?? 0;
+  return [
+    { label: 'Total skills', value: String(total), hint: `${published} published · ${disabled} disabled`, tone: 'accent' },
+    { label: 'User visible', value: String(userVisible), hint: 'Visible in workflow picker', tone: userVisible > 0 ? 'ready' : 'neutral' },
+    { label: 'Ready routes', value: String(readyRoutes), hint: `${needsRouteOrSetup} need route/setup`, tone: needsRouteOrSetup > 0 ? 'warning' : 'ready' },
+    {
+      label: 'Run health',
+      value: `${runHealth}%`,
+      hint: analytics ? `${analytics.totals.totalRuns} runs · ${analytics.totals.failedRuns} failed` : 'No run telemetry yet',
+      tone: runHealth >= 90 ? 'ready' : runHealth >= 70 ? 'warning' : 'danger',
+    },
+  ];
+}
+
+export function buildSkillFileViews(files: SkillFileSummary[]): SkillFileView[] {
+  return files.map((file) => {
+    const isInstructions = file.path === 'SKILL.md' || file.kind === 'skill';
+    return {
+      id: file.id,
+      path: file.path,
+      label: isInstructions ? 'Instructions' : titleCase(file.kind),
+      role: isInstructions ? 'Read-only instructions' : 'Supporting file',
+      byteLabel: formatBytes(file.sizeBytes),
+      checksumLabel: file.sha256.slice(0, 12),
+      preview: file.content.trim().slice(0, 120),
+      content: file.content,
+      executable: file.executable,
+    };
+  });
+}
+
 export function buildSkillDetailModel(
   skill: SkillSummary,
   readiness?: SkillReadiness | null,
@@ -257,6 +314,14 @@ function parseNullableConfig(value: string): Record<string, unknown> | null {
     throw new Error('Config JSON must be an object');
   }
   return parsed as Record<string, unknown>;
+}
+
+function formatBytes(sizeBytes: number): string {
+  if (sizeBytes < 1024) return `${sizeBytes} B`;
+  const kilobytes = sizeBytes / 1024;
+  if (kilobytes < 1024) return `${kilobytes.toFixed(kilobytes >= 10 ? 0 : 1)} KB`;
+  const megabytes = kilobytes / 1024;
+  return `${megabytes.toFixed(megabytes >= 10 ? 0 : 1)} MB`;
 }
 
 function titleCase(value: string): string {

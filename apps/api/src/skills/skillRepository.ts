@@ -1,6 +1,10 @@
+import { createHash } from 'node:crypto';
 import type {
   AppMode,
+  CreateSkillInput,
   SkillDetail,
+  SkillFileKind,
+  SkillFileSummary,
   SkillKind,
   SkillProviderRoute,
   SkillStatus,
@@ -11,8 +15,7 @@ import type {
   UpdateSkillRouteInput,
 } from '@cogentrex/shared';
 import type { DbAdapter } from '../db/adapter.js';
-
-export type SkillFileKind = 'skill' | 'reference' | 'template' | 'asset' | 'script';
+export type { SkillFileKind } from '@cogentrex/shared';
 
 export interface ImportedSkillFile {
   id: string;
@@ -90,6 +93,36 @@ interface SkillRow {
   route_config_json: string | null;
   route_created_at: string | null;
   route_updated_at: string | null;
+}
+
+interface SkillFileRow {
+  id: string;
+  skill_id: string;
+  path: string;
+  kind: SkillFileKind;
+  content: string;
+  content_type: string;
+  sha256: string;
+  size_bytes: number;
+  executable: number;
+  created_at: string;
+  updated_at: string;
+}
+
+function mapSkillFile(row: SkillFileRow): SkillFileSummary {
+  return {
+    id: row.id,
+    skillId: row.skill_id,
+    path: row.path,
+    kind: row.kind,
+    content: row.content,
+    contentType: row.content_type,
+    sha256: row.sha256,
+    sizeBytes: row.size_bytes,
+    executable: row.executable === 1,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
 }
 
 function parseJsonObject(value: string | null): Record<string, unknown> | null {
@@ -261,6 +294,92 @@ export class SkillRepository {
        LIMIT 1`,
     ).get(slug) as SkillRow | undefined;
     return row ? mapDetail(row) : null;
+  }
+
+  async listFilesBySkillSlug(slug: string): Promise<SkillFileSummary[] | null> {
+    const skill = await this.findBySlug(slug);
+    if (!skill) return null;
+    const rows = await this.db.prepare(
+      `SELECT * FROM skill_files
+       WHERE skill_id = ?
+       ORDER BY
+         CASE kind
+           WHEN 'skill' THEN 0
+           WHEN 'reference' THEN 1
+           WHEN 'template' THEN 2
+           WHEN 'script' THEN 3
+           WHEN 'asset' THEN 4
+           ELSE 5
+         END,
+         path ASC`,
+    ).all(skill.id) as SkillFileRow[];
+    return rows.map(mapSkillFile);
+  }
+
+  async createManualImportedSkill(input: CreateSkillInput, now = new Date().toISOString()): Promise<{ skill: SkillDetail; files: SkillFileSummary[] } | null> {
+    const existing = await this.findBySlug(input.slug);
+    if (existing) return null;
+    const skillId = `skl_imp_${input.slug.replaceAll('-', '_')}`;
+    const routeId = `skr_${input.slug.replaceAll('-', '_')}`;
+    const fileId = `skf_${skillId}_SKILL_md`;
+    const instructions = input.instructions.trim();
+    const sha256 = createHash('sha256').update(instructions).digest('hex');
+
+    await this.db.transaction(async (tx) => {
+      await tx.prepare(
+        `INSERT INTO skills (
+          id, slug, name, description, kind, status, visibility, category, icon,
+          input_schema_json, output_contract_json, tool_requirements_json, created_at, updated_at
+        ) VALUES (
+          @id, @slug, @name, @description, 'IMPORTED', 'DRAFT', 'ADMIN_ONLY', @category, @icon,
+          NULL, NULL, '[]', @createdAt, @updatedAt
+        )`,
+      ).run({
+        id: skillId,
+        slug: input.slug,
+        name: input.name,
+        description: input.description,
+        category: input.category ?? 'Imported',
+        icon: input.icon ?? 'sparkles',
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      await tx.prepare(
+        `INSERT INTO skill_routes (
+          id, skill_id, mode, default_provider_id, search_profile, max_budget_cents, config_json, created_at, updated_at
+        ) VALUES (
+          @id, @skillId, 'CHAT', NULL, NULL, NULL, @configJson, @createdAt, @updatedAt
+        )`,
+      ).run({
+        id: routeId,
+        skillId,
+        configJson: JSON.stringify({ manuallyCreated: true }),
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      await tx.prepare(
+        `INSERT INTO skill_files (
+          id, skill_id, path, kind, content, content_type, sha256, size_bytes, executable, created_at, updated_at
+        ) VALUES (
+          @id, @skillId, 'SKILL.md', 'skill', @content, 'text/markdown', @sha256, @sizeBytes, 0, @createdAt, @updatedAt
+        )`,
+      ).run({
+        id: fileId,
+        skillId,
+        content: instructions,
+        sha256,
+        sizeBytes: Buffer.byteLength(instructions, 'utf8'),
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+
+    const skill = await this.findBySlug(input.slug);
+    const files = await this.listFilesBySkillSlug(input.slug);
+    if (!skill || !files) return null;
+    return { skill, files };
   }
 
   async updateSkill(slug: string, input: UpdateSkillInput, now = new Date().toISOString()): Promise<SkillDetail | null> {

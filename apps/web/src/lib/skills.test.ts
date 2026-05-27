@@ -2,7 +2,9 @@ import type { AdminAnalyticsSummary, SkillReadiness, SkillSummary } from '@cogen
 import { describe, expect, it } from 'vitest';
 import {
   buildAdminSkillCatalog,
+  buildAdminSkillMetrics,
   buildSkillDetailModel,
+  buildSkillFileViews,
   buildSkillRoutePayload,
   buildSkillUpdatePayload,
   buildSkillKitImportPayload,
@@ -209,6 +211,68 @@ describe('admin skill helpers', () => {
       usageLabel: '12 runs · 75% success',
       dependencySummaries: ['Web search: Limited — Source fetch is unavailable.'],
     });
+  });
+
+  it('builds skill file views with SKILL.md instructions marked read-only', () => {
+    const views = buildSkillFileViews([
+      {
+        id: 'file-skill',
+        skillId: 'skill-excalidraw',
+        path: 'SKILL.md',
+        kind: 'skill',
+        content: '# Excalidraw\n\nUse references/color.md.',
+        contentType: 'text/markdown',
+        sha256: 'abc123',
+        sizeBytes: 34,
+        executable: false,
+        createdAt: '2026-05-22T00:00:00.000Z',
+        updatedAt: '2026-05-22T00:00:00.000Z',
+      },
+      {
+        id: 'file-ref',
+        skillId: 'skill-excalidraw',
+        path: 'references/color.md',
+        kind: 'reference',
+        content: '# Color',
+        contentType: 'text/markdown',
+        sha256: 'def456',
+        sizeBytes: 7,
+        executable: false,
+        createdAt: '2026-05-22T00:00:00.000Z',
+        updatedAt: '2026-05-22T00:00:00.000Z',
+      },
+    ]);
+
+    expect(views.map((view) => ({ path: view.path, label: view.label, role: view.role, byteLabel: view.byteLabel }))).toEqual([
+      { path: 'SKILL.md', label: 'Instructions', role: 'Read-only instructions', byteLabel: '34 B' },
+      { path: 'references/color.md', label: 'Reference', role: 'Supporting file', byteLabel: '7 B' },
+    ]);
+    expect(views[0]?.preview).toContain('Use references/color.md.');
+  });
+
+  it('builds admin skill metrics for top cards', () => {
+    const rows = buildAdminSkillCatalog([
+      skill({ id: 'skill-chat', slug: 'chat', name: 'Chat', status: 'PUBLISHED', visibility: 'USER_VISIBLE', route: null }),
+      skill({ id: 'skill-video', slug: 'video-lab', name: 'Video Lab', status: 'DISABLED', visibility: 'ADMIN_ONLY', route: null }),
+      skill({ id: 'skill-deep', slug: 'deep-research', name: 'Deep Research', status: 'PUBLISHED', visibility: 'USER_VISIBLE', route: {
+        id: 'route-deep',
+        skillId: 'skill-deep',
+        mode: 'DEEP_RESEARCH',
+        defaultProviderId: null,
+        searchProfile: null,
+        maxBudgetCents: null,
+        config: null,
+        createdAt: '2026-05-22T00:00:00.000Z',
+        updatedAt: '2026-05-22T00:00:00.000Z',
+      } }),
+    ], [readiness('deep-research', 'ready')], analytics());
+
+    expect(buildAdminSkillMetrics(rows, analytics()).map((metric) => ({ label: metric.label, value: metric.value, hint: metric.hint }))).toEqual([
+      { label: 'Total skills', value: '3', hint: '2 published · 1 disabled' },
+      { label: 'User visible', value: '2', hint: 'Visible in workflow picker' },
+      { label: 'Ready routes', value: '1', hint: '1 need route/setup' },
+      { label: 'Run health', value: '75%', hint: '12 runs · 3 failed' },
+    ]);
   });
 
   it('rejects route config JSON that is not an object', () => {

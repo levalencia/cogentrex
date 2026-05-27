@@ -12,6 +12,7 @@ export type AppMode = 'CHAT' | 'DEEP_RESEARCH' | 'SOCIAL_WRITING' | 'IMAGE_GENER
 export type SkillStatus = 'DRAFT' | 'STAGED' | 'PUBLISHED' | 'DISABLED';
 export type SkillVisibility = 'ADMIN_ONLY' | 'USER_VISIBLE';
 export type SkillKind = 'NATIVE' | 'IMPORTED';
+export type SkillFileKind = 'skill' | 'reference' | 'template' | 'asset' | 'script';
 
 export type WorkflowId = 'CHAT' | 'IMAGE_GENERATION' | 'VIDEO_GENERATION' | 'SOCIAL_WRITING' | 'DEEP_RESEARCH';
 export type ProviderCapabilityId = 'text' | 'streaming' | 'vision' | 'tool-calling' | 'provider-search' | 'image' | 'video';
@@ -69,6 +70,20 @@ export interface SkillDetail extends SkillSummary {
   inputSchema: Record<string, unknown> | null;
   outputContract: Record<string, unknown> | null;
   toolRequirements: SkillToolRequirement[];
+}
+
+export interface SkillFileSummary {
+  id: string;
+  skillId: string;
+  path: string;
+  kind: SkillFileKind;
+  content: string;
+  contentType: string;
+  sha256: string;
+  sizeBytes: number;
+  executable: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface SkillReadinessDependency {

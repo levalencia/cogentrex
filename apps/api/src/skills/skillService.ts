@@ -2,7 +2,7 @@ import type { SkillSeed } from './skillRepository.js';
 import { SkillRepository } from './skillRepository.js';
 import { notFound, conflict } from '../http/errors.js';
 import { importSkillKitFromGitHub } from './skillKitImporter.js';
-import type { ImportSkillKitInput, UpdateSkillInput, UpdateSkillRouteInput } from '@cogentrex/shared';
+import type { CreateSkillInput, ImportSkillKitInput, UpdateSkillInput, UpdateSkillRouteInput } from '@cogentrex/shared';
 import type { AppLogger } from '../observability/logger.js';
 
 export const nativeSkillSeeds: SkillSeed[] = [
@@ -140,6 +140,19 @@ export class SkillService {
 
   listAll() {
     return this.repository.listAll();
+  }
+
+  async listFiles(slug: string) {
+    const files = await this.repository.listFilesBySkillSlug(slug);
+    if (!files) throw notFound('Skill not found');
+    return files;
+  }
+
+  async createSkill(input: CreateSkillInput) {
+    const result = await this.repository.createManualImportedSkill(input);
+    if (!result) throw conflict('Skill slug already exists');
+    this.logger.info({ slug: result.skill.slug, fileCount: result.files.length }, 'skill_created_manually');
+    return result;
   }
 
   async updateSkill(slug: string, input: UpdateSkillInput) {
