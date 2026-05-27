@@ -692,7 +692,7 @@ export function buildRecentActivityItems(
       title: artifact.filename,
       eyebrow: 'Saved artifact',
       description: artifactProvenanceLabel(artifact, mode),
-      href: `/chats/${artifact.conversationId}`,
+      href: buildLibraryArtifactHref(artifact.id),
       timestamp: artifact.createdAt,
       mode,
     };

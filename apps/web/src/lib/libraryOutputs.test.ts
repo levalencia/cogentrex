@@ -621,6 +621,7 @@ describe('buildRecentActivityItems', () => {
       ['workflow-conv-1', 'workflow', 'Market research'],
     ]);
     expect(items[0]?.href).toBe('/chats/conv-2');
+    expect(items[1]?.href).toBe('/library?artifact=art-1');
     expect(items[1]?.description).toBe('Market research · DEEP RESEARCH');
   });
 
