@@ -10,6 +10,7 @@ import {
   buildSkillKitImportPayload,
   getAdminSkillPanelCopy,
   getSkillBadges,
+  getSkillIconGlyph,
   getSkillRouteDraft,
 } from './skills';
 
@@ -84,6 +85,14 @@ describe('admin skill helpers', () => {
       { label: 'Research', className: 'border-purple-500/30 bg-purple-500/10 text-purple-200' },
       { label: 'Route: Deep Research', className: 'border-blue-500/30 bg-blue-500/10 text-blue-200' },
     ]);
+  });
+
+  it('maps stored icon slugs to visible glyphs for catalog rows', () => {
+    expect(getSkillIconGlyph('message-circle')).toBe('💬');
+    expect(getSkillIconGlyph('search')).toBe('🔎');
+    expect(getSkillIconGlyph('  plane  ')).toBe('✈️');
+    expect(getSkillIconGlyph(null)).toBe('🧠');
+    expect(getSkillIconGlyph('🧪')).toBe('🧪');
   });
 
   it('normalizes edit form values from an existing skill route', () => {

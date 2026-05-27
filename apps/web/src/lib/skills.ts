@@ -104,6 +104,23 @@ export function formatSkillMode(mode: AppMode): string {
   return modeLabels[mode];
 }
 
+const skillIconGlyphs: Record<string, string> = {
+  'message-circle': '💬',
+  search: '🔎',
+  linkedin: 'in',
+  image: '🖼️',
+  video: '🎬',
+  'file-text': '📄',
+  plane: '✈️',
+  sparkles: '✨',
+};
+
+export function getSkillIconGlyph(icon: string | null | undefined): string {
+  const trimmed = icon?.trim();
+  if (!trimmed) return '🧠';
+  return skillIconGlyphs[trimmed] ?? trimmed;
+}
+
 export function getSkillBadges(skill: SkillSummary): SkillBadge[] {
   const badges: SkillBadge[] = [
     statusBadges[skill.status],
