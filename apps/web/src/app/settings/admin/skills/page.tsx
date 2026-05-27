@@ -16,6 +16,7 @@ import {
   buildSkillUpdatePayload,
   buildSkillKitImportPayload,
   getAdminSkillPanelCopy,
+  getSkillIconGlyph,
   getSkillRouteDraft,
   getSkillUpdateDraft,
   type AdminSkillPanelMode,
@@ -312,7 +313,7 @@ export default function AdminSkillsPage() {
           ) : (
             <div className="overflow-x-auto rounded-2xl border border-line">
               <div className="min-w-[1120px]">
-                <div className="grid grid-cols-[minmax(280px,1.6fr)_180px_260px_170px_240px] border-b border-line bg-ink/80 px-4 py-3 text-xs uppercase tracking-[0.12em] text-slate-500">
+                <div className="grid grid-cols-[minmax(280px,1.6fr)_180px_260px_170px_120px] border-b border-line bg-ink/80 px-4 py-3 text-xs uppercase tracking-[0.12em] text-slate-500">
                   <span>Skill</span>
                   <span>Lifecycle</span>
                   <span>Route readiness</span>
@@ -320,10 +321,10 @@ export default function AdminSkillsPage() {
                   <span className="text-right">Actions</span>
                 </div>
                 {catalogRows.map((row) => (
-                  <div key={row.id} className={`grid grid-cols-[minmax(280px,1.6fr)_180px_260px_170px_240px] items-center gap-3 border-b border-line/70 px-4 py-4 text-sm last:border-b-0 ${selectedSlug === row.slug && panelMode === 'detail' ? 'bg-accent/10' : 'bg-panel/30 hover:bg-white/[0.03]'}`}>
+                  <div key={row.id} className={`grid grid-cols-[minmax(280px,1.6fr)_180px_260px_170px_120px] items-center gap-3 border-b border-line/70 px-4 py-4 text-sm last:border-b-0 ${selectedSlug === row.slug && panelMode === 'detail' ? 'bg-accent/10' : 'bg-panel/30 hover:bg-white/[0.03]'}`}>
                     <div className="min-w-0">
                       <div className="flex items-center gap-3">
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-line bg-ink/70 text-xl" aria-hidden="true">{row.skill.icon ?? '🧠'}</span>
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-line bg-ink/70 text-xl" aria-hidden="true">{getSkillIconGlyph(row.skill.icon)}</span>
                         <div className="min-w-0">
                           <button type="button" onClick={() => selectSkill(row.skill)} className="block max-w-full truncate text-left font-semibold text-white hover:text-accent">{row.name}</button>
                           <p className="mt-1 truncate text-xs text-slate-500">{row.slug} · {row.description}</p>
@@ -338,10 +339,8 @@ export default function AdminSkillsPage() {
                       <p className="mt-1 truncate text-xs text-slate-500">{row.routeLabel}</p>
                     </div>
                     <p className="text-xs text-slate-400">{row.usageLabel}</p>
-                    <div className="flex justify-end gap-2">
-                      <button type="button" onClick={() => selectSkill(row.skill, 'route')} className="rounded-lg border border-line px-3 py-1.5 text-xs hover:border-accent">Configure</button>
-                      <button type="button" onClick={() => selectSkill(row.skill, 'files')} className="rounded-lg border border-line px-3 py-1.5 text-xs hover:border-accent">Files</button>
-                      <button type="button" onClick={() => selectSkill(row.skill, 'overview')} className="rounded-lg border border-line px-3 py-1.5 text-xs hover:border-accent">Manifest</button>
+                    <div className="flex justify-end">
+                      <button type="button" onClick={() => selectSkill(row.skill, 'overview')} className="rounded-lg border border-line px-3 py-1.5 text-xs hover:border-accent">Configure</button>
                     </div>
                   </div>
                 ))}
@@ -498,7 +497,7 @@ export default function AdminSkillsPage() {
                 <div className="mt-6 flex min-h-96 items-center justify-center rounded-2xl border border-dashed border-line text-center">
                   <div>
                     <p className="text-lg font-semibold text-white">Select a skill</p>
-                    <p className="mt-2 max-w-xs text-sm text-slate-500">Use Configure, Files, or Manifest from the catalog table.</p>
+                    <p className="mt-2 max-w-xs text-sm text-slate-500">Use Configure from the catalog table, then switch between Manifest, Route, and Files in the drawer.</p>
                   </div>
                 </div>
               )
