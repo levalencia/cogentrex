@@ -90,4 +90,77 @@ describe('admin QA fixtures', () => {
       .send({ targetEmail: 'reader@example.com' })
       .expect(400);
   });
+
+  it('lets a guarded QA token temporarily promote and demote an existing cogentrex.test user', async () => {
+    const token = 'test-qa-fixture-token-with-enough-length';
+    const { app } = await makeTestApp({
+      QA_FIXTURES_ENABLED: true,
+      QA_FIXTURE_ADMIN_TOKEN: token,
+    } as Partial<AppEnv>);
+    const targetAgent = request.agent(app);
+    const target = await targetAgent
+      .post('/api/auth/register')
+      .send({ email: 'qa+temporary-admin@cogentrex.test', password: 'super-secret-password' })
+      .expect(201);
+
+    await request(app)
+      .post('/api/admin/qa/temporary-admin')
+      .set('x-qa-fixture-token', token)
+      .send({ targetEmail: target.body.user.email, role: 'ADMIN' })
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.temporaryAdmin).toMatchObject({
+          targetEmail: 'qa+temporary-admin@cogentrex.test',
+          targetUserId: target.body.user.id,
+          previousRole: 'USER',
+          role: 'ADMIN',
+        });
+      });
+
+    await targetAgent.get('/api/auth/me').expect(200).expect((res) => {
+      expect(res.body.user.role).toBe('ADMIN');
+    });
+
+    await request(app)
+      .post('/api/admin/qa/temporary-admin')
+      .set('x-qa-fixture-token', token)
+      .send({ targetEmail: target.body.user.email, role: 'USER' })
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.temporaryAdmin).toMatchObject({
+          targetEmail: 'qa+temporary-admin@cogentrex.test',
+          targetUserId: target.body.user.id,
+          previousRole: 'ADMIN',
+          role: 'USER',
+        });
+      });
+
+    await targetAgent.get('/api/auth/me').expect(200).expect((res) => {
+      expect(res.body.user.role).toBe('USER');
+    });
+  });
+
+  it('keeps temporary admin promotion hidden without an explicit QA token', async () => {
+    const { app } = await makeTestApp({ QA_FIXTURES_ENABLED: true } as Partial<AppEnv>);
+
+    await request(app)
+      .post('/api/admin/qa/temporary-admin')
+      .set('x-qa-fixture-token', 'test-qa-fixture-token-with-enough-length')
+      .send({ targetEmail: 'qa+temporary-admin@cogentrex.test', role: 'ADMIN' })
+      .expect(404);
+  });
+
+  it('rejects temporary admin promotion for non-QA target emails', async () => {
+    const token = 'test-qa-fixture-token-with-enough-length';
+    const { app } = await makeTestApp({
+      QA_FIXTURES_ENABLED: true,
+      QA_FIXTURE_ADMIN_TOKEN: token,
+    } as Partial<AppEnv>);
+
+    await request(app)
+      .post('/api/admin/qa/temporary-admin')
+      .set('x-qa-fixture-token', token)
+      .send({ targetEmail: 'reader@example.com', role: 'ADMIN' })
+      .expect(400);
+  });
 });

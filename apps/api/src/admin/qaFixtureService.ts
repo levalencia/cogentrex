@@ -9,6 +9,7 @@ const FIXTURE_SKILL_SLUG = 'deep-research';
 interface UserRow {
   id: string;
   email: string;
+  role?: 'USER' | 'ADMIN';
 }
 
 export interface LibraryQaFixtureSummary {
@@ -24,8 +25,32 @@ export interface LibraryQaFixtureSummary {
   artifactFilename: string;
 }
 
+export interface TemporaryAdminQaFixtureSummary {
+  targetUserId: string;
+  targetEmail: string;
+  previousRole: 'USER' | 'ADMIN';
+  role: 'USER' | 'ADMIN';
+}
+
 export class QaFixtureService {
   constructor(private readonly db: DbAdapter) {}
+
+  async updateTemporaryAdminRole(targetEmail: string, role: 'USER' | 'ADMIN'): Promise<TemporaryAdminQaFixtureSummary | null> {
+    const normalizedEmail = targetEmail.trim().toLowerCase();
+    if (!normalizedEmail.endsWith('@cogentrex.test')) return null;
+
+    const user = await this.db.prepare('SELECT id, email, role FROM users WHERE email = ?').get(normalizedEmail) as Required<UserRow> | undefined;
+    if (!user) return null;
+
+    await this.db.prepare('UPDATE users SET role = ? WHERE id = ? AND email = ?').run(role, user.id, user.email);
+
+    return {
+      targetUserId: user.id,
+      targetEmail: user.email,
+      previousRole: user.role,
+      role,
+    };
+  }
 
   async seedLibraryClassificationFixture(targetEmail: string): Promise<LibraryQaFixtureSummary | null> {
     const normalizedEmail = targetEmail.trim().toLowerCase();
