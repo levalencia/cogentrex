@@ -37,6 +37,22 @@ describe('skill registry API', () => {
       '2026-01-01T00:00:00.000Z',
     );
 
+    await database.adapter.prepare(
+      `INSERT INTO skill_routes (
+        id, skill_id, mode, default_provider_id, search_profile, max_budget_cents, config_json, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      'skr_legacy_algorithmic_art',
+      'skl_legacy_algorithmic_art',
+      'CHAT',
+      null,
+      null,
+      null,
+      null,
+      '2026-01-01T00:00:00.000Z',
+      '2026-01-01T00:00:00.000Z',
+    );
+
     const repository = new SkillRepository(database.adapter);
     await repository.seedNative(nativeSkillSeeds.filter((seed) => seed.slug === 'algorithmic-art'), '2026-01-02T00:00:00.000Z');
 

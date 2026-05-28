@@ -262,7 +262,13 @@ export class SkillRepository {
           ) VALUES (
             @id, @skillId, @mode, @defaultProviderId, @searchProfile, @maxBudgetCents,
             @configJson, @createdAt, @updatedAt
-          ) ON CONFLICT(skill_id) DO NOTHING`,
+          ) ON CONFLICT(skill_id) DO UPDATE SET
+            mode = @mode,
+            default_provider_id = @defaultProviderId,
+            search_profile = @searchProfile,
+            max_budget_cents = @maxBudgetCents,
+            config_json = @configJson,
+            updated_at = @updatedAt`,
         ).run({
           id: seed.route.id,
           skillId,
