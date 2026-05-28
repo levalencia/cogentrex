@@ -5,15 +5,8 @@ import type { SkillReadiness, SkillRunSummary } from '@cogentrex/shared';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { buildSkillCockpitModel } from '@/lib/skillCockpit';
-import { buildWorkflowSelectionGroups, getLauncherSkillSlug, getLauncherToneClasses, getReadinessBadgeClasses, type LauncherItem } from '@/lib/workflowLauncher';
+import { buildWorkflowSelectionGroups, getLauncherToneClasses, getReadinessBadgeClasses, type LauncherItem } from '@/lib/workflowLauncher';
 import { useAppStore } from '@/store/appStore';
-
-const readinessPills = [
-  { id: 'ready', label: 'Ready' },
-  { id: 'degraded', label: 'Limited' },
-  { id: 'missing', label: 'Needs setup' },
-  { id: 'unconfigured', label: 'Unpublished' },
-] as const;
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
@@ -31,10 +24,10 @@ function WorkflowCard({ card, compact = false, onLaunch }: { card: LauncherItem;
     <button
       type="button"
       onClick={() => onLaunch(card)}
-      className={`rounded-3xl border p-4 text-left transition ${getLauncherToneClasses(card.tone, false)} hover:-translate-y-0.5`}
+      className={`rounded-2xl border p-3 text-left transition ${getLauncherToneClasses(card.tone, false)} hover:-translate-y-0.5`}
     >
       <span className="text-[10px] uppercase tracking-[0.18em] opacity-70">{card.eyebrow}</span>
-      <span className="mt-2 flex items-start justify-between gap-3 text-lg font-semibold">
+      <span className="mt-1 flex items-start justify-between gap-3 text-base font-semibold">
         {card.label}
         {card.readiness ? (
           <span className={`shrink-0 rounded-full border px-2 py-1 text-[9px] uppercase tracking-[0.12em] ${getReadinessBadgeClasses(card.readiness.status)}`}>
@@ -42,8 +35,8 @@ function WorkflowCard({ card, compact = false, onLaunch }: { card: LauncherItem;
           </span>
         ) : null}
       </span>
-      <span className="mt-2 block text-sm leading-6 opacity-75">{card.description}</span>
-      {card.readiness ? <span className="mt-3 block text-xs leading-5 opacity-70">{card.readiness.message}</span> : null}
+      <span className="mt-1 block text-sm leading-5 opacity-75">{card.description}</span>
+      {card.readiness && card.readiness.status !== 'ready' ? <span className="mt-2 block text-xs leading-4 opacity-70">{card.readiness.message}</span> : null}
       {!compact ? (
         <span className="mt-4 grid gap-2 rounded-2xl border border-current/10 bg-black/10 p-3 text-xs leading-5 opacity-80">
           <span><strong>Needs:</strong> {card.capabilitySummary.required.join(', ')}</span>
@@ -52,7 +45,7 @@ function WorkflowCard({ card, compact = false, onLaunch }: { card: LauncherItem;
           <span className="opacity-70">{card.operatorNote}</span>
         </span>
       ) : null}
-      <span className="mt-4 inline-flex rounded-full border border-current/20 px-3 py-1 text-xs font-medium opacity-90">Open skill</span>
+      <span className="mt-3 inline-flex rounded-full border border-current/20 px-3 py-1 text-xs font-medium opacity-90">Start workflow</span>
     </button>
   );
 }
@@ -89,12 +82,7 @@ export function SkillCockpitView() {
   const cockpit = useMemo(() => buildSkillCockpitModel(readiness, skillRuns), [readiness, skillRuns]);
   const workflowGroups = useMemo(() => buildWorkflowSelectionGroups(cockpit.cards), [cockpit.cards]);
 
-  function openSkill(item: LauncherItem) {
-    const skillSlug = getLauncherSkillSlug(item.id);
-    if (skillSlug) {
-      router.push(`/skills/${skillSlug}`);
-      return;
-    }
+  function openWorkflow(item: LauncherItem) {
     setMode(item.mode);
     clearChat();
     router.push('/chats');
@@ -102,13 +90,13 @@ export function SkillCockpitView() {
 
   return (
     <main className="flex h-full flex-1 flex-col overflow-hidden bg-[radial-gradient(circle_at_top_right,#16233d,#0b0f19_45%)]">
-      <header className="border-b border-line bg-panel/50 px-6 py-5 backdrop-blur">
+      <header className="border-b border-line bg-panel/50 px-6 py-4 backdrop-blur">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-accent">Skill cockpit</p>
-            <h1 className="mt-2 text-3xl font-semibold text-white">Launch and monitor focused AI workflows</h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
-              Pick a workflow, see readiness before launch, then follow real run history in the auditable runs ledger.
+            <p className="text-xs uppercase tracking-[0.24em] text-accent">Workflow cockpit</p>
+            <h1 className="mt-2 text-2xl font-semibold text-white">Choose what you want Cogentrex to do</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+              Launch user-facing workflows. Skills and provider details stay in the admin registry behind the scenes.
             </p>
           </div>
           <button
@@ -119,52 +107,44 @@ export function SkillCockpitView() {
             View all runs
           </button>
         </div>
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {readinessPills.map((pill) => (
-            <div key={pill.id} className={`rounded-2xl border px-4 py-3 ${getReadinessBadgeClasses(pill.id)}`}>
-              <p className="text-2xl font-semibold">{cockpit.readinessSummary[pill.id]}</p>
-              <p className="mt-1 text-[10px] uppercase tracking-[0.16em] opacity-80">{pill.label}</p>
-            </div>
-          ))}
-        </div>
       </header>
 
-      <section className="flex-1 overflow-y-auto px-6 py-6">
-        <div className="grid gap-6 xl:grid-cols-[1fr_22rem]">
+      <section className="flex-1 overflow-y-auto px-6 py-5">
+        <div className="grid gap-5 xl:grid-cols-[1fr_20rem]">
           <section className="space-y-4">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Workflow launcher</p>
-                <h2 className="mt-1 text-xl font-semibold text-white">Choose the smallest useful loop</h2>
+                <h2 className="mt-1 text-lg font-semibold text-white">Core workflows</h2>
               </div>
               {isLoading ? <span className="rounded-full border border-line px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-slate-500">Checking live config</span> : null}
             </div>
             <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
               {workflowGroups.primaryWorkflows.map((card) => (
-                <WorkflowCard key={card.id} card={card} onLaunch={openSkill} />
+                <WorkflowCard key={card.id} card={card} onLaunch={openWorkflow} compact />
               ))}
             </div>
 
-            <div className="rounded-3xl border border-line bg-panel/60 p-5">
+            <div className="rounded-2xl border border-line bg-panel/60 p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Output skills</p>
-                  <h3 className="mt-1 text-lg font-semibold text-white">Reusable outputs after a workflow runs</h3>
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Output helpers</p>
+                  <h3 className="mt-1 text-base font-semibold text-white">Reusable outputs after a workflow runs</h3>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-                    Diagram, brief, and artifact affordances should enhance a workflow result; they are not separate research engines in this slice.
+                    Brief and artifact helpers enhance a workflow result; they are not separate skills for users to configure here.
                   </p>
                 </div>
               </div>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 {workflowGroups.outputAffordances.map((card) => (
-                  <WorkflowCard key={card.id} card={card} onLaunch={openSkill} compact />
+                  <WorkflowCard key={card.id} card={card} onLaunch={openWorkflow} compact />
                 ))}
               </div>
             </div>
           </section>
 
           <aside className="space-y-4">
-            <section className="rounded-3xl border border-line bg-panel/70 p-5">
+            <section className="rounded-2xl border border-line bg-panel/70 p-4">
               <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Run health</p>
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <div className="rounded-2xl border border-line bg-ink/50 p-3">

@@ -23,9 +23,9 @@ export function getCockpitNavItems(role: PublicUser['role'] | undefined, pathnam
   const items: Array<Omit<CockpitNavItem, 'isActive'>> = [
     {
       id: 'skills',
-      label: 'Skills',
+      label: 'Workflows',
       href: '/skills',
-      description: 'Launch focused workflows',
+      description: 'Launch focused AI workflows',
     },
     {
       id: 'chat',

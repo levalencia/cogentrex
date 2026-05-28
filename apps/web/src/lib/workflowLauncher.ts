@@ -140,7 +140,9 @@ const launcherItems: LauncherItem[] = [
   },
 ];
 
-const launcherSkillSlugs: Record<string, string> = {
+const launcherSkillSlugs: Record<string, string> = {};
+
+const launcherReadinessSlugs: Record<string, string> = {
   'ask-chat': 'chat',
   'deep-research': 'deep-research',
   'social-writer': 'linkedin-writer',
@@ -195,7 +197,7 @@ export function getLauncherToneClasses(tone: LauncherItemTone, active: boolean):
 export function applyLauncherReadiness(items: LauncherItem[], readiness: SkillReadiness[]): LauncherItem[] {
   const readinessBySlug = new Map(readiness.map((item) => [item.skill.slug, item]));
   return items.map((item) => {
-    const skillSlug = launcherSkillSlugs[item.id];
+    const skillSlug = launcherReadinessSlugs[item.id];
     const skillReadiness = skillSlug ? readinessBySlug.get(skillSlug) : undefined;
     return {
       ...item,
@@ -256,6 +258,6 @@ function unconfiguredReadiness(): LauncherReadinessBadge {
   return {
     status: 'unconfigured',
     label: 'Not enabled',
-    message: 'This skill is not published in the registry yet.',
+    message: 'This workflow is not enabled yet.',
   };
 }
