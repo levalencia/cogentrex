@@ -166,23 +166,7 @@ function buildRegistryContexts(skills: SkillDetail[]): SkillAssistContext[] {
   });
 }
 
-export function selectSkillAssistContext(query: string, maxSkills = 3, registrySkills?: SkillDetail[], preferredSkillSlug?: string): SkillAssistSelection {
-  const registryCatalog = registrySkills && registrySkills.length > 0 ? buildRegistryContexts(registrySkills) : [];
-  const catalog = registryCatalog.length > 0 ? [...registryCatalog, ...SKILL_ASSIST_CATALOG] : SKILL_ASSIST_CATALOG;
-  const preferredContext = preferredSkillSlug ? catalog.find((context) => context.slug === preferredSkillSlug) : undefined;
-  const ranked = catalog
-    .map((context) => ({ context, score: scoreContext(context, query) }))
-    .filter((item) => item.score > 0)
-    .sort((left, right) => right.score - left.score || left.context.name.localeCompare(right.context.name));
-
-  const rankedContexts = ranked.map((item) => item.context);
-  const contexts = [
-    ...(preferredContext ? [preferredContext] : []),
-    ...(rankedContexts.length ? rankedContexts : catalog.slice(0, 1)),
-  ]
-    .filter((context, index, list) => list.findIndex((candidate) => candidate.slug === context.slug) === index)
-    .slice(0, maxSkills);
-
+function buildSkillAssistSelection(contexts: SkillAssistContext[]): SkillAssistSelection {
   const skillBlocks = contexts.map((context) => [
     `--- Skill: ${context.slug}`,
     `Name: ${context.name}`,
@@ -199,6 +183,28 @@ export function selectSkillAssistContext(query: string, maxSkills = 3, registryS
       ...skillBlocks,
     ].join('\n\n'),
   };
+}
+
+export function selectSkillAssistContext(query: string, maxSkills = 3, registrySkills?: SkillDetail[], preferredSkillSlug?: string): SkillAssistSelection {
+  const registryCatalog = registrySkills && registrySkills.length > 0 ? buildRegistryContexts(registrySkills) : [];
+  const catalog = registryCatalog.length > 0 ? [...registryCatalog, ...SKILL_ASSIST_CATALOG] : SKILL_ASSIST_CATALOG;
+  const preferredContext = preferredSkillSlug ? catalog.find((context) => context.slug === preferredSkillSlug) : undefined;
+  if (preferredContext) {
+    const contexts = [preferredContext].slice(0, maxSkills);
+    return buildSkillAssistSelection(contexts);
+  }
+
+  const ranked = catalog
+    .map((context) => ({ context, score: scoreContext(context, query) }))
+    .filter((item) => item.score > 0)
+    .sort((left, right) => right.score - left.score || left.context.name.localeCompare(right.context.name));
+
+  const rankedContexts = ranked.map((item) => item.context);
+  const contexts = (rankedContexts.length ? rankedContexts : catalog.slice(0, 1))
+    .filter((context, index, list) => list.findIndex((candidate) => candidate.slug === context.slug) === index)
+    .slice(0, maxSkills);
+
+  return buildSkillAssistSelection(contexts);
 }
 
 export function withSkillAssistSystemMessage(messages: ModelMessage[], query: string, registrySkills?: SkillDetail[], preferredSkillSlug?: string): { messages: ModelMessage[]; skillSlugs: string[] } {
