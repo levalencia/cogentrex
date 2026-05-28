@@ -59,6 +59,22 @@ const launcherItems: LauncherItem[] = [
     operatorNote: 'Chat is the general workflow surface; providers and tools stay behind routing.',
   },
   {
+    id: 'algorithmic-art',
+    label: 'Algorithmic Art',
+    eyebrow: 'Creative code',
+    description: 'Generate creative-code sketches, palettes, motion systems, and exportable art specs.',
+    mode: 'CHAT',
+    status: 'available',
+    tone: 'purple',
+    placeholder: 'Describe the generative artwork, palette, motion, medium, and constraints...',
+    capabilitySummary: {
+      required: ['Text model'],
+      optional: ['Code artifact', 'Image prompt handoff', 'Motion notes'],
+      outputs: ['Creative-code sketch', 'Prompt/spec artifact', 'Iteration plan'],
+    },
+    operatorNote: 'Algorithmic Art is a skill-assisted Chat launcher for creative-code guidance; it does not add a separate runtime engine.',
+  },
+  {
     id: 'deep-research',
     label: 'Deep Research',
     eyebrow: 'Evidence loop',
@@ -140,10 +156,13 @@ const launcherItems: LauncherItem[] = [
   },
 ];
 
-const launcherSkillSlugs: Record<string, string> = {};
+const launcherSkillSlugs: Record<string, string> = {
+  'algorithmic-art': 'algorithmic-art',
+};
 
 const launcherReadinessSlugs: Record<string, string> = {
   'ask-chat': 'chat',
+  'algorithmic-art': 'algorithmic-art',
   'deep-research': 'deep-research',
   'social-writer': 'linkedin-writer',
   'image-studio': 'image-studio',

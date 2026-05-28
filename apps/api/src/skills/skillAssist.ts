@@ -69,6 +69,18 @@ const SKILL_ASSIST_CATALOG: SkillAssistContext[] = [
     ].join('\n'),
   },
   {
+    slug: 'algorithmic-art',
+    name: 'Algorithmic Art',
+    description: 'Use when generating creative-code sketches, procedural visuals, palettes, or motion art specs.',
+    keywords: ['algorithmic art', 'generative art', 'creative code', 'p5.js', 'processing', 'canvas', 'shader', 'palette', 'motion', 'sketch', 'procedural', 'visual art'],
+    content: [
+      'Generate executable creative-code artifacts or precise implementation specs, not vague visual adjectives.',
+      'Ask for or infer the canvas size, palette, motion rules, interaction model, and export target when useful.',
+      'Keep the first version small: one coherent system, clear parameters, and a short iteration plan.',
+      'When image generation is a better endpoint, produce a clean prompt/spec handoff instead of pretending code was rendered.',
+    ].join('\n'),
+  },
+  {
     slug: 'security-and-secrets',
     name: 'Security and secrets handling',
     description: 'Use when auth, secrets, tokens, credentials, or private data are involved.',
@@ -154,17 +166,22 @@ function buildRegistryContexts(skills: SkillDetail[]): SkillAssistContext[] {
   });
 }
 
-export function selectSkillAssistContext(query: string, maxSkills = 3, registrySkills?: SkillDetail[]): SkillAssistSelection {
+export function selectSkillAssistContext(query: string, maxSkills = 3, registrySkills?: SkillDetail[], preferredSkillSlug?: string): SkillAssistSelection {
   const registryCatalog = registrySkills && registrySkills.length > 0 ? buildRegistryContexts(registrySkills) : [];
   const catalog = registryCatalog.length > 0 ? [...registryCatalog, ...SKILL_ASSIST_CATALOG] : SKILL_ASSIST_CATALOG;
+  const preferredContext = preferredSkillSlug ? catalog.find((context) => context.slug === preferredSkillSlug) : undefined;
   const ranked = catalog
     .map((context) => ({ context, score: scoreContext(context, query) }))
     .filter((item) => item.score > 0)
     .sort((left, right) => right.score - left.score || left.context.name.localeCompare(right.context.name));
 
-  const contexts = (ranked.length ? ranked : catalog.slice(0, 1).map((context) => ({ context, score: 0 })))
-    .slice(0, maxSkills)
-    .map((item) => item.context);
+  const rankedContexts = ranked.map((item) => item.context);
+  const contexts = [
+    ...(preferredContext ? [preferredContext] : []),
+    ...(rankedContexts.length ? rankedContexts : catalog.slice(0, 1)),
+  ]
+    .filter((context, index, list) => list.findIndex((candidate) => candidate.slug === context.slug) === index)
+    .slice(0, maxSkills);
 
   const skillBlocks = contexts.map((context) => [
     `--- Skill: ${context.slug}`,
@@ -184,8 +201,8 @@ export function selectSkillAssistContext(query: string, maxSkills = 3, registryS
   };
 }
 
-export function withSkillAssistSystemMessage(messages: ModelMessage[], query: string, registrySkills?: SkillDetail[]): { messages: ModelMessage[]; skillSlugs: string[] } {
-  const selection = selectSkillAssistContext(query, 3, registrySkills);
+export function withSkillAssistSystemMessage(messages: ModelMessage[], query: string, registrySkills?: SkillDetail[], preferredSkillSlug?: string): { messages: ModelMessage[]; skillSlugs: string[] } {
+  const selection = selectSkillAssistContext(query, 3, registrySkills, preferredSkillSlug);
   return {
     messages: [{ role: 'system', content: selection.systemPrompt }, ...messages],
     skillSlugs: selection.contexts.map((context) => context.slug),

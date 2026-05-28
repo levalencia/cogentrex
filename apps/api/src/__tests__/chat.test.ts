@@ -140,14 +140,21 @@ describe('chat streaming API', () => {
     expect(llm.calls[0]?.[0]?.content).toContain('--- Skill: flight-search');
     expect(llm.calls[0]?.[0]?.content).toContain('Use the registry-backed travel workflow playbook');
 
-    const conversations = await agent.get('/api/chat/conversations').expect(200);
-    const conversationId = conversations.body.conversations[0].id as string;
+    await agent
+      .post('/api/chat/stream')
+      .send({ content: 'Do it', mode: 'CHAT', useSkills: true, selectedSkillSlug: 'flight-search' })
+      .expect(200);
+
+    expect(llm.calls).toHaveLength(2);
+    expect(llm.calls[1]?.[0]).toMatchObject({ role: 'system' });
+    expect(llm.calls[1]?.[0]?.content).toContain('--- Skill: flight-search');
+    expect(llm.calls[1]?.[0]?.content).toContain('Use the registry-backed travel workflow playbook');
+
     const runs = await agent.get('/api/skills/runs').expect(200);
     expect(runs.body.runs).toContainEqual(expect.objectContaining({
       skillSlug: 'chat',
       mode: 'CHAT',
       status: 'completed',
-      conversationId,
       observability: expect.objectContaining({
         skillAssistEnabled: true,
         skillAssistSlugs: expect.arrayContaining(['flight-search']),

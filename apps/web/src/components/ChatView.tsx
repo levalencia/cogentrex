@@ -22,6 +22,7 @@ import {
   getDefaultLauncherIdForMode,
   getLauncherItems,
   getLauncherPlaceholder,
+  getLauncherSkillSlug,
   getLauncherToneClasses,
   getReadinessBadgeClasses,
   type LauncherItem,
@@ -358,7 +359,7 @@ function ResearchWorkspacePreview({
   );
 }
 
-function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, options?: { useSkills?: boolean }) => void; onGenerateSocial: (input: { topic: string; platforms: string[]; imageUrls?: string[]; useResearch?: boolean }) => void }) {
+function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, options?: { useSkills?: boolean; selectedSkillSlug?: string }) => void; onGenerateSocial: (input: { topic: string; platforms: string[]; imageUrls?: string[]; useResearch?: boolean }) => void }) {
   const mode = useAppStore((state) => state.mode);
   const providers = useAppStore((state) => state.providers);
   const isStreaming = useAppStore((state) => state.isStreaming);
@@ -374,9 +375,11 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
   const exitEditMode = useAppStore((state) => state.exitEditMode);
   const addEditingImage = useAppStore((state) => state.addEditingImage);
   const removeEditingImage = useAppStore((state) => state.removeEditingImage);
+  const storedWorkflowLauncherId = useAppStore((state) => state.selectedWorkflowLauncherId);
+  const setSelectedWorkflowLauncher = useAppStore((state) => state.setSelectedWorkflowLauncher);
 
   const [input, setInput] = useState('');
-  const [selectedLauncherId, setSelectedLauncherId] = useState(() => getDefaultLauncherIdForMode(mode));
+  const [selectedLauncherId, setSelectedLauncherId] = useState(() => storedWorkflowLauncherId ?? getDefaultLauncherIdForMode(mode));
   const [skillReadiness, setSkillReadiness] = useState<SkillReadiness[] | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -403,9 +406,11 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
   useEffect(() => {
     const selected = getLauncherItems().find((item) => item.id === selectedLauncherId);
     if (!selected || selected.mode !== mode) {
-      setSelectedLauncherId(getDefaultLauncherIdForMode(mode));
+      const defaultLauncherId = getDefaultLauncherIdForMode(mode);
+      setSelectedLauncherId(defaultLauncherId);
+      setSelectedWorkflowLauncher(defaultLauncherId);
     }
-  }, [mode, selectedLauncherId]);
+  }, [mode, selectedLauncherId, setSelectedWorkflowLauncher]);
 
   useEffect(() => {
     let cancelled = false;
@@ -520,8 +525,9 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
 
   const selectLauncherItem = useCallback((item: LauncherItem) => {
     setSelectedLauncherId(item.id);
+    setSelectedWorkflowLauncher(item.id);
     setMode(item.mode);
-  }, [setMode]);
+  }, [setMode, setSelectedWorkflowLauncher]);
 
   const submit = useCallback(async () => {
     const value = input.trim();
@@ -553,10 +559,15 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
       }
     }
 
+    const selectedSkillSlug = getLauncherSkillSlug(selectedLauncherId) ?? undefined;
+    const effectiveUseSkills = ((mode === 'CHAT' || mode === 'DEEP_RESEARCH') && useSkills) || Boolean(selectedSkillSlug);
     setInput('');
     setUploadedFiles([]);
-    onSend(fullContent, { useSkills: (mode === 'CHAT' || mode === 'DEEP_RESEARCH') && useSkills });
-  }, [input, uploadedFiles, chatImages, isStreaming, onSend, mode, useSkills]);
+    onSend(fullContent, {
+      useSkills: effectiveUseSkills,
+      ...(selectedSkillSlug ? { selectedSkillSlug } : {}),
+    });
+  }, [input, uploadedFiles, chatImages, isStreaming, onSend, mode, useSkills, selectedLauncherId]);
 
   const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {

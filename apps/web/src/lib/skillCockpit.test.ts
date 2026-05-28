@@ -17,10 +17,11 @@ describe('buildSkillCockpitModel', () => {
       ],
     );
 
-    expect(model.readinessSummary).toEqual({ ready: 1, degraded: 1, missing: 1, unconfigured: 3 });
+    expect(model.readinessSummary).toEqual({ ready: 1, degraded: 1, missing: 1, unconfigured: 4 });
     expect(model.health).toMatchObject({ totalRuns: 3, activeRuns: 1, failedRuns: 1 });
     expect(model.cards.map((card) => [card.id, card.readiness?.label])).toEqual([
       ['ask-chat', 'Ready'],
+      ['algorithmic-art', 'Not enabled'],
       ['deep-research', 'Needs setup'],
       ['social-writer', 'Limited'],
       ['image-studio', 'Not enabled'],
