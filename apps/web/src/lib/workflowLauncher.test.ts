@@ -36,9 +36,12 @@ describe('workflow launcher helpers', () => {
     ]);
   });
 
-  it('maps launcher cards to published skill slugs for detail routing', () => {
-    expect(getLauncherSkillSlug('deep-research')).toBe('deep-research');
-    expect(getLauncherSkillSlug('social-writer')).toBe('linkedin-writer');
+  it('does not treat user-facing workflow modes as skill manifests', () => {
+    expect(getLauncherSkillSlug('ask-chat')).toBeNull();
+    expect(getLauncherSkillSlug('deep-research')).toBeNull();
+    expect(getLauncherSkillSlug('social-writer')).toBeNull();
+    expect(getLauncherSkillSlug('image-studio')).toBeNull();
+    expect(getLauncherSkillSlug('video-studio')).toBeNull();
     expect(getLauncherSkillSlug('missing')).toBeNull();
   });
 
@@ -75,7 +78,7 @@ describe('workflow launcher helpers', () => {
     expect(items.find((item) => item.id === 'video-studio')?.readiness).toEqual({
       status: 'unconfigured',
       label: 'Not enabled',
-      message: 'This skill is not published in the registry yet.',
+      message: 'This workflow is not enabled yet.',
     });
   });
 

@@ -24,7 +24,6 @@ import {
   getLauncherPlaceholder,
   getLauncherToneClasses,
   getReadinessBadgeClasses,
-  summarizeLauncherReadiness,
   type LauncherItem,
 } from '@/lib/workflowLauncher';
 import { buildResearchWorkspaceCards, type ResearchWorkspaceStatus } from '@/lib/researchWorkspace';
@@ -274,32 +273,15 @@ function WorkflowLauncher({
   onSelect: (item: LauncherItem) => void;
 }) {
   const workflows = skillReadiness ? applyLauncherReadiness(getLauncherItems(), skillReadiness) : getLauncherItems();
-  const readinessSummary = skillReadiness ? summarizeLauncherReadiness(workflows) : null;
-  const readinessPills = readinessSummary ? [
-    { id: 'ready', label: 'Ready', count: readinessSummary.ready },
-    { id: 'degraded', label: 'Limited', count: readinessSummary.degraded },
-    { id: 'missing', label: 'Needs setup', count: readinessSummary.missing },
-    { id: 'unconfigured', label: 'Unpublished', count: readinessSummary.unconfigured },
-  ] as const : [];
+  const selectedWorkflow = workflows.find((workflow) => selectedLauncherId === workflow.id || (selectedLauncherId === '' && mode === workflow.mode));
 
   return (
-    <section className="rounded-2xl border border-line bg-ink/40 p-2">
-      <div className="mb-2 flex flex-wrap items-start justify-between gap-3 px-1">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.22em] text-accent">Skill cockpit</p>
-          <p className="text-xs text-slate-500">Pick a focused workflow. Readiness is checked from live backend capability config.</p>
-        </div>
-        <div className="flex flex-wrap justify-end gap-1.5">
-          {readinessSummary ? readinessPills.map((pill) => (
-            <span key={pill.id} className={`rounded-full border px-2 py-1 text-[10px] uppercase tracking-[0.14em] ${getReadinessBadgeClasses(pill.id)}`}>
-              {pill.count} {pill.label}
-            </span>
-          )) : (
-            <span className="rounded-full border border-line px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-500">Checking readiness</span>
-          )}
-        </div>
+    <section className="rounded-2xl border border-line bg-ink/35 p-2">
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-2 px-1">
+        <p className="text-[10px] uppercase tracking-[0.22em] text-accent">Workflow</p>
+        {selectedWorkflow ? <p className="text-[11px] text-slate-500">{selectedWorkflow.description}</p> : null}
       </div>
-      <div className="grid w-full gap-2 md:grid-cols-2 xl:grid-cols-3">
+      <div className="flex w-full gap-1.5 overflow-x-auto pb-0.5">
         {workflows.map((workflow) => {
           const active = selectedLauncherId === workflow.id || (selectedLauncherId === '' && mode === workflow.mode);
           return (
@@ -307,25 +289,14 @@ function WorkflowLauncher({
               key={workflow.id}
               type="button"
               onClick={() => onSelect(workflow)}
-              className={`rounded-2xl border px-3 py-2 text-left transition ${getLauncherToneClasses(workflow.tone, active)}`}
+              className={`flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-left text-xs transition ${getLauncherToneClasses(workflow.tone, active)}`}
             >
-              <span className="block text-[10px] uppercase tracking-[0.18em] opacity-70">{workflow.eyebrow}</span>
-              <span className="mt-1 flex items-center justify-between gap-2 text-sm font-semibold">
-                {workflow.label}
-                <span className="flex shrink-0 items-center gap-1">
-                  {workflow.readiness ? (
-                    <span className={`rounded-full border px-1.5 py-0.5 text-[9px] uppercase tracking-[0.12em] ${getReadinessBadgeClasses(workflow.readiness.status)}`}>
-                      {workflow.readiness.label}
-                    </span>
-                  ) : null}
-                  {workflow.status === 'near_existing' ? (
-                    <span className="rounded-full border border-current/20 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.12em] opacity-75">Soon</span>
-                  ) : null}
-                </span>
-              </span>
-              <span className="mt-1 block text-xs leading-5 opacity-75">{workflow.description}</span>
+              <span className="font-semibold">{workflow.label}</span>
               {workflow.readiness ? (
-                <span className="mt-2 block text-[11px] leading-4 opacity-70">{workflow.readiness.message}</span>
+                <span className={`h-2 w-2 rounded-full border ${getReadinessBadgeClasses(workflow.readiness.status)}`} title={workflow.readiness.label} />
+              ) : null}
+              {workflow.status === 'near_existing' ? (
+                <span className="rounded-full border border-current/20 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.12em] opacity-75">Soon</span>
               ) : null}
             </button>
           );
