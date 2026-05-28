@@ -74,6 +74,19 @@ describe('skill assist prompt selection', () => {
     expect(selection.systemPrompt).toContain('Generate executable creative-code artifacts');
   });
 
+  it('uses an explicit selected skill slug instead of adding auto-selected skills', () => {
+    const selection = selectSkillAssistContext(
+      'Fix Azure Container Apps deployment with TypeScript tests',
+      3,
+      undefined,
+      'algorithmic-art',
+    );
+
+    expect(selection.contexts.map((context) => context.slug)).toEqual(['algorithmic-art']);
+    expect(selection.systemPrompt).toContain('--- Skill: algorithmic-art');
+    expect(selection.systemPrompt).not.toContain('--- Skill: azure-container-apps');
+  });
+
   it('builds Skill Assist prompts from visible registry skill metadata when provided', () => {
     const selection = selectSkillAssistContext('Necesito TypeScript tests y pantallazos', 3, registrySkills);
 
