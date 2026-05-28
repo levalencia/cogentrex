@@ -16,6 +16,7 @@ describe('workflow launcher helpers', () => {
 
     expect(items.map((item) => item.id)).toEqual([
       'ask-chat',
+      'algorithmic-art',
       'deep-research',
       'social-writer',
       'image-studio',
@@ -29,6 +30,7 @@ describe('workflow launcher helpers', () => {
   it('maps primary launcher items to app modes without inventing new routes', () => {
     expect(getPrimaryLauncherItems().map((item) => [item.id, item.mode])).toEqual([
       ['ask-chat', 'CHAT'],
+      ['algorithmic-art', 'CHAT'],
       ['deep-research', 'DEEP_RESEARCH'],
       ['social-writer', 'SOCIAL_WRITING'],
       ['image-studio', 'IMAGE_GENERATION'],
@@ -38,6 +40,7 @@ describe('workflow launcher helpers', () => {
 
   it('does not treat user-facing workflow modes as skill manifests', () => {
     expect(getLauncherSkillSlug('ask-chat')).toBeNull();
+    expect(getLauncherSkillSlug('algorithmic-art')).toBe('algorithmic-art');
     expect(getLauncherSkillSlug('deep-research')).toBeNull();
     expect(getLauncherSkillSlug('social-writer')).toBeNull();
     expect(getLauncherSkillSlug('image-studio')).toBeNull();
@@ -47,6 +50,7 @@ describe('workflow launcher helpers', () => {
 
   it('returns mode-aware composer placeholder copy', () => {
     expect(getLauncherPlaceholder('deep-research')).toBe('What should Cogentrex research with sources?');
+    expect(getLauncherPlaceholder('algorithmic-art')).toBe('Describe the generative artwork, palette, motion, medium, and constraints...');
     expect(getLauncherPlaceholder('artifact-brief')).toBe('What brief, memo, or artifact should Cogentrex draft?');
     expect(getLauncherPlaceholder('missing')).toBe('Ask Cogentrex... (Press Enter to send)');
   });
@@ -54,6 +58,7 @@ describe('workflow launcher helpers', () => {
   it('overlays backend skill readiness onto launcher cards with user-safe setup copy', () => {
     const readiness: SkillReadiness[] = [
       skillReadiness('chat', 'ready'),
+      skillReadiness('algorithmic-art', 'ready'),
       skillReadiness('deep-research', 'missing', 'Configure BRAVE_SEARCH_API_KEY to enable web search.'),
       skillReadiness('image-studio', 'degraded', 'Optional provider capability vision is not configured.', 'provider', 'vision', 'Vision'),
     ];
@@ -61,6 +66,11 @@ describe('workflow launcher helpers', () => {
     const items = applyLauncherReadiness(getLauncherItems(), readiness);
 
     expect(items.find((item) => item.id === 'ask-chat')?.readiness).toEqual({
+      status: 'ready',
+      label: 'Ready',
+      message: 'Ready to launch.',
+    });
+    expect(items.find((item) => item.id === 'algorithmic-art')?.readiness).toEqual({
       status: 'ready',
       label: 'Ready',
       message: 'Ready to launch.',
@@ -93,6 +103,7 @@ describe('workflow launcher helpers', () => {
 
     expect(groups.primaryWorkflows.map((item) => item.id)).toEqual([
       'ask-chat',
+      'algorithmic-art',
       'deep-research',
       'social-writer',
       'image-studio',
@@ -120,7 +131,7 @@ describe('workflow launcher helpers', () => {
       ready: 1,
       degraded: 1,
       missing: 1,
-      unconfigured: 3,
+      unconfigured: 4,
     });
   });
 });

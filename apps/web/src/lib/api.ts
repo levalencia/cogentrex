@@ -152,6 +152,7 @@ export async function streamMessage(input: {
   providerId?: string;
   conversationId?: string;
   useSkills?: boolean;
+  selectedSkillSlug?: string;
   onEvent: (event: StreamEvent) => void;
 }): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {

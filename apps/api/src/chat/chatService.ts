@@ -79,6 +79,7 @@ export class ChatService {
     conversationId?: string;
     providerId?: string;
     useSkills?: boolean;
+    selectedSkillSlug?: string;
     emit: StreamSink;
   }): Promise<{ conversationId: string; content: string }> {
     const startedAt = performance.now();
@@ -121,7 +122,7 @@ export class ChatService {
           return undefined;
         })
       : undefined;
-    const assisted = input.useSkills ? withSkillAssistSystemMessage(baseModelMessages, input.content, registrySkills) : null;
+    const assisted = input.useSkills ? withSkillAssistSystemMessage(baseModelMessages, input.content, registrySkills, input.selectedSkillSlug) : null;
     const modelMessages = assisted?.messages ?? baseModelMessages;
     this.logger.debug({
       conversationId: conversation.id,

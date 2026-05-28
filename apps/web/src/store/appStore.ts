@@ -33,6 +33,7 @@ interface AppState {
   activeConversationId: string | undefined;
   activeProviderId: string | undefined;
   mode: AppMode;
+  selectedWorkflowLauncherId: string | undefined;
   reasoning: ReasoningItem[];
   sources: ResearchSource[];
   searchIterations: SearchIteration[];
@@ -58,11 +59,12 @@ interface AppState {
   loadArtifacts: (conversationId: string) => Promise<void>;
   saveMessageAsArtifact: (messageId: string) => Promise<void>;
   createProvider: (input: { name: string; baseUrl: string; apiKey: string; model: string; kind: ProviderConfigView['kind']; isDefault: boolean; defaultForMode?: 'CHAT' | 'DEEP_RESEARCH'; supportsStreaming?: boolean; supportsVision?: boolean; supportsTools?: boolean; supportsSearch?: boolean; supportsImage?: boolean; supportsVideo?: boolean }) => Promise<void>;
-  send: (content: string, options?: { useSkills?: boolean }) => Promise<void>;
+  send: (content: string, options?: { useSkills?: boolean; selectedSkillSlug?: string }) => Promise<void>;
   generateSocialPosts: (input: { topic: string; platforms: string[]; imageUrls?: string[] | undefined; useResearch?: boolean | undefined; researchSources?: number | undefined }) => Promise<void>;
   startResearch: (plan: string[]) => Promise<void>;
   cancelPlan: () => void;
   setMode: (mode: AppMode) => void;
+  setSelectedWorkflowLauncher: (id: string | undefined) => void;
   setActiveProvider: (id: string) => void;
   setImageOptions: (options: ImageGenerationOptions) => void;
   enterEditMode: (filenames: string[]) => void;
@@ -100,6 +102,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   activeConversationId: undefined,
   activeProviderId: undefined,
   mode: 'CHAT',
+  selectedWorkflowLauncherId: undefined,
   reasoning: [],
   sources: [],
   searchIterations: [],
@@ -443,6 +446,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         ...(state.activeProviderId ? { providerId: state.activeProviderId } : {}),
         ...(state.activeConversationId ? { conversationId: state.activeConversationId } : {}),
         ...(options.useSkills ? { useSkills: true } : {}),
+        ...(options.selectedSkillSlug ? { selectedSkillSlug: options.selectedSkillSlug } : {}),
         onEvent: handleEvent,
       });
       const { conversations } = await api.listConversations();
@@ -669,6 +673,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   setMode(mode) {
     set({ mode });
+  },
+  setSelectedWorkflowLauncher(id) {
+    set({ selectedWorkflowLauncherId: id });
   },
   setActiveProvider(id) {
     set({ activeProviderId: id });

@@ -54,6 +54,7 @@ export function SkillCockpitView() {
   const router = useRouter();
   const clearChat = useAppStore((state) => state.clearChat);
   const setMode = useAppStore((state) => state.setMode);
+  const setSelectedWorkflowLauncher = useAppStore((state) => state.setSelectedWorkflowLauncher);
   const [readiness, setReadiness] = useState<SkillReadiness[] | null>(null);
   const [skillRuns, setSkillRuns] = useState<SkillRunSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -84,6 +85,7 @@ export function SkillCockpitView() {
 
   function openWorkflow(item: LauncherItem) {
     setMode(item.mode);
+    setSelectedWorkflowLauncher(item.id);
     clearChat();
     router.push('/chats');
   }

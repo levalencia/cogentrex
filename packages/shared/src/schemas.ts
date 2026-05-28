@@ -51,6 +51,7 @@ export const sendMessageSchema = z.object({
   content: z.string().trim().min(1).max(20000),
   mode: z.enum(['CHAT', 'DEEP_RESEARCH']).default('CHAT'),
   useSkills: z.boolean().default(false),
+  selectedSkillSlug: z.string().trim().min(1).max(120).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).optional(),
 });
 
 export const workflowIdSchema = z.enum([

@@ -66,6 +66,14 @@ describe('skill assist prompt selection', () => {
     expect(result.messages[1]).toBe(baseMessages[0]);
   });
 
+  it('selects the algorithmic art guidance for generative artwork prompts', () => {
+    const selection = selectSkillAssistContext('Create algorithmic art with p5.js, motion, palette constraints, and exportable code');
+
+    expect(selection.contexts.map((context) => context.slug)).toContain('algorithmic-art');
+    expect(selection.systemPrompt).toContain('--- Skill: algorithmic-art');
+    expect(selection.systemPrompt).toContain('Generate executable creative-code artifacts');
+  });
+
   it('builds Skill Assist prompts from visible registry skill metadata when provided', () => {
     const selection = selectSkillAssistContext('Necesito TypeScript tests y pantallazos', 3, registrySkills);
 

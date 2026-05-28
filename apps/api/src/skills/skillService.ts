@@ -63,6 +63,36 @@ export const nativeSkillSeeds: SkillSeed[] = [
     route: { id: 'skr_linkedin_writer', mode: 'SOCIAL_WRITING', defaultProviderId: null, searchProfile: null, maxBudgetCents: null, config: null },
   },
   {
+    id: 'skl_algorithmic_art',
+    slug: 'algorithmic-art',
+    name: 'Algorithmic Art',
+    description: 'Skill-assisted creative-code workflow for generative art, palettes, motion, and exportable sketches.',
+    kind: 'NATIVE',
+    status: 'PUBLISHED',
+    visibility: 'USER_VISIBLE',
+    category: 'Creative',
+    icon: 'sparkles',
+    inputSchema: promptInput('Artwork brief', 'Describe the generative artwork, palette, motion, medium, and constraints.'),
+    outputContract: outputContract(['Creative-code sketch', 'Prompt/spec artifact', 'Iteration plan']),
+    toolRequirements: [],
+    route: {
+      id: 'skr_algorithmic_art',
+      mode: 'CHAT',
+      defaultProviderId: null,
+      searchProfile: null,
+      maxBudgetCents: null,
+      config: {
+        skillAssist: {
+          keywords: ['algorithmic art', 'generative art', 'creative code', 'p5.js', 'processing', 'canvas', 'shader', 'palette', 'motion'],
+          instructions: [
+            'Generate executable creative-code artifacts or precise implementation specs, not vague visual adjectives.',
+            'Keep the first version small: one coherent system, clear parameters, and a short iteration plan.',
+          ],
+        },
+      },
+    },
+  },
+  {
     id: 'skl_image_studio',
     slug: 'image-studio',
     name: 'Image Studio',
