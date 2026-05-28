@@ -200,22 +200,7 @@ export class SkillRepository {
   async seedNative(seeds: SkillSeed[], now = new Date().toISOString()): Promise<void> {
     await this.db.transaction(async (tx) => {
       for (const seed of seeds) {
-        await tx.prepare(
-          `INSERT INTO skills (
-            id, slug, name, description, kind, status, visibility, category, icon,
-            input_schema_json, output_contract_json, tool_requirements_json, created_at, updated_at
-          ) VALUES (
-            @id, @slug, @name, @description, @kind, @status, @visibility, @category, @icon,
-            @inputSchemaJson, @outputContractJson, @toolRequirementsJson, @createdAt, @updatedAt
-          ) ON CONFLICT(id) DO UPDATE SET
-            slug = excluded.slug,
-            name = CASE WHEN skills.kind = 'NATIVE' THEN excluded.name ELSE skills.name END,
-            description = CASE WHEN skills.kind = 'NATIVE' THEN excluded.description ELSE skills.description END,
-            input_schema_json = CASE WHEN skills.kind = 'NATIVE' THEN excluded.input_schema_json ELSE skills.input_schema_json END,
-            output_contract_json = CASE WHEN skills.kind = 'NATIVE' THEN excluded.output_contract_json ELSE skills.output_contract_json END,
-            tool_requirements_json = CASE WHEN skills.kind = 'NATIVE' THEN excluded.tool_requirements_json ELSE skills.tool_requirements_json END,
-            updated_at = skills.updated_at`,
-        ).run({
+        const skillParams = {
           id: seed.id,
           slug: seed.slug,
           name: seed.name,
@@ -230,7 +215,45 @@ export class SkillRepository {
           toolRequirementsJson: JSON.stringify(seed.toolRequirements),
           createdAt: now,
           updatedAt: now,
-        });
+        };
+
+        const existingSkill = await tx.prepare(
+          `SELECT id FROM skills
+           WHERE slug = ? OR id = ?
+           ORDER BY CASE WHEN slug = ? THEN 0 ELSE 1 END
+           LIMIT 1`,
+        ).get(seed.slug, seed.id, seed.slug) as { id: string } | undefined;
+
+        if (existingSkill) {
+          await tx.prepare(
+            `UPDATE skills SET
+              slug = @slug,
+              name = @name,
+              description = @description,
+              kind = @kind,
+              status = @status,
+              visibility = @visibility,
+              category = @category,
+              icon = @icon,
+              input_schema_json = @inputSchemaJson,
+              output_contract_json = @outputContractJson,
+              tool_requirements_json = @toolRequirementsJson,
+              updated_at = @updatedAt
+             WHERE id = @existingId`,
+          ).run({ ...skillParams, existingId: existingSkill.id });
+        } else {
+          await tx.prepare(
+            `INSERT INTO skills (
+              id, slug, name, description, kind, status, visibility, category, icon,
+              input_schema_json, output_contract_json, tool_requirements_json, created_at, updated_at
+            ) VALUES (
+              @id, @slug, @name, @description, @kind, @status, @visibility, @category, @icon,
+              @inputSchemaJson, @outputContractJson, @toolRequirementsJson, @createdAt, @updatedAt
+            )`,
+          ).run(skillParams);
+        }
+
+        const skillId = existingSkill?.id ?? seed.id;
 
         await tx.prepare(
           `INSERT INTO skill_routes (
@@ -242,7 +265,7 @@ export class SkillRepository {
           ) ON CONFLICT(skill_id) DO NOTHING`,
         ).run({
           id: seed.route.id,
-          skillId: seed.id,
+          skillId,
           mode: seed.route.mode,
           defaultProviderId: seed.route.defaultProviderId,
           searchProfile: seed.route.searchProfile,

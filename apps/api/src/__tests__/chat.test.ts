@@ -95,6 +95,54 @@ describe('chat streaming API', () => {
     database.close();
   });
 
+  it('honors explicit Skill Assist selection over prompt keyword scoring', async () => {
+    class CapturingLanguageModelClient implements LanguageModelClient {
+      calls: ModelMessage[][] = [];
+
+      async *streamChat(_provider: ProviderRuntimeConfig, messages: ModelMessage[]): AsyncIterable<string> {
+        this.calls.push(messages);
+        yield 'Assisted response';
+      }
+
+      async complete(): Promise<string> {
+        return 'Generated title';
+      }
+    }
+
+    const llm = new CapturingLanguageModelClient();
+    const { agent, database } = await makeTestApp({}, { llm });
+    await registerAndLogin(agent);
+    await createProvider(agent);
+
+    await agent
+      .post('/api/chat/stream')
+      .send({
+        content: 'Debug an Azure Container Apps deployment, but use the Algorithmic Art launcher context.',
+        mode: 'CHAT',
+        useSkills: true,
+        selectedSkillSlug: 'algorithmic-art',
+      })
+      .expect(200);
+
+    expect(llm.calls).toHaveLength(1);
+    expect(llm.calls[0]?.[0]).toMatchObject({ role: 'system' });
+    expect(llm.calls[0]?.[0]?.content).toContain('--- Skill: algorithmic-art');
+    expect(llm.calls[0]?.[0]?.content).not.toContain('--- Skill: azure-container-apps');
+
+    const runs = await agent.get('/api/skills/runs').expect(200);
+    expect(runs.body.runs[0]).toEqual(expect.objectContaining({
+      skillSlug: 'chat',
+      mode: 'CHAT',
+      status: 'completed',
+      observability: expect.objectContaining({
+        skillAssistEnabled: true,
+        skillAssistSlugs: ['algorithmic-art'],
+      }),
+    }));
+
+    database.close();
+  });
+
   it('passes Skill Assist selection into the provider prompt and records run observability', async () => {
     class CapturingLanguageModelClient implements LanguageModelClient {
       calls: ModelMessage[][] = [];

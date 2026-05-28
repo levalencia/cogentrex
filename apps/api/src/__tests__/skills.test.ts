@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { setSkillKitImportFetchForTests } from '../skills/skillKitImporter.js';
+import { SkillRepository } from '../skills/skillRepository.js';
+import { nativeSkillSeeds } from '../skills/skillService.js';
 import { makeTestApp, registerAndLogin } from './testApp.js';
 
 async function registerAdmin(agent: Awaited<ReturnType<typeof makeTestApp>>['agent'], database: Awaited<ReturnType<typeof makeTestApp>>['database']) {
@@ -9,6 +11,55 @@ async function registerAdmin(agent: Awaited<ReturnType<typeof makeTestApp>>['age
 }
 
 describe('skill registry API', () => {
+  it('seeds native skills idempotently when a slug already exists with a legacy id', async () => {
+    const { database } = await makeTestApp();
+    await database.adapter.prepare('DELETE FROM skill_routes WHERE skill_id = ?').run('skl_algorithmic_art');
+    await database.adapter.prepare('DELETE FROM skills WHERE id = ?').run('skl_algorithmic_art');
+    await database.adapter.prepare(
+      `INSERT INTO skills (
+        id, slug, name, description, kind, status, visibility, category, icon,
+        input_schema_json, output_contract_json, tool_requirements_json, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      'skl_legacy_algorithmic_art',
+      'algorithmic-art',
+      'Legacy Algorithmic Art',
+      'Existing row from an earlier DEV seed/import.',
+      'IMPORTED',
+      'PUBLISHED',
+      'USER_VISIBLE',
+      'Creative',
+      'sparkles',
+      null,
+      null,
+      '[]',
+      '2026-01-01T00:00:00.000Z',
+      '2026-01-01T00:00:00.000Z',
+    );
+
+    const repository = new SkillRepository(database.adapter);
+    await repository.seedNative(nativeSkillSeeds.filter((seed) => seed.slug === 'algorithmic-art'), '2026-01-02T00:00:00.000Z');
+
+    const skill = await repository.findBySlug('algorithmic-art');
+    expect(skill).toMatchObject({
+      id: 'skl_legacy_algorithmic_art',
+      slug: 'algorithmic-art',
+      kind: 'NATIVE',
+      name: 'Algorithmic Art',
+    });
+    expect(skill?.route).toMatchObject({
+      skillId: 'skl_legacy_algorithmic_art',
+      mode: 'CHAT',
+    });
+    expect(skill?.route?.config).toMatchObject({
+      skillAssist: expect.objectContaining({
+        keywords: expect.arrayContaining(['algorithmic art']),
+      }),
+    });
+
+    database.close();
+  });
+
   it('lists only published user-visible native skills for authenticated users', async () => {
     const { agent, database } = await makeTestApp();
     await registerAndLogin(agent);
