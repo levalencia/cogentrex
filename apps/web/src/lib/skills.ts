@@ -17,6 +17,7 @@ export interface SkillRouteDraft {
   defaultProviderId: string;
   searchProfile: string;
   maxBudgetCents: string;
+  supportedModes: AppMode[];
   configJson: string;
 }
 
@@ -134,9 +135,21 @@ export function getSkillBadges(skill: SkillSummary): SkillBadge[] {
 
   if (skill.route) {
     badges.push({ label: `Route: ${formatSkillMode(skill.route.mode)}`, className: 'border-blue-500/30 bg-blue-500/10 text-blue-200' });
+    const supportedModes = getSkillSupportedModes(skill);
+    if (supportedModes.length > 1) {
+      badges.push({ label: `Supports: ${supportedModes.map(formatSkillMode).join(' + ')}`, className: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' });
+    }
   }
 
   return badges;
+}
+
+export function getSkillSupportedModes(skill: SkillSummary): AppMode[] {
+  if (!skill.route) return [];
+  const configured = skill.route.config && typeof skill.route.config === 'object'
+    ? (skill.route.config as Record<string, unknown>).supportedModes
+    : undefined;
+  return normalizeSupportedModes(configured, skill.route.mode);
 }
 
 export function getSkillUpdateDraft(skill: SkillSummary): SkillUpdateDraft {
@@ -149,13 +162,15 @@ export function getSkillUpdateDraft(skill: SkillSummary): SkillUpdateDraft {
 }
 
 export function getSkillRouteDraft(skill: SkillSummary): SkillRouteDraft {
+  const mode = skill.route?.mode ?? 'CHAT';
   return {
-    mode: skill.route?.mode ?? 'CHAT',
+    mode,
     defaultProviderId: skill.route?.defaultProviderId ?? '',
     searchProfile: skill.route?.searchProfile ?? '',
     maxBudgetCents: skill.route?.maxBudgetCents === null || skill.route?.maxBudgetCents === undefined
       ? ''
       : String(skill.route.maxBudgetCents),
+    supportedModes: skill.route ? getSkillSupportedModes(skill) : [mode],
     configJson: skill.route?.config ? JSON.stringify(skill.route.config, null, 2) : '',
   };
 }
@@ -170,12 +185,14 @@ export function buildSkillUpdatePayload(draft: SkillUpdateDraft): UpdateSkillInp
 }
 
 export function buildSkillRoutePayload(draft: SkillRouteDraft): UpdateSkillRouteInput {
+  const config = parseNullableConfig(draft.configJson) ?? {};
+  const supportedModes = normalizeSupportedModes(draft.supportedModes, draft.mode);
   return {
     mode: draft.mode,
     defaultProviderId: nullableTrim(draft.defaultProviderId),
     searchProfile: nullableTrim(draft.searchProfile),
     maxBudgetCents: parseNullableCents(draft.maxBudgetCents),
-    config: parseNullableConfig(draft.configJson),
+    config: { ...config, supportedModes },
   };
 }
 
@@ -361,6 +378,18 @@ function parseNullableConfig(value: string): Record<string, unknown> | null {
     throw new Error('Config JSON must be an object');
   }
   return parsed as Record<string, unknown>;
+}
+
+function normalizeSupportedModes(value: unknown, primaryMode: AppMode): AppMode[] {
+  const modes = Array.isArray(value) ? value : [];
+  const validModes = new Set(appModeOptions.map((option) => option.value));
+  const unique = new Set<AppMode>([primaryMode]);
+  for (const mode of modes) {
+    if (typeof mode === 'string' && validModes.has(mode as AppMode)) {
+      unique.add(mode as AppMode);
+    }
+  }
+  return Array.from(unique);
 }
 
 function formatBytes(sizeBytes: number): string {

@@ -23,8 +23,10 @@ import {
   getLauncherItems,
   getLauncherPlaceholder,
   getLauncherSkillSlug,
+  getSkillAssistPickerOptions,
   getLauncherToneClasses,
   getReadinessBadgeClasses,
+  mergeSkillAssistSlugs,
   type LauncherItem,
 } from '@/lib/workflowLauncher';
 import { buildResearchWorkspaceCards, type ResearchWorkspaceStatus } from '@/lib/researchWorkspace';
@@ -359,7 +361,7 @@ function ResearchWorkspacePreview({
   );
 }
 
-function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, options?: { useSkills?: boolean; selectedSkillSlug?: string }) => void; onGenerateSocial: (input: { topic: string; platforms: string[]; imageUrls?: string[]; useResearch?: boolean }) => void }) {
+function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, options?: { useSkills?: boolean; selectedSkillSlug?: string; selectedSkillSlugs?: string[] }) => void; onGenerateSocial: (input: { topic: string; platforms: string[]; imageUrls?: string[]; useResearch?: boolean }) => void }) {
   const mode = useAppStore((state) => state.mode);
   const providers = useAppStore((state) => state.providers);
   const isStreaming = useAppStore((state) => state.isStreaming);
@@ -394,6 +396,7 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
   const [useResearch, setUseResearch] = useState(false);
   const [researchSources, setResearchSources] = useState(5);
   const [useSkills, setUseSkills] = useState(false);
+  const [selectedSkillSlugs, setSelectedSkillSlugs] = useState<string[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageUploadRef = useRef<HTMLInputElement>(null);
@@ -529,6 +532,10 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
     setMode(item.mode);
   }, [setMode, setSelectedWorkflowLauncher]);
 
+  const toggleSkillAssistSlug = useCallback((slug: string) => {
+    setSelectedSkillSlugs((current) => current.includes(slug) ? current.filter((item) => item !== slug) : [...current, slug]);
+  }, []);
+
   const submit = useCallback(async () => {
     const value = input.trim();
     if ((!value && uploadedFiles.length === 0 && chatImages.length === 0) || isStreaming) return;
@@ -559,15 +566,16 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
       }
     }
 
-    const selectedSkillSlug = getLauncherSkillSlug(selectedLauncherId) ?? undefined;
-    const effectiveUseSkills = ((mode === 'CHAT' || mode === 'DEEP_RESEARCH') && useSkills) || Boolean(selectedSkillSlug);
+    const launcherSkillSlug = getLauncherSkillSlug(selectedLauncherId);
+    const effectiveSkillSlugs = mergeSkillAssistSlugs(launcherSkillSlug, selectedSkillSlugs).slice(0, 6);
+    const effectiveUseSkills = ((mode === 'CHAT' || mode === 'DEEP_RESEARCH') && useSkills) || effectiveSkillSlugs.length > 0;
     setInput('');
     setUploadedFiles([]);
     onSend(fullContent, {
       useSkills: effectiveUseSkills,
-      ...(selectedSkillSlug ? { selectedSkillSlug } : {}),
+      ...(effectiveSkillSlugs.length ? { selectedSkillSlugs: effectiveSkillSlugs } : {}),
     });
-  }, [input, uploadedFiles, chatImages, isStreaming, onSend, mode, useSkills, selectedLauncherId]);
+  }, [input, uploadedFiles, chatImages, isStreaming, onSend, mode, useSkills, selectedLauncherId, selectedSkillSlugs]);
 
   const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -619,6 +627,9 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
     }
     onGenerateSocial(payload);
   }, [input, isStreaming, selectedPlatforms, socialImages, useResearch, researchSources, onGenerateSocial]);
+
+  const skillAssistOptions = getSkillAssistPickerOptions(mode);
+  const selectedLauncherSkillSlug = getLauncherSkillSlug(selectedLauncherId);
 
   return (
     <div className="shrink-0 border-t border-line bg-ink/90 p-4 backdrop-blur">
@@ -855,6 +866,25 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
                       Skill Assist
                     </label>
                   ) : null}
+                  {skillAssistOptions.length ? (
+                    <div className="flex max-w-3xl flex-wrap items-center gap-1.5 rounded-xl border border-line bg-ink/30 px-2 py-1" aria-label="Skill Assist picker">
+                      {skillAssistOptions.map((option) => {
+                        const selected = selectedSkillSlugs.includes(option.slug) || selectedLauncherSkillSlug === option.slug;
+                        return (
+                          <button
+                            key={option.slug}
+                            type="button"
+                            onClick={() => toggleSkillAssistSlug(option.slug)}
+                            disabled={isStreaming || selectedLauncherSkillSlug === option.slug}
+                            title={`${option.group}: ${option.description}`}
+                            className={`rounded-lg border px-2 py-1 text-[11px] transition-colors disabled:cursor-not-allowed ${selected ? 'border-accent bg-accent/15 text-accent' : 'border-slate-700 bg-panel/50 text-slate-300 hover:border-accent/60'}`}
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
                   <input ref={fileInputRef} type="file" multiple accept=".txt,.md,.json,.pdf,.doc,.docx" onChange={handleFileUpload} className="hidden" />
                   <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isStreaming} className="rounded-xl border border-line px-3 py-2 text-sm text-slate-300 hover:border-accent disabled:opacity-50">📎 Attach Files</button>
                 </>
@@ -1024,7 +1054,7 @@ export function ChatView() {
     if (filename) enterEditMode([filename]);
   }, [enterEditMode]);
 
-  const handleSend = useCallback((content: string, options?: { useSkills?: boolean }) => {
+  const handleSend = useCallback((content: string, options?: { useSkills?: boolean; selectedSkillSlug?: string; selectedSkillSlugs?: string[] }) => {
     useAppStore.getState().send(content, options);
   }, []);
 

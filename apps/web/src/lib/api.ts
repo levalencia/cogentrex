@@ -67,8 +67,8 @@ export const api = {
   deleteAllConversations: () => jsonRequest<void>('/api/chat/conversations', { method: 'DELETE' }),
   setConversationProject: (conversationId: string, projectId: string | null) =>
     jsonRequest<void>(`/api/chat/conversations/${conversationId}/project`, { method: 'PATCH', body: JSON.stringify({ projectId }) }),
-  planResearch: (content: string, providerId?: string, conversationId?: string, useSkills?: boolean) =>
-    jsonRequest<{ plan: string[]; jobId: string; conversationId: string; priorSourceCount: number }>('/api/chat/plan', { method: 'POST', body: JSON.stringify({ content, providerId, conversationId, useSkills }) }),
+  planResearch: (content: string, providerId?: string, conversationId?: string, useSkills?: boolean, selectedSkillSlugs?: string[]) =>
+    jsonRequest<{ plan: string[]; jobId: string; conversationId: string; priorSourceCount: number }>('/api/chat/plan', { method: 'POST', body: JSON.stringify({ content, providerId, conversationId, useSkills, selectedSkillSlugs }) }),
   startResearch: (jobId: string, plan: string[]) =>
     jsonRequest<{ started: boolean }>('/api/chat/research', { method: 'POST', body: JSON.stringify({ jobId, plan }) }),
   // Admin
@@ -153,6 +153,7 @@ export async function streamMessage(input: {
   conversationId?: string;
   useSkills?: boolean;
   selectedSkillSlug?: string;
+  selectedSkillSlugs?: string[];
   onEvent: (event: StreamEvent) => void;
 }): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {

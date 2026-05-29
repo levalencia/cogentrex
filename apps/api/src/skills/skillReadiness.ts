@@ -53,16 +53,36 @@ function findWorkflowForSkill(skill: SkillDetail): WorkflowDefinition | undefine
   return workflowDefinitions.find((workflow) => workflow.id === mode);
 }
 
+function findSupportedWorkflows(skill: SkillDetail): WorkflowDefinition[] {
+  if (!skill.route) return [];
+  const configured = skill.route.config && typeof skill.route.config === 'object'
+    ? (skill.route.config as Record<string, unknown>).supportedModes
+    : undefined;
+  const supportedModes = normalizeSupportedModes(configured, skill.route.mode);
+  return supportedModes
+    .map((mode) => workflowDefinitions.find((workflow) => workflow.id === mode))
+    .filter((workflow): workflow is WorkflowDefinition => Boolean(workflow));
+}
+
 function providerDependencies(
   skill: SkillDetail,
   workflow: WorkflowDefinition | undefined,
   providers: ProviderConfigView[],
 ): SkillReadinessDependency[] {
-  const required = workflow?.requiredProviderCapabilities ?? fallbackRequiredProviderCapabilities(skill.route?.mode);
-  const optional = workflow?.optionalProviderCapabilities ?? [];
+  const supportedWorkflows = findSupportedWorkflows(skill);
+  const required = new Set<ProviderCapabilityId>(workflow?.requiredProviderCapabilities ?? fallbackRequiredProviderCapabilities(skill.route?.mode));
+  const optional = new Set<ProviderCapabilityId>(workflow?.optionalProviderCapabilities ?? []);
+  for (const supportedWorkflow of supportedWorkflows) {
+    for (const capability of supportedWorkflow.requiredProviderCapabilities) {
+      if (!required.has(capability)) optional.add(capability);
+    }
+    for (const capability of supportedWorkflow.optionalProviderCapabilities) {
+      if (!required.has(capability)) optional.add(capability);
+    }
+  }
   return [
-    ...required.map((capability) => providerDependency(skill, capability, true, providers)),
-    ...optional.map((capability) => providerDependency(skill, capability, false, providers)),
+    ...Array.from(required).map((capability) => providerDependency(skill, capability, true, providers)),
+    ...Array.from(optional).map((capability) => providerDependency(skill, capability, false, providers)),
   ];
 }
 
@@ -109,6 +129,14 @@ function toolDependencies(
 ): SkillReadinessDependency[] {
   const required = new Set<ToolCapabilityId>(workflow?.requiredToolCapabilities ?? []);
   const optional = new Set<ToolCapabilityId>(workflow?.optionalToolCapabilities ?? []);
+  for (const supportedWorkflow of findSupportedWorkflows(skill)) {
+    for (const capability of supportedWorkflow.requiredToolCapabilities) {
+      if (!required.has(capability)) optional.add(capability);
+    }
+    for (const capability of supportedWorkflow.optionalToolCapabilities) {
+      if (!required.has(capability)) optional.add(capability);
+    }
+  }
   for (const requirement of skill.toolRequirements) {
     if (!isToolCapabilityId(requirement.name)) continue;
     if (requirement.required) {
@@ -141,6 +169,18 @@ function fallbackRequiredProviderCapabilities(mode: AppMode | undefined): Provid
   if (mode === 'IMAGE_GENERATION') return ['image'];
   if (mode === 'VIDEO_GENERATION') return ['video'];
   return ['text'];
+}
+
+function normalizeSupportedModes(value: unknown, primaryMode: AppMode): AppMode[] {
+  const modes = Array.isArray(value) ? value : [];
+  const validModes = new Set(workflowDefinitions.map((workflow) => workflow.id));
+  const unique = new Set<AppMode>([primaryMode]);
+  for (const mode of modes) {
+    if (typeof mode === 'string' && validModes.has(mode as AppMode)) {
+      unique.add(mode as AppMode);
+    }
+  }
+  return Array.from(unique);
 }
 
 function aggregateStatus(dependencies: SkillReadinessDependency[]): CapabilityStatus {

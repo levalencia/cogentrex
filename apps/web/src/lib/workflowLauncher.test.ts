@@ -7,6 +7,8 @@ import {
   getLauncherPlaceholder,
   getLauncherSkillSlug,
   getPrimaryLauncherItems,
+  getSkillAssistPickerOptions,
+  mergeSkillAssistSlugs,
   summarizeLauncherReadiness,
 } from './workflowLauncher';
 
@@ -46,6 +48,30 @@ describe('workflow launcher helpers', () => {
     expect(getLauncherSkillSlug('image-studio')).toBeNull();
     expect(getLauncherSkillSlug('video-studio')).toBeNull();
     expect(getLauncherSkillSlug('missing')).toBeNull();
+  });
+
+  it('exposes a small shared Skill Assist picker for PM and visual/diagram guidance', () => {
+    const options = getSkillAssistPickerOptions('CHAT');
+
+    expect(options.map((option) => option.slug)).toEqual([
+      'scrum-delivery-planner',
+      'project-management-coach',
+      'pmp-risk-register',
+      'excalidraw-diagramming',
+      'mermaid-diagrams',
+      'claude-design',
+    ]);
+    expect(getSkillAssistPickerOptions('DEEP_RESEARCH').map((option) => option.slug)).toEqual(options.map((option) => option.slug));
+    expect(getSkillAssistPickerOptions('SOCIAL_WRITING')).toEqual([]);
+    expect(options.filter((option) => option.group === 'Project management')).toHaveLength(3);
+    expect(options.filter((option) => option.group === 'Visual & diagrams')).toHaveLength(3);
+  });
+
+  it('merges launcher and picker skill slugs without duplicates', () => {
+    expect(mergeSkillAssistSlugs('algorithmic-art', ['scrum-delivery-planner', 'algorithmic-art'], null)).toEqual([
+      'algorithmic-art',
+      'scrum-delivery-planner',
+    ]);
   });
 
   it('returns mode-aware composer placeholder copy', () => {

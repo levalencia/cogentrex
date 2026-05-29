@@ -450,7 +450,10 @@ export default function AdminSkillsPage() {
                     <form onSubmit={saveSkillRoute} className="mt-5 space-y-4">
                       <div className="grid gap-3 sm:grid-cols-2">
                         <label className="block text-sm text-slate-400">Mode
-                          <select value={routeDraft.mode} onChange={(e) => setRouteDraft({ ...routeDraft, mode: e.target.value as SkillRouteDraft['mode'] })} className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 text-white outline-none focus:border-accent">
+                          <select value={routeDraft.mode} onChange={(e) => {
+                            const mode = e.target.value as SkillRouteDraft['mode'];
+                            setRouteDraft({ ...routeDraft, mode, supportedModes: Array.from(new Set([mode, ...routeDraft.supportedModes])) });
+                          }} className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 text-white outline-none focus:border-accent">
                             {appModeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                           </select>
                         </label>
@@ -466,6 +469,32 @@ export default function AdminSkillsPage() {
                         <label className="block text-sm text-slate-400">Max budget (cents)
                           <input value={routeDraft.maxBudgetCents} onChange={(e) => setRouteDraft({ ...routeDraft, maxBudgetCents: e.target.value })} inputMode="numeric" className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 text-white outline-none focus:border-accent" />
                         </label>
+                        <fieldset className="sm:col-span-2 rounded-xl border border-line bg-ink/50 p-3">
+                          <legend className="px-1 text-sm text-slate-400">Supported workflows</legend>
+                          <p className="mb-3 text-xs text-slate-500">Use this when one skill can assist more than its primary route. The primary mode is always included on save.</p>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {appModeOptions.map((option) => {
+                              const checked = routeDraft.supportedModes.includes(option.value) || routeDraft.mode === option.value;
+                              return (
+                                <label key={option.value} className="flex items-center gap-2 rounded-lg border border-line bg-panel/50 px-3 py-2 text-sm text-slate-300">
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    disabled={routeDraft.mode === option.value}
+                                    onChange={(e) => {
+                                      const nextModes = e.target.checked
+                                        ? Array.from(new Set([...routeDraft.supportedModes, option.value]))
+                                        : routeDraft.supportedModes.filter((mode) => mode !== option.value);
+                                      setRouteDraft({ ...routeDraft, supportedModes: nextModes });
+                                    }}
+                                  />
+                                  {option.label}
+                                  {routeDraft.mode === option.value ? <span className="text-xs text-slate-500">primary</span> : null}
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </fieldset>
                         <label className="block text-sm text-slate-400 sm:col-span-2">Advanced config JSON
                           <textarea value={routeDraft.configJson} onChange={(e) => setRouteDraft({ ...routeDraft, configJson: e.target.value })} rows={8} placeholder={'{"maxSources":8}'} className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 font-mono text-xs text-white outline-none focus:border-accent" />
                         </label>

@@ -12,6 +12,7 @@ import {
   getSkillBadges,
   getSkillIconGlyph,
   getSkillRouteDraft,
+  getSkillSupportedModes,
 } from './skills';
 
 function skill(overrides: Partial<SkillSummary> = {}): SkillSummary {
@@ -95,6 +96,27 @@ describe('admin skill helpers', () => {
     expect(getSkillIconGlyph('🧪')).toBe('🧪');
   });
 
+  it('maps supported modes from route config and badge copy', () => {
+    const multiModeSkill = skill({
+      route: {
+        id: 'route-1',
+        skillId: 'skill-1',
+        mode: 'CHAT',
+        defaultProviderId: null,
+        searchProfile: null,
+        maxBudgetCents: null,
+        config: { supportedModes: ['CHAT', 'DEEP_RESEARCH', 'IMAGE_GENERATION', 'UNKNOWN'] },
+        createdAt: '2026-05-22T00:00:00.000Z',
+        updatedAt: '2026-05-22T00:00:00.000Z',
+      },
+    });
+
+    expect(getSkillSupportedModes(multiModeSkill)).toEqual(['CHAT', 'DEEP_RESEARCH', 'IMAGE_GENERATION']);
+    expect(getSkillBadges(multiModeSkill)).toEqual(expect.arrayContaining([
+      { label: 'Supports: Chat + Deep Research + Image Generation', className: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' },
+    ]));
+  });
+
   it('normalizes edit form values from an existing skill route', () => {
     expect(getSkillRouteDraft(skill({
       route: {
@@ -104,7 +126,7 @@ describe('admin skill helpers', () => {
         defaultProviderId: null,
         searchProfile: null,
         maxBudgetCents: null,
-        config: { maxSources: 8 },
+        config: { maxSources: 8, supportedModes: ['CHAT', 'DEEP_RESEARCH'] },
         createdAt: '2026-05-22T00:00:00.000Z',
         updatedAt: '2026-05-22T00:00:00.000Z',
       },
@@ -113,7 +135,8 @@ describe('admin skill helpers', () => {
       defaultProviderId: '',
       searchProfile: '',
       maxBudgetCents: '',
-      configJson: '{\n  "maxSources": 8\n}',
+      supportedModes: ['CHAT', 'DEEP_RESEARCH'],
+      configJson: '{\n  "maxSources": 8,\n  "supportedModes": [\n    "CHAT",\n    "DEEP_RESEARCH"\n  ]\n}',
     });
   });
 
@@ -137,13 +160,14 @@ describe('admin skill helpers', () => {
       defaultProviderId: '',
       searchProfile: '  web-deep  ',
       maxBudgetCents: '250',
+      supportedModes: ['CHAT', 'DEEP_RESEARCH', 'IMAGE_GENERATION'],
       configJson: '{"temperature":0.2}',
     })).toEqual({
       mode: 'DEEP_RESEARCH',
       defaultProviderId: null,
       searchProfile: 'web-deep',
       maxBudgetCents: 250,
-      config: { temperature: 0.2 },
+      config: { temperature: 0.2, supportedModes: ['DEEP_RESEARCH', 'CHAT', 'IMAGE_GENERATION'] },
     });
   });
 
@@ -301,6 +325,7 @@ describe('admin skill helpers', () => {
       defaultProviderId: 'provider-1',
       searchProfile: '',
       maxBudgetCents: '',
+      supportedModes: ['CHAT'],
       configJson: '["not", "an", "object"]',
     })).toThrow('Config JSON must be an object');
   });
