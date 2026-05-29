@@ -39,6 +39,17 @@ export interface SkillToolRequirement {
   description?: string | undefined;
 }
 
+export interface PromptTemplate {
+  id: string;
+  label: string;
+  prompt: string;
+  description?: string | undefined;
+}
+
+export interface SkillProviderRouteConfig extends Record<string, unknown> {
+  promptTemplates?: PromptTemplate[] | undefined;
+}
+
 export interface SkillProviderRoute {
   id: string;
   skillId: string;
@@ -46,7 +57,7 @@ export interface SkillProviderRoute {
   defaultProviderId: string | null;
   searchProfile: string | null;
   maxBudgetCents: number | null;
-  config: Record<string, unknown> | null;
+  config: SkillProviderRouteConfig | null;
   createdAt: string;
   updatedAt: string;
 }

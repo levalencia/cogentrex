@@ -7,6 +7,7 @@ import type {
   SkillFileSummary,
   SkillKind,
   SkillProviderRoute,
+  SkillProviderRouteConfig,
   SkillStatus,
   SkillSummary,
   SkillToolRequirement,
@@ -125,10 +126,24 @@ function mapSkillFile(row: SkillFileRow): SkillFileSummary {
   };
 }
 
-function parseJsonObject(value: string | null): Record<string, unknown> | null {
+function parseJsonObject(value: string | null): SkillProviderRouteConfig | null {
   if (!value) return null;
   const parsed = JSON.parse(value) as unknown;
-  return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : null;
+  return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as SkillProviderRouteConfig : null;
+}
+
+function mergeSeedRouteConfig(existingValue: string | null, seedConfig: SkillSeed['route']['config']): SkillProviderRouteConfig | null {
+  const existingConfig = parseJsonObject(existingValue);
+  const defaultConfig = seedConfig as SkillProviderRouteConfig | null;
+  if (!existingConfig) return defaultConfig;
+  if (!defaultConfig) return existingConfig;
+  return {
+    ...defaultConfig,
+    ...existingConfig,
+    promptTemplates: Array.isArray(existingConfig.promptTemplates)
+      ? existingConfig.promptTemplates
+      : defaultConfig.promptTemplates,
+  };
 }
 
 function parseToolRequirements(value: string | null): SkillToolRequirement[] {
@@ -254,6 +269,10 @@ export class SkillRepository {
         }
 
         const skillId = existingSkill?.id ?? seed.id;
+        const existingRoute = await tx.prepare(
+          `SELECT config_json FROM skill_routes WHERE skill_id = ? LIMIT 1`,
+        ).get(skillId) as { config_json: string | null } | undefined;
+        const routeConfig = mergeSeedRouteConfig(existingRoute?.config_json ?? null, seed.route.config);
 
         await tx.prepare(
           `INSERT INTO skill_routes (
@@ -276,7 +295,7 @@ export class SkillRepository {
           defaultProviderId: seed.route.defaultProviderId,
           searchProfile: seed.route.searchProfile,
           maxBudgetCents: seed.route.maxBudgetCents,
-          configJson: seed.route.config ? JSON.stringify(seed.route.config) : null,
+          configJson: routeConfig ? JSON.stringify(routeConfig) : null,
           createdAt: now,
           updatedAt: now,
         });

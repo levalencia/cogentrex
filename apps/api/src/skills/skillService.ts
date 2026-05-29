@@ -13,6 +13,80 @@ function outputContract(artifacts: string[], savesToLibrary = true): Record<stri
   return { artifacts, savesToLibrary };
 }
 
+function promptTemplate(id: string, label: string, prompt: string, description?: string): Record<string, unknown> {
+  return { id, label, prompt, ...(description ? { description } : {}) };
+}
+
+const promptTemplateSeeds: Record<string, Record<string, unknown>[]> = {
+  chat: [
+    promptTemplate('chat-decision-brief', 'Decision brief', 'Help me decide between these options. Compare tradeoffs, risks, costs, and give a clear recommendation: ', 'Structured recommendation for ambiguous choices.'),
+    promptTemplate('chat-debug-help', 'Debug a problem', 'Diagnose this issue step by step. Ask only if required, otherwise give likely causes, evidence to check, and a minimal fix: ', 'Use for bugs, errors, and confusing behavior.'),
+    promptTemplate('chat-draft-email', 'Draft message', 'Draft a concise, professional message for this situation. Keep it clear, direct, and ready to edit: ', 'Emails, Slack updates, and stakeholder notes.'),
+    promptTemplate('chat-summarize', 'Summarize', 'Summarize the following into key points, decisions, risks, and next actions: ', 'Turn raw text into an actionable summary.'),
+    promptTemplate('chat-artifact-spec', 'Create artifact', 'Create a polished artifact from this brief. Include structure, assumptions, and a version I can reuse: ', 'Use for memos, specs, plans, and reusable docs.'),
+  ],
+  'deep-research': [
+    promptTemplate('research-market-map', 'Market map', 'Research this market. Identify segments, key players, buyer pain, current solutions, pricing signals, and credible source links: ', 'Market landscape with citations.'),
+    promptTemplate('research-competitor-scan', 'Competitor scan', 'Research competitors for this product idea. Compare positioning, features, pricing, distribution, and gaps with source links: ', 'Competitive analysis.'),
+    promptTemplate('research-technical-deep-dive', 'Technical deep dive', 'Research this technical topic. Explain current state, implementation options, tradeoffs, failure modes, and cite primary sources where possible: ', 'Engineering-oriented research.'),
+    promptTemplate('research-vendor-shortlist', 'Vendor shortlist', 'Research vendors/tools for this use case. Build a shortlist with pros, cons, pricing clues, integration risks, and links: ', 'Tool/vendor selection.'),
+    promptTemplate('research-claim-check', 'Claim check', 'Verify this claim using recent, reliable public sources. Separate confirmed facts, uncertainty, and conflicting evidence: ', 'Fact checking with evidence.'),
+  ],
+  'linkedin-writer': [
+    promptTemplate('social-founder-update', 'Founder update', 'Write a founder-style LinkedIn post about this progress. Make it concrete, credible, and not hypey: ', 'Progress update with substance.'),
+    promptTemplate('social-technical-lesson', 'Technical lesson', 'Write a LinkedIn post explaining this technical lesson for builders. Include the problem, mistake, fix, and takeaway: ', 'Practical engineering post.'),
+    promptTemplate('social-product-point-of-view', 'Product POV', 'Write a thoughtful product point-of-view post about this trend. Keep it opinionated but evidence-aware: ', 'Market/product thought leadership.'),
+    promptTemplate('social-launch-note', 'Launch note', 'Write a concise launch/update post for this feature. Explain who it helps, what changed, and what feedback I want: ', 'Feature announcement.'),
+    promptTemplate('social-repurpose-research', 'Repurpose research', 'Turn this research into a LinkedIn thread/post. Preserve nuance, include useful specifics, and avoid generic AI language: ', 'Convert research into social content.'),
+  ],
+  'algorithmic-art': [
+    promptTemplate('art-p5-sketch', 'p5.js sketch', 'Design a p5.js generative artwork. Specify visual system, palette, parameters, animation, and provide executable starter code: ', 'Creative-code starter.'),
+    promptTemplate('art-poster-system', 'Poster system', 'Create a generative poster concept. Include composition rules, typography direction, palette, variations, and export notes: ', 'Poster/art direction.'),
+    promptTemplate('art-shader-brief', 'Shader brief', 'Design a shader-based visual. Describe math/noise approach, color mapping, motion, controls, and implementation steps: ', 'Shader concept.'),
+    promptTemplate('art-palette-study', 'Palette study', 'Create a generative art palette and motif study from this inspiration. Include constraints and iteration ideas: ', 'Palette and motifs.'),
+    promptTemplate('art-interactive-piece', 'Interactive piece', 'Design an interactive browser artwork. Include user inputs, visual response, state model, and a minimal build plan: ', 'Interactive art concept.'),
+  ],
+  'image-studio': [
+    promptTemplate('image-product-hero', 'Product hero', 'Create a high-quality product hero image prompt. Include subject, composition, lighting, background, style, and negative constraints: ', 'Commercial/product image.'),
+    promptTemplate('image-editorial', 'Editorial image', 'Create an editorial illustration prompt for this concept. Make it visually distinctive, metaphorical, and publication-ready: ', 'Editorial illustration.'),
+    promptTemplate('image-ui-mock', 'UI mockup', 'Create an image prompt for a polished SaaS UI mockup. Include layout, visual hierarchy, device/frame, and brand tone: ', 'SaaS/UI visual.'),
+    promptTemplate('image-style-explore', 'Style exploration', 'Generate five visual style directions for this image idea, then write the strongest final prompt: ', 'Explore then choose.'),
+    promptTemplate('image-iterate', 'Iterate image', 'Rewrite this image prompt to improve composition, realism, lighting, and specificity while preserving the core idea: ', 'Prompt refinement.'),
+  ],
+  'video-lab': [
+    promptTemplate('video-product-demo', 'Product demo', 'Create a short product demo video prompt. Include scene sequence, camera motion, pacing, captions, and visual style: ', 'Short demo video.'),
+    promptTemplate('video-cinematic-shot', 'Cinematic shot', 'Create a cinematic video prompt for this scene. Include subject, environment, camera movement, lighting, mood, and duration: ', 'Cinematic generation prompt.'),
+    promptTemplate('video-social-ad', 'Social ad', 'Create a 10-second social ad video prompt. Include hook, visual beats, text overlays, and final frame: ', 'Short-form ad.'),
+    promptTemplate('video-explainer', 'Explainer', 'Create a concise explainer video prompt. Include storyboard beats, motion graphics style, narration cues, and transitions: ', 'Explainer storyboard.'),
+    promptTemplate('video-iterate', 'Iterate video', 'Improve this video prompt for continuity, motion, camera clarity, and generation reliability: ', 'Prompt refinement.'),
+  ],
+  'artifact-writer': [
+    promptTemplate('artifact-prd', 'PRD', 'Create a compact PRD for this feature. Include problem, target user, requirements, non-goals, risks, and acceptance criteria: ', 'Product requirements.'),
+    promptTemplate('artifact-runbook', 'Runbook', 'Create an operational runbook. Include symptoms, checks, commands, rollback, escalation, and verification: ', 'Ops/runbook artifact.'),
+    promptTemplate('artifact-implementation-plan', 'Implementation plan', 'Create an implementation plan with small tasks, affected files, tests, risks, and rollout steps: ', 'Engineering plan.'),
+    promptTemplate('artifact-meeting-brief', 'Meeting brief', 'Create a meeting brief with context, agenda, decisions needed, open questions, and follow-ups: ', 'Meeting prep.'),
+    promptTemplate('artifact-decision-record', 'Decision record', 'Create an ADR-style decision record. Include context, options, decision, consequences, and review date: ', 'Architecture/product decision.'),
+  ],
+  'project-management': [
+    promptTemplate('pm-scope-plan', 'Scope plan', 'Turn this project brief into scope, milestones, owners, risks, and acceptance criteria: ', 'Planning from a rough brief.'),
+    promptTemplate('pm-sprint-plan', 'Sprint plan', 'Create a focused sprint plan. Include goal, backlog items, dependencies, risks, and demo criteria: ', 'Scrum/sprint planning.'),
+    promptTemplate('pm-risk-review', 'Risk review', 'Review this delivery plan for risks, missing assumptions, blockers, and mitigation actions: ', 'Delivery risk scan.'),
+    promptTemplate('pm-retro', 'Retro prep', 'Prepare a practical retrospective from this context. Identify what worked, what failed, themes, and experiments: ', 'Retrospective structure.'),
+    promptTemplate('pm-stakeholder-update', 'Stakeholder update', 'Draft a clear stakeholder update with progress, decisions needed, risks, and next steps: ', 'Execution communication.'),
+  ],
+  'flight-search': [
+    promptTemplate('travel-flight-options', 'Flight options', 'Research flight options for this trip. Include likely airlines/routes, booking links, timing tradeoffs, baggage caveats, and current-source links: ', 'Flight research.'),
+    promptTemplate('travel-trip-plan', 'Trip plan', 'Research and draft a practical trip plan. Include transport, accommodation areas, daily constraints, budget notes, and links: ', 'Travel planning.'),
+    promptTemplate('travel-family-itinerary', 'Family itinerary', 'Research a family-friendly itinerary for these dates and constraints. Include kid-friendly pacing, logistics, and links: ', 'Family travel.'),
+    promptTemplate('travel-visa-entry', 'Visa / entry check', 'Research visa, entry, transit, and document requirements for this itinerary. Cite official sources first: ', 'Travel requirements.'),
+    promptTemplate('travel-price-watch', 'Price watch brief', 'Research current travel price signals and suggest what to monitor, when to book, and which routes/sites to check: ', 'Price monitoring.'),
+  ],
+};
+
+function routeConfig(slug: string, extra: Record<string, unknown> | null = null): Record<string, unknown> {
+  return { ...(extra ?? {}), promptTemplates: promptTemplateSeeds[slug] ?? [] };
+}
+
 export const nativeSkillSeeds: SkillSeed[] = [
   {
     id: 'skl_chat',
@@ -27,7 +101,7 @@ export const nativeSkillSeeds: SkillSeed[] = [
     inputSchema: promptInput('Message', 'Ask for an answer, analysis, draft, or artifact.'),
     outputContract: outputContract(['Answer', 'Saved artifact']),
     toolRequirements: [],
-    route: { id: 'skr_chat', mode: 'CHAT', defaultProviderId: null, searchProfile: null, maxBudgetCents: null, config: null },
+    route: { id: 'skr_chat', mode: 'CHAT', defaultProviderId: null, searchProfile: null, maxBudgetCents: null, config: routeConfig('chat') },
   },
   {
     id: 'skl_deep_research',
@@ -45,7 +119,7 @@ export const nativeSkillSeeds: SkillSeed[] = [
     ] },
     outputContract: outputContract(['Cited answer', 'Source list', 'Reasoning trace']),
     toolRequirements: [{ name: 'web.search', required: true, description: 'Discover live public sources' }],
-    route: { id: 'skr_deep_research', mode: 'DEEP_RESEARCH', defaultProviderId: null, searchProfile: 'default-web', maxBudgetCents: null, config: null },
+    route: { id: 'skr_deep_research', mode: 'DEEP_RESEARCH', defaultProviderId: null, searchProfile: 'default-web', maxBudgetCents: null, config: routeConfig('deep-research') },
   },
   {
     id: 'skl_linkedin_writer',
@@ -60,7 +134,7 @@ export const nativeSkillSeeds: SkillSeed[] = [
     inputSchema: promptInput('Topic or draft brief', 'Describe the post idea, audience, and angle.'),
     outputContract: outputContract(['Platform draft', 'Research context', 'Saved artifact']),
     toolRequirements: [],
-    route: { id: 'skr_linkedin_writer', mode: 'SOCIAL_WRITING', defaultProviderId: null, searchProfile: null, maxBudgetCents: null, config: null },
+    route: { id: 'skr_linkedin_writer', mode: 'SOCIAL_WRITING', defaultProviderId: null, searchProfile: null, maxBudgetCents: null, config: routeConfig('linkedin-writer') },
   },
   {
     id: 'skl_algorithmic_art',
@@ -81,7 +155,7 @@ export const nativeSkillSeeds: SkillSeed[] = [
       defaultProviderId: null,
       searchProfile: null,
       maxBudgetCents: null,
-      config: {
+      config: routeConfig('algorithmic-art', {
         skillAssist: {
           keywords: ['algorithmic art', 'generative art', 'creative code', 'p5.js', 'processing', 'canvas', 'shader', 'palette', 'motion'],
           instructions: [
@@ -89,7 +163,7 @@ export const nativeSkillSeeds: SkillSeed[] = [
             'Keep the first version small: one coherent system, clear parameters, and a short iteration plan.',
           ],
         },
-      },
+      }),
     },
   },
   {
@@ -105,7 +179,7 @@ export const nativeSkillSeeds: SkillSeed[] = [
     inputSchema: promptInput('Image prompt', 'Describe the image, style, composition, and constraints.'),
     outputContract: outputContract(['Image artifact', 'Prompt notes']),
     toolRequirements: [],
-    route: { id: 'skr_image_studio', mode: 'IMAGE_GENERATION', defaultProviderId: null, searchProfile: null, maxBudgetCents: null, config: null },
+    route: { id: 'skr_image_studio', mode: 'IMAGE_GENERATION', defaultProviderId: null, searchProfile: null, maxBudgetCents: null, config: routeConfig('image-studio') },
   },
   {
     id: 'skl_video_lab',
@@ -120,7 +194,7 @@ export const nativeSkillSeeds: SkillSeed[] = [
     inputSchema: promptInput('Video prompt', 'Describe the short video, camera movement, and visual style.'),
     outputContract: outputContract(['Video artifact', 'Storyboard notes']),
     toolRequirements: [],
-    route: { id: 'skr_video_lab', mode: 'VIDEO_GENERATION', defaultProviderId: null, searchProfile: null, maxBudgetCents: null, config: null },
+    route: { id: 'skr_video_lab', mode: 'VIDEO_GENERATION', defaultProviderId: null, searchProfile: null, maxBudgetCents: null, config: routeConfig('video-lab') },
   },
   {
     id: 'skl_project_management',
@@ -141,7 +215,7 @@ export const nativeSkillSeeds: SkillSeed[] = [
       defaultProviderId: null,
       searchProfile: null,
       maxBudgetCents: null,
-      config: {
+      config: routeConfig('project-management', {
         supportedModes: ['CHAT', 'DEEP_RESEARCH'],
         skillAssist: {
           keywords: ['project management', 'scrum', 'sprint', 'retro', 'roadmap', 'delivery risk', 'backlog', 'stakeholder'],
@@ -150,7 +224,7 @@ export const nativeSkillSeeds: SkillSeed[] = [
             'Use Deep Research mode only when the plan depends on current sources, frameworks, vendors, or market facts.',
           ],
         },
-      },
+      }),
     },
   },
   {
@@ -166,7 +240,7 @@ export const nativeSkillSeeds: SkillSeed[] = [
     inputSchema: promptInput('Artifact brief', 'Describe the reusable output you want Cogentrex to draft.'),
     outputContract: outputContract(['Markdown artifact', 'Reusable brief']),
     toolRequirements: [],
-    route: { id: 'skr_artifact_writer', mode: 'CHAT', defaultProviderId: null, searchProfile: null, maxBudgetCents: null, config: { artifacts: true } },
+    route: { id: 'skr_artifact_writer', mode: 'CHAT', defaultProviderId: null, searchProfile: null, maxBudgetCents: null, config: routeConfig('artifact-writer', { artifacts: true }) },
   },
   {
     id: 'skl_flight_search',
@@ -184,7 +258,7 @@ export const nativeSkillSeeds: SkillSeed[] = [
     ] },
     outputContract: outputContract(['Travel research summary', 'Source links']),
     toolRequirements: [{ name: 'web.search', required: true, description: 'Find current travel results' }],
-    route: { id: 'skr_flight_search', mode: 'DEEP_RESEARCH', defaultProviderId: null, searchProfile: 'travel-web', maxBudgetCents: null, config: null },
+    route: { id: 'skr_flight_search', mode: 'DEEP_RESEARCH', defaultProviderId: null, searchProfile: 'travel-web', maxBudgetCents: null, config: routeConfig('flight-search') },
   },
 ];
 
