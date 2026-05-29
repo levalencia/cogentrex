@@ -143,7 +143,7 @@ describe('chat streaming API', () => {
     database.close();
   });
 
-  it('passes Skill Assist selection into the provider prompt and records run observability', async () => {
+  it('passes multiple Skill Assist selections into the provider prompt and records run observability', async () => {
     class CapturingLanguageModelClient implements LanguageModelClient {
       calls: ModelMessage[][] = [];
 
@@ -190,13 +190,14 @@ describe('chat streaming API', () => {
 
     await agent
       .post('/api/chat/stream')
-      .send({ content: 'Do it', mode: 'CHAT', useSkills: true, selectedSkillSlug: 'flight-search' })
+      .send({ content: 'Do it', mode: 'CHAT', useSkills: true, selectedSkillSlugs: ['flight-search', 'scrum-delivery-planner'] })
       .expect(200);
 
     expect(llm.calls).toHaveLength(2);
     expect(llm.calls[1]?.[0]).toMatchObject({ role: 'system' });
     expect(llm.calls[1]?.[0]?.content).toContain('--- Skill: flight-search');
     expect(llm.calls[1]?.[0]?.content).toContain('Use the registry-backed travel workflow playbook');
+    expect(llm.calls[1]?.[0]?.content).toContain('--- Skill: scrum-delivery-planner');
 
     const runs = await agent.get('/api/skills/runs').expect(200);
     expect(runs.body.runs).toContainEqual(expect.objectContaining({
@@ -205,7 +206,7 @@ describe('chat streaming API', () => {
       status: 'completed',
       observability: expect.objectContaining({
         skillAssistEnabled: true,
-        skillAssistSlugs: expect.arrayContaining(['flight-search']),
+        skillAssistSlugs: expect.arrayContaining(['flight-search', 'scrum-delivery-planner']),
       }),
     }));
 

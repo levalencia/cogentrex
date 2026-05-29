@@ -29,6 +29,30 @@ describe('shared schemas', () => {
     expect(sendMessageSchema.parse({ content: 'Help me plan this', mode: 'CHAT' }).useSkills).toBe(false);
   });
 
+  it('accepts multiple selected Skill Assist slugs for chat and deep research requests', () => {
+    const input = sendMessageSchema.parse({
+      content: 'Plan this delivery and generate an architecture diagram',
+      mode: 'DEEP_RESEARCH',
+      useSkills: true,
+      selectedSkillSlugs: ['scrum-delivery-planner', 'excalidraw-diagramming'],
+    });
+
+    expect(input.selectedSkillSlugs).toEqual(['scrum-delivery-planner', 'excalidraw-diagramming']);
+    expect(() => sendMessageSchema.parse({
+      content: 'Too many skills',
+      mode: 'CHAT',
+      selectedSkillSlugs: [
+        'project-management-coach',
+        'scrum-delivery-planner',
+        'pmp-risk-register',
+        'claude-design',
+        'excalidraw-diagramming',
+        'mermaid-diagrams',
+        'algorithmic-art',
+      ],
+    })).toThrow();
+  });
+
   it('validates skill status values', () => {
     expect(skillStatusSchema.parse('PUBLISHED')).toBe('PUBLISHED');
     expect(() => skillStatusSchema.parse('ARCHIVED')).toThrow();

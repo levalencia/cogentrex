@@ -87,6 +87,40 @@ describe('skill assist prompt selection', () => {
     expect(selection.systemPrompt).not.toContain('--- Skill: azure-container-apps');
   });
 
+  it('uses multiple explicit selected skill slugs in the requested order', () => {
+    const selection = selectSkillAssistContext(
+      'Plan an MVP and produce a diagram',
+      6,
+      undefined,
+      ['scrum-delivery-planner', 'pmp-risk-register', 'excalidraw-diagramming'],
+    );
+
+    expect(selection.contexts.map((context) => context.slug)).toEqual([
+      'scrum-delivery-planner',
+      'pmp-risk-register',
+      'excalidraw-diagramming',
+    ]);
+    expect(selection.systemPrompt).toContain('--- Skill: scrum-delivery-planner');
+    expect(selection.systemPrompt).toContain('--- Skill: pmp-risk-register');
+    expect(selection.systemPrompt).toContain('--- Skill: excalidraw-diagramming');
+  });
+
+  it('surfaces curated PM and visual/diagram skills for automatic matching', () => {
+    const pm = selectSkillAssistContext('Use scrum to plan stakeholder risks for this project', 3);
+    const visual = selectSkillAssistContext('Create an Excalidraw or Mermaid architecture diagram and polished design mockup', 3);
+
+    expect(pm.contexts.map((context) => context.slug)).toEqual([
+      'scrum-delivery-planner',
+      'project-management-coach',
+      'pmp-risk-register',
+    ]);
+    expect(visual.contexts.map((context) => context.slug)).toEqual([
+      'excalidraw-diagramming',
+      'mermaid-diagrams',
+      'claude-design',
+    ]);
+  });
+
   it('builds Skill Assist prompts from visible registry skill metadata when provided', () => {
     const selection = selectSkillAssistContext('Necesito TypeScript tests y pantallazos', 3, registrySkills);
 

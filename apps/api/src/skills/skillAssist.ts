@@ -57,6 +57,39 @@ const SKILL_ASSIST_CATALOG: SkillAssistContext[] = [
     ].join('\n'),
   },
   {
+    slug: 'scrum-delivery-planner',
+    name: 'Scrum Delivery Planner',
+    description: 'Use when breaking product work into epics, user stories, sprint-sized slices, and acceptance criteria.',
+    keywords: ['scrum', 'scrum to plan', 'sprint', 'epic', 'user story', 'backlog', 'acceptance criteria', 'velocity', 'retro', 'standup', 'plan'],
+    content: [
+      'Slice work vertically around user value. Avoid infrastructure-only stories unless they unblock a visible product loop.',
+      'Write stories with acceptance criteria, test notes, dependencies, and the smallest demoable outcome.',
+      'Flag hidden scope creep and recommend what to defer from the sprint.',
+    ].join('\n'),
+  },
+  {
+    slug: 'project-management-coach',
+    name: 'Project Management Coach',
+    description: 'Use when shaping work into a credible PM plan with scope, stakeholders, delivery risks, and next actions.',
+    keywords: ['project management', 'pm', 'delivery', 'stakeholder', 'stakeholder risks', 'project', 'milestone', 'timeline', 'roadmap', 'dependencies', 'status report'],
+    content: [
+      'Turn ambiguous work into a short delivery plan with goals, scope boundaries, owners, risks, dependencies, and decision points.',
+      'Prefer a 1-page operational plan over heavy ceremony. Make assumptions explicit and separate must-have from nice-to-have.',
+      'End with concrete next actions and acceptance criteria that can be verified.',
+    ].join('\n'),
+  },
+  {
+    slug: 'pmp-risk-register',
+    name: 'PMP Risk Register',
+    description: 'Use when identifying project risks, mitigations, owners, triggers, and contingency plans.',
+    keywords: ['risk register', 'pmp', 'risk', 'risks', 'mitigation', 'contingency', 'impact', 'probability', 'issue log', 'raidd'],
+    content: [
+      'Separate risks from active issues. For each risk, define probability, impact, owner, trigger, mitigation, and contingency.',
+      'Keep the register practical: prioritize the few risks that could change delivery, cost, quality, or credibility.',
+      'Tie mitigations to concrete verification steps or decision checkpoints.',
+    ].join('\n'),
+  },
+  {
     slug: 'typescript-fullstack-quality',
     name: 'TypeScript full-stack quality',
     description: 'Use when implementing or reviewing TypeScript, Next.js, Express, or shared contracts.',
@@ -78,6 +111,39 @@ const SKILL_ASSIST_CATALOG: SkillAssistContext[] = [
       'Ask for or infer the canvas size, palette, motion rules, interaction model, and export target when useful.',
       'Keep the first version small: one coherent system, clear parameters, and a short iteration plan.',
       'When image generation is a better endpoint, produce a clean prompt/spec handoff instead of pretending code was rendered.',
+    ].join('\n'),
+  },
+  {
+    slug: 'claude-design',
+    name: 'Claude Design',
+    description: 'Use when producing polished HTML mockups, landing pages, product screens, or visual design artifacts.',
+    keywords: ['claude design', 'html mockup', 'landing page', 'ui design', 'prototype', 'mockup', 'visual design', 'design artifact'],
+    content: [
+      'Produce a self-contained visual artifact spec or HTML/CSS implementation direction with clear layout, hierarchy, states, and responsive behavior.',
+      'Use real product copy and credible constraints. Avoid generic glossy AI visuals that do not serve the workflow.',
+      'Call out what should be validated visually with screenshots before shipping.',
+    ].join('\n'),
+  },
+  {
+    slug: 'excalidraw-diagramming',
+    name: 'Excalidraw Diagramming',
+    description: 'Use when creating hand-drawn architecture, flow, sequence, or product diagrams.',
+    keywords: ['excalidraw', 'diagram', 'architecture diagram', 'flow diagram', 'sequence diagram', 'hand drawn', 'whiteboard'],
+    content: [
+      'Structure diagrams around the user decision: actors, systems, data/control flow, failure points, and labels.',
+      'Prefer a small readable diagram over a dense map. Group related elements and name arrows with actions or data.',
+      'If outputting JSON is not requested, provide a precise diagram blueprint that can be rendered later.',
+    ].join('\n'),
+  },
+  {
+    slug: 'mermaid-diagrams',
+    name: 'Mermaid Diagrams',
+    description: 'Use when producing Mermaid flowcharts, sequence diagrams, state diagrams, or architecture maps.',
+    keywords: ['mermaid', 'diagram', 'architecture diagram', 'flowchart', 'sequence diagram', 'state diagram', 'gantt', 'architecture map', 'diagram code'],
+    content: [
+      'Return valid Mermaid syntax when asked for diagram code, and keep labels short enough to render cleanly.',
+      'Choose the diagram type deliberately: flowchart for systems, sequence for interactions, state for lifecycle, gantt for timelines.',
+      'Include a short explanation of the diagram boundaries and what is intentionally omitted.',
     ].join('\n'),
   },
   {
@@ -185,13 +251,22 @@ function buildSkillAssistSelection(contexts: SkillAssistContext[]): SkillAssistS
   };
 }
 
-export function selectSkillAssistContext(query: string, maxSkills = 3, registrySkills?: SkillDetail[], preferredSkillSlug?: string): SkillAssistSelection {
+function normalizePreferredSkillSlugs(preferredSkillSlug?: string | string[]): string[] {
+  const slugs = Array.isArray(preferredSkillSlug) ? preferredSkillSlug : (preferredSkillSlug ? [preferredSkillSlug] : []);
+  return slugs.filter((slug, index, list) => slug.trim().length > 0 && list.indexOf(slug) === index);
+}
+
+export function selectSkillAssistContext(query: string, maxSkills = 3, registrySkills?: SkillDetail[], preferredSkillSlug?: string | string[]): SkillAssistSelection {
   const registryCatalog = registrySkills && registrySkills.length > 0 ? buildRegistryContexts(registrySkills) : [];
   const catalog = registryCatalog.length > 0 ? [...registryCatalog, ...SKILL_ASSIST_CATALOG] : SKILL_ASSIST_CATALOG;
-  const preferredContext = preferredSkillSlug ? catalog.find((context) => context.slug === preferredSkillSlug) : undefined;
-  if (preferredContext) {
-    const contexts = [preferredContext].slice(0, maxSkills);
-    return buildSkillAssistSelection(contexts);
+  const preferredSlugs = normalizePreferredSkillSlugs(preferredSkillSlug);
+  if (preferredSlugs.length > 0) {
+    const contexts = preferredSlugs
+      .map((slug) => catalog.find((context) => context.slug === slug))
+      .filter((context): context is SkillAssistContext => Boolean(context))
+      .filter((context, index, list) => list.findIndex((candidate) => candidate.slug === context.slug) === index)
+      .slice(0, maxSkills);
+    if (contexts.length > 0) return buildSkillAssistSelection(contexts);
   }
 
   const ranked = catalog
@@ -207,8 +282,8 @@ export function selectSkillAssistContext(query: string, maxSkills = 3, registryS
   return buildSkillAssistSelection(contexts);
 }
 
-export function withSkillAssistSystemMessage(messages: ModelMessage[], query: string, registrySkills?: SkillDetail[], preferredSkillSlug?: string): { messages: ModelMessage[]; skillSlugs: string[] } {
-  const selection = selectSkillAssistContext(query, 3, registrySkills, preferredSkillSlug);
+export function withSkillAssistSystemMessage(messages: ModelMessage[], query: string, registrySkills?: SkillDetail[], preferredSkillSlug?: string | string[]): { messages: ModelMessage[]; skillSlugs: string[] } {
+  const selection = selectSkillAssistContext(query, 6, registrySkills, preferredSkillSlug);
   return {
     messages: [{ role: 'system', content: selection.systemPrompt }, ...messages],
     skillSlugs: selection.contexts.map((context) => context.slug),

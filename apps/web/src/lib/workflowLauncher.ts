@@ -41,6 +41,52 @@ export interface WorkflowSelectionGroups {
   outputAffordances: LauncherItem[];
 }
 
+export interface SkillAssistPickerOption {
+  slug: string;
+  label: string;
+  description: string;
+  group: 'Project management' | 'Visual & diagrams';
+}
+
+const skillAssistPickerOptions: SkillAssistPickerOption[] = [
+  {
+    slug: 'scrum-delivery-planner',
+    label: 'Scrum planner',
+    description: 'Sprint slices, stories, and acceptance criteria.',
+    group: 'Project management',
+  },
+  {
+    slug: 'project-management-coach',
+    label: 'PM coach',
+    description: 'Scope, stakeholders, risks, dependencies, and next actions.',
+    group: 'Project management',
+  },
+  {
+    slug: 'pmp-risk-register',
+    label: 'Risk register',
+    description: 'Risks, owners, triggers, mitigations, and contingency plans.',
+    group: 'Project management',
+  },
+  {
+    slug: 'excalidraw-diagramming',
+    label: 'Excalidraw',
+    description: 'Hand-drawn architecture, flow, and whiteboard diagrams.',
+    group: 'Visual & diagrams',
+  },
+  {
+    slug: 'mermaid-diagrams',
+    label: 'Mermaid',
+    description: 'Renderable flowcharts, sequence diagrams, state charts, and maps.',
+    group: 'Visual & diagrams',
+  },
+  {
+    slug: 'claude-design',
+    label: 'Design artifact',
+    description: 'Polished HTML mockups, product screens, and visual specs.',
+    group: 'Visual & diagrams',
+  },
+];
+
 const launcherItems: LauncherItem[] = [
   {
     id: 'ask-chat',
@@ -194,6 +240,23 @@ export function buildWorkflowSelectionGroups(items: LauncherItem[]): WorkflowSel
 
 export function getLauncherSkillSlug(itemId: string): string | null {
   return launcherSkillSlugs[itemId] ?? null;
+}
+
+export function getSkillAssistPickerOptions(mode: AppMode): SkillAssistPickerOption[] {
+  if (mode !== 'CHAT' && mode !== 'DEEP_RESEARCH') return [];
+  return skillAssistPickerOptions.map((option) => ({ ...option }));
+}
+
+export function mergeSkillAssistSlugs(...groups: Array<string | string[] | null | undefined>): string[] {
+  const merged: string[] = [];
+  for (const group of groups) {
+    const slugs = Array.isArray(group) ? group : (group ? [group] : []);
+    for (const slug of slugs) {
+      const trimmed = slug.trim();
+      if (trimmed && !merged.includes(trimmed)) merged.push(trimmed);
+    }
+  }
+  return merged;
 }
 
 export function getLauncherPlaceholder(itemId: string): string {

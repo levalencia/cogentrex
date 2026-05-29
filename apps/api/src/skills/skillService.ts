@@ -123,6 +123,37 @@ export const nativeSkillSeeds: SkillSeed[] = [
     route: { id: 'skr_video_lab', mode: 'VIDEO_GENERATION', defaultProviderId: null, searchProfile: null, maxBudgetCents: null, config: null },
   },
   {
+    id: 'skl_project_management',
+    slug: 'project-management',
+    name: 'Project Management Coach',
+    description: 'Skill-assisted planning, Scrum rituals, delivery risk review, and execution checklists for chat or research-backed planning.',
+    kind: 'NATIVE',
+    status: 'PUBLISHED',
+    visibility: 'USER_VISIBLE',
+    category: 'Operations',
+    icon: '📋',
+    inputSchema: promptInput('Project brief', 'Describe the project, team, deadline, risks, and delivery context.'),
+    outputContract: outputContract(['Execution plan', 'Risk register', 'Scrum checklist']),
+    toolRequirements: [{ name: 'web.search', required: false, description: 'Optional live research for market, vendor, or methodology references' }],
+    route: {
+      id: 'skr_project_management',
+      mode: 'CHAT',
+      defaultProviderId: null,
+      searchProfile: null,
+      maxBudgetCents: null,
+      config: {
+        supportedModes: ['CHAT', 'DEEP_RESEARCH'],
+        skillAssist: {
+          keywords: ['project management', 'scrum', 'sprint', 'retro', 'roadmap', 'delivery risk', 'backlog', 'stakeholder'],
+          instructions: [
+            'Turn vague project goals into scope, milestones, risks, owners, and acceptance criteria.',
+            'Use Deep Research mode only when the plan depends on current sources, frameworks, vendors, or market facts.',
+          ],
+        },
+      },
+    },
+  },
+  {
     id: 'skl_artifact_writer',
     slug: 'artifact-writer',
     name: 'Artifact Writer',

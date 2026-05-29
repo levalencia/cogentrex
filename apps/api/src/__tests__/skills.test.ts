@@ -87,6 +87,7 @@ describe('skill registry API', () => {
     expect(slugs).toContain('deep-research');
     expect(slugs).toContain('linkedin-writer');
     expect(slugs).toContain('image-studio');
+    expect(slugs).toContain('project-management');
     expect(slugs).toContain('artifact-writer');
     expect(slugs).not.toContain('video-lab');
     expect(slugs).not.toContain('flight-search');
@@ -162,6 +163,13 @@ describe('skill registry API', () => {
     expect(image.status).toBe('ready');
     expect(image.dependencies).toEqual(expect.arrayContaining([
       expect.objectContaining({ kind: 'provider', id: 'image', status: 'ready', required: true }),
+    ]));
+
+    const projectManagement = bySlug.get('project-management') as { status: string; dependencies: Array<{ kind: string; id: string; status: string; required: boolean; label: string }> };
+    expect(projectManagement.status).toBe('degraded');
+    expect(projectManagement.dependencies).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'provider', id: 'text', status: 'ready', required: true }),
+      expect.objectContaining({ kind: 'tool', id: 'web.search', status: 'degraded', required: false }),
     ]));
 
     database.close();
