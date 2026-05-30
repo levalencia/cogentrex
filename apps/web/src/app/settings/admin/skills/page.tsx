@@ -267,6 +267,7 @@ export default function AdminSkillsPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <a href="/" className="rounded-xl border border-line bg-panel px-4 py-2 text-sm hover:border-accent">Back to Chat</a>
             <button type="button" onClick={() => openPanel('import')} className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-ink hover:bg-accent/90">Import Skill Kit</button>
             <button type="button" onClick={() => openPanel('create')} className="rounded-xl border border-accent/40 bg-accent/10 px-4 py-2 text-sm font-semibold text-accent hover:border-accent">Manual Draft</button>
             <a href="/settings/admin/providers" className="rounded-xl border border-line bg-panel px-4 py-2 text-sm hover:border-accent">Provider admin</a>

@@ -119,6 +119,9 @@ export default function AdminAnalyticsPage() {
                 {analyticsView.latestActivityAt ? ` · latest run ${formatDate(analyticsView.latestActivityAt)}` : ''}
               </span>
             ) : null}
+            <a href="/" className="rounded-xl border border-line bg-panel px-4 py-2 text-sm hover:border-accent">
+              Back to Chat
+            </a>
             <a href="/settings/admin/skills" className="rounded-xl border border-line bg-panel px-4 py-2 text-sm hover:border-accent">
               Skills registry
             </a>

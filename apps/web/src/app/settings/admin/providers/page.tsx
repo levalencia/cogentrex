@@ -176,6 +176,9 @@ export default function AdminProvidersPage() {
             <p className="mt-2 text-slate-400">Manage shared providers available to all users</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <a href="/" className="rounded-xl border border-line bg-panel px-4 py-2 text-sm hover:border-accent">
+              Back to Chat
+            </a>
             <a href="/settings/admin/skills" className="rounded-xl border border-line bg-panel px-4 py-2 text-sm text-accent hover:border-accent">
               Skills registry
             </a>
