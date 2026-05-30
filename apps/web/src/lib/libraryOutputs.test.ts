@@ -329,7 +329,7 @@ describe('buildLibraryModeCards', () => {
         completedAt: '2026-05-22T20:03:00.000Z',
         durationMs: 180000,
         errorMessage: null,
-        observability: { messageId: 'msg-deep-research', sourceCount: 3, savedArtifactCount: 1 },
+        observability: { savedArtifactIds: ['art-deep-research'], sourceCount: 3, savedArtifactCount: 1 },
       },
       {
         id: 'run-newer-chat',
@@ -355,7 +355,7 @@ describe('buildLibraryModeCards', () => {
         type: 'text/markdown',
         sizeBytes: 20,
         conversationId: 'conv-mixed',
-        messageId: 'msg-deep-research',
+        messageId: 'msg-legacy-saved-output',
         content: 'Brief',
         createdAt: '2026-05-22T20:06:00.000Z',
         conversationTitle: 'Started as chat',

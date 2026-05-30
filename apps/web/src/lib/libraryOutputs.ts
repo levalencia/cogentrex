@@ -163,6 +163,26 @@ function buildSkillRunModeByMessageId(skillRuns: SkillRunSummary[]): Map<string,
   return new Map(Array.from(byMessageId.entries()).map(([messageId, value]) => [messageId, value.mode]));
 }
 
+function buildSkillRunModeByArtifactId(skillRuns: SkillRunSummary[]): Map<string, AppMode> {
+  const byArtifactId = new Map<string, { mode: AppMode; timestamp: string }>();
+
+  for (const run of skillRuns) {
+    const savedArtifactIds = run.observability?.savedArtifactIds;
+    if (!Array.isArray(savedArtifactIds)) continue;
+    const timestamp = run.completedAt ?? run.startedAt;
+    for (const value of savedArtifactIds) {
+      if (typeof value !== 'string' || !value.trim()) continue;
+      const artifactId = value.trim();
+      const existing = byArtifactId.get(artifactId);
+      if (!existing || new Date(timestamp).getTime() > new Date(existing.timestamp).getTime()) {
+        byArtifactId.set(artifactId, { mode: run.mode, timestamp });
+      }
+    }
+  }
+
+  return new Map(Array.from(byArtifactId.entries()).map(([artifactId, value]) => [artifactId, value.mode]));
+}
+
 function effectiveConversationMode(conversation: ConversationLike, skillRunsByConversationId: Map<string, AppMode>): AppMode {
   return conversation.id ? skillRunsByConversationId.get(conversation.id) ?? conversation.mode : conversation.mode;
 }
@@ -171,8 +191,10 @@ function effectiveArtifactMode(
   artifact: ArtifactItem,
   skillRunsByConversationId: Map<string, AppMode>,
   skillRunsByMessageId = new Map<string, AppMode>(),
+  skillRunsByArtifactId = new Map<string, AppMode>(),
 ): AppMode | undefined {
   return artifact.effectiveMode
+    ?? skillRunsByArtifactId.get(artifact.id)
     ?? skillRunsByMessageId.get(artifact.messageId)
     ?? skillRunsByConversationId.get(artifact.conversationId)
     ?? artifact.conversationMode;
@@ -191,12 +213,13 @@ function artifactProvenanceLabel(artifact: ArtifactItem, mode: AppMode | undefin
 export function buildLibraryModeCards(conversations: ConversationLike[], skillRuns: SkillRunSummary[] = [], artifacts: ArtifactItem[] = []): LibraryModeCard[] {
   const skillRunsByConversationId = buildSkillRunModeByConversationId(skillRuns);
   const skillRunsByMessageId = buildSkillRunModeByMessageId(skillRuns);
+  const skillRunsByArtifactId = buildSkillRunModeByArtifactId(skillRuns);
   const linkedConversationIds = new Set(conversations.map((conversation) => conversation.id).filter((id): id is string => Boolean(id)));
   const standaloneRunModes = skillRuns
     .filter((run) => !run.conversationId || !linkedConversationIds.has(run.conversationId))
     .map((run) => run.mode);
   const artifactModes = artifacts
-    .map((artifact) => effectiveArtifactMode(artifact, skillRunsByConversationId, skillRunsByMessageId))
+    .map((artifact) => effectiveArtifactMode(artifact, skillRunsByConversationId, skillRunsByMessageId, skillRunsByArtifactId))
     .filter((mode): mode is AppMode => Boolean(mode));
   const conversationModes = conversations.map((conversation) => effectiveConversationMode(conversation, skillRunsByConversationId));
   const modes = artifacts.length ? [...artifactModes, ...standaloneRunModes] : [...conversationModes, ...standaloneRunModes];
@@ -763,14 +786,20 @@ function mergeArtifact(existing: ArtifactItem, incoming: ArtifactItem): Artifact
 }
 
 export function getLibraryArtifactMode(artifact: ArtifactItem, skillRuns: SkillRunSummary[] = []): AppMode | undefined {
-  return effectiveArtifactMode(artifact, buildSkillRunModeByConversationId(skillRuns), buildSkillRunModeByMessageId(skillRuns));
+  return effectiveArtifactMode(
+    artifact,
+    buildSkillRunModeByConversationId(skillRuns),
+    buildSkillRunModeByMessageId(skillRuns),
+    buildSkillRunModeByArtifactId(skillRuns),
+  );
 }
 
 export function buildLibraryArtifactRows(artifacts: ArtifactItem[], skillRuns: SkillRunSummary[] = []): LibraryArtifactRow[] {
   const skillRunsByConversationId = buildSkillRunModeByConversationId(skillRuns);
   const skillRunsByMessageId = buildSkillRunModeByMessageId(skillRuns);
+  const skillRunsByArtifactId = buildSkillRunModeByArtifactId(skillRuns);
   return artifacts.map((artifact) => {
-    const mode = effectiveArtifactMode(artifact, skillRunsByConversationId, skillRunsByMessageId);
+    const mode = effectiveArtifactMode(artifact, skillRunsByConversationId, skillRunsByMessageId, skillRunsByArtifactId);
     return {
       id: artifact.id,
       filename: artifact.filename,
@@ -818,8 +847,9 @@ export function buildRecentActivityItems(
 
   const skillRunsByConversationId = buildSkillRunModeByConversationId(skillRuns);
   const skillRunsByMessageId = buildSkillRunModeByMessageId(skillRuns);
+  const skillRunsByArtifactId = buildSkillRunModeByArtifactId(skillRuns);
   const artifactItems: RecentActivityItem[] = artifacts.map((artifact) => {
-    const mode = effectiveArtifactMode(artifact, skillRunsByConversationId, skillRunsByMessageId);
+    const mode = effectiveArtifactMode(artifact, skillRunsByConversationId, skillRunsByMessageId, skillRunsByArtifactId);
     return {
       id: `artifact-${artifact.id}`,
       kind: 'artifact',
@@ -840,8 +870,9 @@ export function filterLibraryArtifacts(artifacts: ArtifactItem[], query: string,
   if (!normalized) return artifacts;
   const skillRunsByConversationId = buildSkillRunModeByConversationId(skillRuns);
   const skillRunsByMessageId = buildSkillRunModeByMessageId(skillRuns);
+  const skillRunsByArtifactId = buildSkillRunModeByArtifactId(skillRuns);
   return artifacts.filter((artifact) => {
-    const mode = effectiveArtifactMode(artifact, skillRunsByConversationId, skillRunsByMessageId);
+    const mode = effectiveArtifactMode(artifact, skillRunsByConversationId, skillRunsByMessageId, skillRunsByArtifactId);
     return searchableText(artifact, mode).includes(normalized);
   });
 }
