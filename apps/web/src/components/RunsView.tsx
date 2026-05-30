@@ -419,6 +419,49 @@ export function RunsView() {
                 </section>
               ) : null}
 
+              {(selectedRunDetail.sourceLinks.length || selectedRunDetail.citationAuditEntries.length) ? (
+                <section className="rounded-3xl border border-sky-400/20 bg-sky-400/5 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs uppercase tracking-[0.18em] text-sky-200/70">Sources & citations</p>
+                    {selectedRunDetail.sourceLinks.length ? (
+                      <span className="rounded-full border border-sky-400/20 bg-sky-400/10 px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-sky-100">
+                        {selectedRunDetail.sourceLinks.length} sources
+                      </span>
+                    ) : null}
+                  </div>
+                  {selectedRunDetail.citationAuditEntries.length ? (
+                    <dl className="mt-3 grid gap-2 sm:grid-cols-2">
+                      {selectedRunDetail.citationAuditEntries.map((entry) => (
+                        <div key={entry.label} className="rounded-2xl border border-line bg-black/10 p-3">
+                          <dt className="text-[10px] uppercase tracking-[0.16em] text-slate-600">{entry.label}</dt>
+                          <dd className="mt-1 text-sm font-semibold text-white">{entry.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  ) : null}
+                  {selectedRunDetail.sourceLinks.length ? (
+                    <div className="mt-3 space-y-2">
+                      {selectedRunDetail.sourceLinks.slice(0, 8).map((source) => (
+                        <a
+                          key={`${source.id}-${source.url}`}
+                          href={source.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block rounded-2xl border border-line bg-black/10 p-3 transition hover:border-sky-300/60"
+                        >
+                          <span className="block text-sm font-medium text-sky-100">{source.label}</span>
+                          {source.channel ? <span className="mt-1 block text-[10px] uppercase tracking-[0.14em] text-slate-600">{source.channel}</span> : null}
+                          {source.snippet ? <span className="mt-2 line-clamp-2 block text-xs leading-5 text-slate-400">{source.snippet}</span> : null}
+                        </a>
+                      ))}
+                      {selectedRunDetail.sourceLinks.length > 8 ? (
+                        <p className="text-xs text-slate-500">Showing first 8 sources. Open chat for the full research answer.</p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </section>
+              ) : null}
+
               <section className="rounded-3xl border border-line bg-ink/50 p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Metrics</p>
                 {selectedRunDetail.metrics.length ? (

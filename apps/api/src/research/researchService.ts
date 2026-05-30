@@ -533,6 +533,8 @@ export class ResearchService {
             estimatedTokens,
             skillAssistEnabled: useSkills,
             skillAssistSlugs: synthesisMessages.skillSlugs,
+            sources: allSources,
+            citationAudit: grounded.audit,
           },
         });
         await this.jobsRepo.updateStatus(jobId, 'completed', nowIso(), { answer: content, sources: allSources, reasoning: completedReasoning });
@@ -911,6 +913,8 @@ export class ResearchService {
         estimatedTokens,
         skillAssistEnabled: Boolean(input.useSkills),
         skillAssistSlugs: synthesisSkillSlugs,
+        sources: allSources,
+        citationAudit: grounded.audit,
       },
     });
     reasoningLog.push(finishedDiagnostic);
