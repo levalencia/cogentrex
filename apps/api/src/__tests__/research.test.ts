@@ -313,6 +313,41 @@ describe('deep research API', () => {
       }),
     });
 
+    const eventsResponse = await agent.get(`/api/skills/runs/${runsResponse.body.runs[0].id}/events`).expect(200);
+    const eventTypes = eventsResponse.body.events.map((event: { eventType: string }) => event.eventType);
+    expect(eventTypes[0]).toBe('run_started');
+    expect(eventTypes.at(-1)).toBe('run_completed');
+    expect(eventTypes.indexOf('research_started')).toBeLessThan(eventTypes.indexOf('source_found'));
+    expect(eventTypes.indexOf('source_found')).toBeLessThan(eventTypes.indexOf('synthesis_completed'));
+    expect(eventTypes.indexOf('synthesis_completed')).toBeLessThan(eventTypes.indexOf('run_completed'));
+    expect(eventTypes.filter((eventType: string) => eventType === 'search_completed').length).toBeGreaterThanOrEqual(1);
+    expect(eventsResponse.body.events.find((event: { eventType: string }) => event.eventType === 'source_found')).toMatchObject({
+      label: 'Source found',
+      metadata: expect.objectContaining({
+        sourceId: 1,
+        channel: 'web',
+        totalSources: 1,
+        urlHash: expect.any(String),
+      }),
+    });
+    expect(eventsResponse.body.events.find((event: { eventType: string }) => event.eventType === 'search_completed')).toMatchObject({
+      label: 'Search completed',
+      metadata: expect.objectContaining({
+        channel: 'web',
+        resultCount: 1,
+        uniqueAdded: 1,
+        totalSources: 1,
+      }),
+    });
+    expect(eventsResponse.body.events.find((event: { eventType: string }) => event.eventType === 'synthesis_completed')).toMatchObject({
+      label: 'Synthesis completed',
+      metadata: expect.objectContaining({
+        sourceCount: 1,
+        citationCount: expect.any(Number),
+        validCitationCount: expect.any(Number),
+      }),
+    });
+
     database.close();
   });
 
