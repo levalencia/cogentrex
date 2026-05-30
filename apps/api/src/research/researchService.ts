@@ -667,6 +667,19 @@ export class ResearchService {
       fetchProvider: describeFetchClient(this.search),
       availableChannels: this.channels.names().join(','),
     });
+    await this.skillRuns.safeAppendEvent(skillRun?.id, input.userId, {
+      eventType: 'research_started',
+      label: 'Research started',
+      metadata: {
+        conversationId: conversation.id,
+        providerId: provider.id,
+        providerKind: provider.kind,
+        model: provider.model,
+        searchProvider: describeSearchClient(this.search),
+        fetchProvider: describeFetchClient(this.search),
+        availableChannels: this.channels.names().join(','),
+      },
+    });
     input.emit({ type: 'reasoning', step: 'Planning research', detail: 'Creating focused search queries', iteration: 0 });
     reasoningLog.push({ type: 'reasoning', step: 'Planning research', detail: 'Creating focused search queries', iteration: 0 });
     let queries: string[];
@@ -749,10 +762,23 @@ export class ResearchService {
         sources.push(source);
         excerpts.set(id, result.markdown.slice(0, 3500));
         input.emit({ type: 'source', source, iteration, channel: item.channel });
+        await this.skillRuns.safeAppendEvent(skillRun?.id, input.userId, {
+          eventType: 'source_found',
+          label: 'Source found',
+          metadata: {
+            sourceId: source.id,
+            title: source.title,
+            url: redactUrlForEventMetadata(source.url),
+            urlHash: hashForLog(source.url),
+            channel: item.channel,
+            iteration,
+            totalSources: sources.length,
+          },
+        });
       }
       const iterationDuration = Math.round(performance.now() - iterationStarted);
       const searchProvider = item.channel === 'web' ? describeSearchClient(this.search) : item.channel;
-      emitDiagnostic('search_completed', `Search completed for ${item.channel}`, {
+      const searchCompletedMetadata = {
         channel: item.channel,
         searchProvider,
         requestedLimit: 5,
@@ -760,7 +786,13 @@ export class ResearchService {
         uniqueAdded,
         totalSources: sources.length,
         durationMs: iterationDuration,
-      }, iteration);
+      };
+      emitDiagnostic('search_completed', `Search completed for ${item.channel}`, searchCompletedMetadata, iteration);
+      await this.skillRuns.safeAppendEvent(skillRun?.id, input.userId, {
+        eventType: 'search_completed',
+        label: 'Search completed',
+        metadata: { ...searchCompletedMetadata, iteration },
+      });
       this.logger.info({
         conversationId: conversation.id,
         iteration,
@@ -844,6 +876,22 @@ export class ResearchService {
     const ttftMs = firstTokenAt ? Math.round(firstTokenAt - synthesisStarted) : undefined;
     const estimatedTokens = Math.round(content.length / 4);
     const tps = synthesisDuration > 0 ? Math.round((estimatedTokens / synthesisDuration) * 1000 * 10) / 10 : undefined;
+
+    await this.skillRuns.safeAppendEvent(skillRun?.id, input.userId, {
+      eventType: 'synthesis_completed',
+      label: 'Synthesis completed',
+      metadata: {
+        messageId: assistantMessageId,
+        sourceCount: allSources.length,
+        newSourceCount: sources.length,
+        planLength: queries.length,
+        durationMs: synthesisDuration,
+        estimatedTokens,
+        citationCount: grounded.audit.citationCount,
+        validCitationCount: grounded.audit.validCitationCount,
+        fallbackApplied: grounded.audit.fallbackApplied,
+      },
+    });
 
     const totalDuration = Math.round(performance.now() - startedAt);
     const finishedDiagnostic = createDiagnosticEvent('research_finished', 'Deep research run finished', {
