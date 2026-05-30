@@ -109,6 +109,9 @@ export interface SkillRunEventRow {
   eventType: string;
   message: string | null;
   metadataEntries: Array<{ key: string; value: string }>;
+  savedArtifactLinks: SkillRunDetail['savedArtifactLinks'];
+  sourceLinks: SkillRunDetail['sourceLinks'];
+  citationAuditEntries: SkillRunDetail['citationAuditEntries'];
   createdAt: string;
 }
 
@@ -443,28 +446,38 @@ function skillRunSourceLinks(observability: Record<string, unknown> | null): Ski
 }
 
 function savedArtifactMetadataById(observability: Record<string, unknown> | null): Map<string, { filename?: string; type?: string }> {
+  const entries: Array<readonly [string, { filename?: string; type?: string }]> = [];
   const rawArtifacts = observability?.savedArtifacts;
-  if (!Array.isArray(rawArtifacts)) return new Map();
+  if (Array.isArray(rawArtifacts)) {
+    entries.push(...rawArtifacts.flatMap((artifact) => {
+      if (!artifact || typeof artifact !== 'object') return [];
+      const value = artifact as Record<string, unknown>;
+      const id = typeof value.id === 'string' ? value.id.trim() : '';
+      if (!id) return [];
+      const metadata: { filename?: string; type?: string } = {};
+      if (typeof value.filename === 'string' && value.filename.trim()) metadata.filename = value.filename.trim();
+      if (typeof value.type === 'string' && value.type.trim()) metadata.type = value.type.trim();
+      return [[id, metadata] as const];
+    }));
+  }
 
-  const entries = rawArtifacts.flatMap((artifact) => {
-    if (!artifact || typeof artifact !== 'object') return [];
-    const value = artifact as Record<string, unknown>;
-    const id = typeof value.id === 'string' ? value.id.trim() : '';
-    if (!id) return [];
+  const artifactId = typeof observability?.artifactId === 'string' ? observability.artifactId.trim() : '';
+  if (artifactId) {
     const metadata: { filename?: string; type?: string } = {};
-    if (typeof value.filename === 'string' && value.filename.trim()) metadata.filename = value.filename.trim();
-    if (typeof value.type === 'string' && value.type.trim()) metadata.type = value.type.trim();
-    return [[id, metadata] as const];
-  });
+    if (typeof observability?.filename === 'string' && observability.filename.trim()) metadata.filename = observability.filename.trim();
+    if (typeof observability?.type === 'string' && observability.type.trim()) metadata.type = observability.type.trim();
+    entries.push([artifactId, metadata] as const);
+  }
 
   return new Map(entries);
 }
 
 function skillRunSavedArtifactLinks(observability: Record<string, unknown> | null): SkillRunDetail['savedArtifactLinks'] {
   const rawIds = observability?.savedArtifactIds;
-  if (!Array.isArray(rawIds)) return [];
+  const fallbackArtifactId = typeof observability?.artifactId === 'string' ? observability.artifactId.trim() : '';
+  const candidateIds = Array.isArray(rawIds) ? rawIds : fallbackArtifactId ? [fallbackArtifactId] : [];
   const metadataById = savedArtifactMetadataById(observability);
-  const uniqueIds = Array.from(new Set(rawIds
+  const uniqueIds = Array.from(new Set(candidateIds
     .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
     .map((id) => id.trim())));
 
@@ -478,9 +491,12 @@ function skillRunSavedArtifactLinks(observability: Record<string, unknown> | nul
   });
 }
 
+const richEventMetadataKeys = new Set(['artifactId', 'citationAudit', 'filename', 'savedArtifacts', 'savedArtifactIds', 'sources', 'type']);
+
 function metadataEntries(metadata: Record<string, unknown> | null): SkillRunEventRow['metadataEntries'] {
   if (!metadata) return [];
   return Object.entries(metadata)
+    .filter(([key]) => !richEventMetadataKeys.has(key))
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([key, value]) => ({ key, value: formatObservabilityValue(value) }));
 }
@@ -495,6 +511,9 @@ export function buildSkillRunEventRows(events: SkillRunEvent[]): SkillRunEventRo
       eventType: event.eventType,
       message: event.message,
       metadataEntries: metadataEntries(event.metadata),
+      savedArtifactLinks: skillRunSavedArtifactLinks(event.metadata),
+      sourceLinks: skillRunSourceLinks(event.metadata),
+      citationAuditEntries: skillRunCitationAuditEntries(event.metadata),
       createdAt: event.createdAt,
     }));
 }
