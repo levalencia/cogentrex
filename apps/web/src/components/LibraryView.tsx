@@ -8,6 +8,7 @@ import {
   buildArtifactDownload,
   buildLibraryArtifactHref,
   buildLibraryArtifactRows,
+  buildLibraryArtifactRunHref,
   buildLibraryModeCards,
   buildLibraryOverviewStats,
   buildRecentActivityItems,
@@ -48,6 +49,7 @@ export function LibraryView() {
   const artifactRows = buildLibraryArtifactRows(filteredArtifacts, skillRuns);
   const selectedArtifact = selectedArtifactId ? filteredArtifacts.find((artifact) => artifact.id === selectedArtifactId) : undefined;
   const selectedArtifactHref = selectedArtifact ? buildLibraryArtifactHref(selectedArtifact.id) : null;
+  const selectedArtifactRunHref = selectedArtifact ? buildLibraryArtifactRunHref(selectedArtifact, skillRuns) : null;
   const selectedArtifactMode = selectedArtifact ? getLibraryArtifactMode(selectedArtifact, skillRuns) : undefined;
   const recentActivity = buildRecentActivityItems(conversations, mergedArtifacts, skillRuns, 8);
 
@@ -293,6 +295,15 @@ export function LibraryView() {
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                      {selectedArtifactRunHref ? (
+                        <button
+                          type="button"
+                          onClick={() => router.push(selectedArtifactRunHref)}
+                          className="rounded-xl border border-line px-3 py-2 text-xs text-slate-300 transition hover:border-accent"
+                        >
+                          Open origin run
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => router.push(`/chats/${selectedArtifact.conversationId}`)}

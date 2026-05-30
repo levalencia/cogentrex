@@ -4,6 +4,7 @@ import {
   buildArtifactDownload,
   buildLibraryArtifactHref,
   buildLibraryArtifactRows,
+  buildLibraryArtifactRunHref,
   buildLibraryModeCards,
   buildLibraryOverviewStats,
   buildRecentActivityItems,
@@ -71,6 +72,49 @@ describe('resolveSkillRunSelection', () => {
 describe('buildSkillRunHref', () => {
   it('builds stable encoded run ledger deep links', () => {
     expect(buildSkillRunHref('run 1/with?chars')).toBe('/runs?run=run%201%2Fwith%3Fchars');
+  });
+});
+
+describe('buildLibraryArtifactRunHref', () => {
+  const artifact: ArtifactItem = {
+    id: 'art-1',
+    filename: 'Brief.md',
+    type: 'text/markdown',
+    sizeBytes: 10,
+    conversationId: 'conv-1',
+    messageId: 'msg-1',
+    content: 'Brief',
+    createdAt: '2026-05-22T20:00:00.000Z',
+    conversationTitle: 'Brief conversation',
+    conversationMode: 'CHAT',
+  };
+
+  it('deep-links an artifact to its persisted origin run when provenance is present', () => {
+    expect(buildLibraryArtifactRunHref({ ...artifact, skillRunId: 'run 1/with?chars' })).toBe('/runs?run=run%201%2Fwith%3Fchars');
+  });
+
+  it('falls back to live run observability when a saved artifact was just linked', () => {
+    expect(buildLibraryArtifactRunHref(artifact, [{
+      id: 'run-1',
+      userId: 'user-1',
+      skillId: 'skl_chat',
+      skillSlug: 'chat',
+      skillName: 'Chat',
+      mode: 'CHAT',
+      status: 'completed',
+      conversationId: 'conv-1',
+      jobId: null,
+      providerId: null,
+      startedAt: '2026-05-22T20:00:00.000Z',
+      completedAt: '2026-05-22T20:00:10.000Z',
+      durationMs: 10000,
+      errorMessage: null,
+      observability: { savedArtifactIds: ['art-1'], messageId: 'msg-1' },
+    }])).toBe('/runs?run=run-1');
+  });
+
+  it('returns null when no run provenance exists', () => {
+    expect(buildLibraryArtifactRunHref(artifact, [])).toBeNull();
   });
 });
 
