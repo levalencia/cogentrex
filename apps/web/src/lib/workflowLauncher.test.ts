@@ -5,6 +5,7 @@ import {
   buildWorkflowSelectionGroups,
   getLauncherItems,
   getLauncherPlaceholder,
+  getLauncherPromptTemplates,
   getLauncherSkillSlug,
   getPrimaryLauncherItems,
   getSkillAssistPickerOptions,
@@ -79,6 +80,20 @@ describe('workflow launcher helpers', () => {
     expect(getLauncherPlaceholder('algorithmic-art')).toBe('Describe the generative artwork, palette, motion, medium, and constraints...');
     expect(getLauncherPlaceholder('artifact-brief')).toBe('What brief, memo, or artifact should Cogentrex draft?');
     expect(getLauncherPlaceholder('missing')).toBe('Ask Cogentrex... (Press Enter to send)');
+  });
+
+  it('extracts configured workflow prompt templates from readiness route config', () => {
+    const readiness: SkillReadiness[] = [
+      skillReadiness('chat', 'ready', undefined, 'tool', 'web.search', 'Web search', [
+        { id: 'chat-plan', label: 'Plan', prompt: 'Create a plan: ', description: 'Planning chip' },
+        { id: 'bad', label: '', prompt: '' },
+      ]),
+    ];
+
+    expect(getLauncherPromptTemplates('ask-chat', readiness)).toEqual([
+      { id: 'chat-plan', label: 'Plan', prompt: 'Create a plan: ', description: 'Planning chip' },
+    ]);
+    expect(getLauncherPromptTemplates('deep-research', readiness)).toEqual([]);
   });
 
   it('overlays backend skill readiness onto launcher cards with user-safe setup copy', () => {
@@ -169,6 +184,7 @@ function skillReadiness(
   kind: SkillReadiness['dependencies'][number]['kind'] = 'tool',
   id: SkillReadiness['dependencies'][number]['id'] = 'web.search',
   label = 'Web search',
+  promptTemplates: unknown[] = [],
 ): SkillReadiness {
   return {
     skill: {
@@ -181,7 +197,17 @@ function skillReadiness(
       visibility: 'USER_VISIBLE',
       category: null,
       icon: null,
-      route: null,
+      route: {
+        id: `skr_${slug}`,
+        skillId: `skl_${slug}`,
+        mode: 'CHAT',
+        defaultProviderId: null,
+        searchProfile: null,
+        maxBudgetCents: null,
+        config: { promptTemplates } as NonNullable<NonNullable<SkillReadiness['skill']['route']>['config']>,
+        createdAt: '2026-05-23T00:00:00.000Z',
+        updatedAt: '2026-05-23T00:00:00.000Z',
+      },
       createdAt: '2026-05-23T00:00:00.000Z',
       updatedAt: '2026-05-23T00:00:00.000Z',
     },

@@ -1,4 +1,4 @@
-import type { AppMode, CapabilityStatus, SkillReadiness } from '@cogentrex/shared';
+import type { AppMode, CapabilityStatus, PromptTemplate, SkillReadiness } from '@cogentrex/shared';
 
 export type LauncherItemStatus = 'available' | 'near_existing';
 export type LauncherItemTone = 'slate' | 'emerald' | 'blue' | 'purple' | 'pink' | 'amber';
@@ -261,6 +261,27 @@ export function mergeSkillAssistSlugs(...groups: Array<string | string[] | null 
 
 export function getLauncherPlaceholder(itemId: string): string {
   return getLauncherItem(itemId)?.placeholder ?? 'Ask Cogentrex... (Press Enter to send)';
+}
+
+export function getLauncherPromptTemplates(itemId: string, readiness: SkillReadiness[]): PromptTemplate[] {
+  const skillSlug = launcherReadinessSlugs[itemId];
+  if (!skillSlug) return [];
+  const templates = readiness.find((item) => item.skill.slug === skillSlug)?.skill.route?.config?.promptTemplates;
+  return sanitizePromptTemplates(templates);
+}
+
+function sanitizePromptTemplates(value: unknown): PromptTemplate[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object') return [];
+    const candidate = item as Record<string, unknown>;
+    const id = typeof candidate.id === 'string' ? candidate.id.trim() : '';
+    const label = typeof candidate.label === 'string' ? candidate.label.trim() : '';
+    const prompt = typeof candidate.prompt === 'string' ? candidate.prompt : '';
+    const description = typeof candidate.description === 'string' ? candidate.description.trim() : '';
+    if (!id || !label || !prompt.trim()) return [];
+    return [{ id, label, prompt, ...(description ? { description } : {}) }];
+  }).slice(0, 8);
 }
 
 export function getLauncherToneClasses(tone: LauncherItemTone, active: boolean): string {

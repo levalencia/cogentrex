@@ -22,6 +22,7 @@ import {
   getDefaultLauncherIdForMode,
   getLauncherItems,
   getLauncherPlaceholder,
+  getLauncherPromptTemplates,
   getLauncherSkillSlug,
   getSkillAssistPickerOptions,
   getLauncherToneClasses,
@@ -630,6 +631,11 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
 
   const skillAssistOptions = getSkillAssistPickerOptions(mode);
   const selectedLauncherSkillSlug = getLauncherSkillSlug(selectedLauncherId);
+  const promptTemplates = getLauncherPromptTemplates(selectedLauncherId, skillReadiness ?? []);
+  const applyPromptTemplate = useCallback((prompt: string) => {
+    setInput(prompt);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }, []);
 
   return (
     <div className="shrink-0 border-t border-line bg-ink/90 p-4 backdrop-blur">
@@ -821,6 +827,24 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
           <p className="px-2 text-xs text-slate-500">
             Tip: Edit your topic above and click Generate again to iterate on results. Previous posts will be saved in the conversation.
           </p>
+        ) : null}
+
+        {promptTemplates.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-2 px-2" aria-label="Prompt templates">
+            <span className="text-xs font-medium text-slate-500">Examples:</span>
+            {promptTemplates.map((template) => (
+              <button
+                key={template.id}
+                type="button"
+                onClick={() => applyPromptTemplate(template.prompt)}
+                title={template.description ?? template.prompt}
+                disabled={isStreaming || providers.length === 0 || !!pendingPlan || analyzing}
+                className="rounded-full border border-line bg-ink/60 px-3 py-1.5 text-xs text-slate-300 transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {template.label}
+              </button>
+            ))}
+          </div>
         ) : null}
 
         <textarea

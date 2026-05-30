@@ -108,6 +108,12 @@ describe('skill registry API', () => {
       expect(Array.isArray(res.body.skill.toolRequirements)).toBe(true);
       expect(res.body.skill.inputSchema.fields[0]).toMatchObject({ name: 'question', label: 'Research question', type: 'textarea', required: true });
       expect(res.body.skill.outputContract.artifacts).toContain('Cited answer');
+      expect(res.body.skill.route.config.promptTemplates).toHaveLength(5);
+      expect(res.body.skill.route.config.promptTemplates[0]).toMatchObject({
+        id: 'research-market-map',
+        label: 'Market map',
+        prompt: expect.stringContaining('Research'),
+      });
     });
 
     await agent.get('/api/skills/video-lab').expect(404);
@@ -188,6 +194,9 @@ describe('skill registry API', () => {
     const slugs = res.body.skills.map((skill: { slug: string }) => skill.slug);
     expect(slugs).toContain('video-lab');
     expect(slugs).toContain('flight-search');
+    for (const skill of res.body.skills as Array<{ route: { config: { promptTemplates?: unknown[] } | null } | null }>) {
+      expect(skill.route?.config?.promptTemplates).toHaveLength(5);
+    }
 
     database.close();
   });
@@ -212,16 +221,25 @@ describe('skill registry API', () => {
       mode: 'DEEP_RESEARCH',
       searchProfile: 'travel-web',
       maxBudgetCents: 500,
-      config: { requiredSources: 4 },
+      config: {
+        requiredSources: 4,
+        promptTemplates: [
+          { id: 'flight-weekend', label: 'Weekend trip', prompt: 'Find weekend flight options: ', description: 'Short trip research' },
+        ],
+      },
     }).expect(200).expect((res) => {
       expect(res.body.route.mode).toBe('DEEP_RESEARCH');
       expect(res.body.route.searchProfile).toBe('travel-web');
       expect(res.body.route.maxBudgetCents).toBe(500);
       expect(res.body.route.config.requiredSources).toBe(4);
+      expect(res.body.route.config.promptTemplates).toEqual([
+        { id: 'flight-weekend', label: 'Weekend trip', prompt: 'Find weekend flight options: ', description: 'Short trip research' },
+      ]);
     });
 
     await agent.get('/api/skills/flight-search').expect(200).expect((res) => {
       expect(res.body.skill.route.searchProfile).toBe('travel-web');
+      expect(res.body.skill.route.config.promptTemplates[0].id).toBe('flight-weekend');
     });
 
     database.close();
