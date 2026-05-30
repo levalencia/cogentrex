@@ -626,6 +626,18 @@ export function buildLibraryArtifactHref(artifactId: string): string {
   return `/library?artifact=${encodeURIComponent(artifactId)}`;
 }
 
+export function buildLibraryArtifactRunHref(artifact: ArtifactItem, skillRuns: SkillRunSummary[] = []): string | null {
+  if (artifact.skillRunId) return buildSkillRunHref(artifact.skillRunId);
+
+  const linkedRun = skillRuns.find((run) => {
+    const savedArtifactIds = run.observability?.savedArtifactIds;
+    if (Array.isArray(savedArtifactIds) && savedArtifactIds.includes(artifact.id)) return true;
+    return run.observability?.messageId === artifact.messageId && run.conversationId === artifact.conversationId;
+  });
+
+  return linkedRun ? buildSkillRunHref(linkedRun.id) : null;
+}
+
 function searchableText(artifact: ArtifactItem, mode: AppMode | undefined): string {
   return [
     artifact.filename,
