@@ -494,6 +494,49 @@ export function RunsView() {
                           <p className="shrink-0 text-xs text-slate-500">{formatDate(event.createdAt)}</p>
                         </div>
                         {event.message ? <p className="mt-2 text-xs leading-5 text-slate-400">{event.message}</p> : null}
+                        {event.savedArtifactLinks.length ? (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {event.savedArtifactLinks.map((artifact) => (
+                              <Link
+                                key={artifact.id}
+                                href={artifact.href}
+                                className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 text-[10px] text-emerald-100 transition hover:border-emerald-200"
+                              >
+                                {artifact.label}
+                              </Link>
+                            ))}
+                          </div>
+                        ) : null}
+                        {event.citationAuditEntries.length ? (
+                          <dl className="mt-3 grid gap-2 sm:grid-cols-2">
+                            {event.citationAuditEntries.map((entry) => (
+                              <div key={entry.label} className="rounded-xl border border-sky-400/20 bg-sky-400/5 px-3 py-2">
+                                <dt className="text-[9px] uppercase tracking-[0.14em] text-slate-600">{entry.label}</dt>
+                                <dd className="mt-1 text-xs font-semibold text-sky-100">{entry.value}</dd>
+                              </div>
+                            ))}
+                          </dl>
+                        ) : null}
+                        {event.sourceLinks.length ? (
+                          <div className="mt-3 space-y-2">
+                            {event.sourceLinks.slice(0, 3).map((source) => (
+                              <a
+                                key={`${event.id}-${source.id}-${source.url}`}
+                                href={source.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="block rounded-xl border border-line bg-black/10 px-3 py-2 transition hover:border-sky-300/60"
+                              >
+                                <span className="block text-xs font-medium text-sky-100">{source.label}</span>
+                                {source.channel ? <span className="mt-1 block text-[9px] uppercase tracking-[0.14em] text-slate-600">{source.channel}</span> : null}
+                                {source.snippet ? <span className="mt-1 line-clamp-2 block text-[11px] leading-4 text-slate-500">{source.snippet}</span> : null}
+                              </a>
+                            ))}
+                            {event.sourceLinks.length > 3 ? (
+                              <p className="text-[11px] text-slate-600">Showing first 3 event sources. The run summary keeps the full source list.</p>
+                            ) : null}
+                          </div>
+                        ) : null}
                         {event.metadataEntries.length ? (
                           <dl className="mt-2 grid gap-1 text-xs text-slate-400">
                             {event.metadataEntries.map((entry) => (

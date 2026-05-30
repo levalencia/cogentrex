@@ -1230,6 +1230,9 @@ describe('buildSkillRunEventRows', () => {
         eventType: 'run_started',
         message: 'Starting provider request',
         metadataEntries: [{ key: 'mode', value: 'SOCIAL_WRITING' }],
+        savedArtifactLinks: [],
+        sourceLinks: [],
+        citationAuditEntries: [],
         createdAt: '2026-05-22T20:01:00.000Z',
       },
       {
@@ -1242,9 +1245,74 @@ describe('buildSkillRunEventRows', () => {
           { key: 'platforms', value: 'linkedin' },
           { key: 'postCount', value: '1' },
         ],
+        savedArtifactLinks: [],
+        sourceLinks: [],
+        citationAuditEntries: [],
         createdAt: '2026-05-22T20:03:00.000Z',
       },
     ]);
+  });
+
+  it('promotes rich event metadata into operator-friendly artifact, source, and citation rows', () => {
+    const rows = buildSkillRunEventRows([
+      {
+        id: 'event-rich',
+        runId: 'run-1',
+        userId: 'user-1',
+        sequence: 3,
+        eventType: 'research_synthesis_completed',
+        label: 'Research synthesis completed',
+        message: 'Synthesized answer with sources and saved output.',
+        metadata: {
+          phase: 'synthesis',
+          artifactId: 'art-1',
+          filename: 'Research brief.md',
+          type: 'text/markdown',
+          sources: [
+            { id: 2, title: 'Second source', url: 'https://example.com/second', snippet: 'Second source snippet.', channel: 'web' },
+            { id: 1, title: 'First source', url: 'https://example.com/first', snippet: 'First source snippet.', channel: 'docs' },
+          ],
+          citationAudit: {
+            citationCount: 2,
+            validCitationCount: 2,
+            invalidCitationCount: 0,
+            fallbackApplied: false,
+          },
+        },
+        createdAt: '2026-05-22T20:03:00.000Z',
+      },
+    ]);
+
+    expect(rows[0]).toMatchObject({
+      metadataEntries: [{ key: 'phase', value: 'synthesis' }],
+      savedArtifactLinks: [
+        { id: 'art-1', href: '/library?artifact=art-1', label: 'Research brief.md' },
+      ],
+      sourceLinks: [
+        {
+          id: 1,
+          label: '[1] First source',
+          title: 'First source',
+          url: 'https://example.com/first',
+          snippet: 'First source snippet.',
+          channel: 'docs',
+        },
+        {
+          id: 2,
+          label: '[2] Second source',
+          title: 'Second source',
+          url: 'https://example.com/second',
+          snippet: 'Second source snippet.',
+          channel: 'web',
+        },
+      ],
+      citationAuditEntries: [
+        { label: 'Citations', value: '2' },
+        { label: 'Valid citations', value: '2' },
+        { label: 'Invalid citations', value: '0' },
+        { label: 'Fallback applied', value: 'no' },
+      ],
+    });
   });
 });
 
