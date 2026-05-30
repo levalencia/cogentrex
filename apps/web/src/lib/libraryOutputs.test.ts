@@ -12,6 +12,7 @@ import {
   buildSkillRunHealthStats,
   buildSkillRunHistoryRows,
   buildSkillRunHref,
+  buildSkillRunNextActions,
   filterLibraryArtifacts,
   filterSkillRuns,
   mergeLibraryArtifacts,
@@ -70,6 +71,92 @@ describe('resolveSkillRunSelection', () => {
 describe('buildSkillRunHref', () => {
   it('builds stable encoded run ledger deep links', () => {
     expect(buildSkillRunHref('run 1/with?chars')).toBe('/runs?run=run%201%2Fwith%3Fchars');
+  });
+});
+
+describe('buildSkillRunNextActions', () => {
+  it('turns a run into operator next actions for continuing, inspecting outputs, and relaunching', () => {
+    const actions = buildSkillRunNextActions({
+      id: 'run-deep',
+      userId: 'user-1',
+      skillId: 'skl_deep_research',
+      skillSlug: 'deep-research',
+      skillName: 'Deep Research',
+      mode: 'DEEP_RESEARCH',
+      status: 'completed',
+      conversationId: 'conv-1',
+      jobId: 'job-1',
+      providerId: 'provider-1',
+      startedAt: '2026-05-22T20:00:00.000Z',
+      completedAt: '2026-05-22T20:03:00.000Z',
+      durationMs: 180000,
+      errorMessage: null,
+      observability: {
+        savedArtifactIds: ['art-1', 'art-2'],
+        savedArtifacts: [{ id: 'art-1', filename: 'Brief.md' }, { id: 'art-2', filename: 'Sources.md' }],
+      },
+    });
+
+    expect(actions).toEqual([
+      {
+        id: 'continue-chat',
+        label: 'Continue in chat',
+        description: 'Open the conversation context behind this run.',
+        href: '/chats/conv-1',
+        tone: 'primary',
+      },
+      {
+        id: 'open-output',
+        label: 'Open saved output',
+        description: 'Inspect 2 library artifacts produced by this run.',
+        href: '/library?artifact=art-1',
+        tone: 'success',
+      },
+      {
+        id: 'open-workflow',
+        label: 'Open workflow',
+        description: 'Review readiness and launch Deep Research again.',
+        href: '/skills/deep-research',
+        tone: 'neutral',
+      },
+    ]);
+  });
+
+  it('prioritizes failed-run troubleshooting when there is no conversation or saved output', () => {
+    const actions = buildSkillRunNextActions({
+      id: 'run-failed',
+      userId: 'user-1',
+      skillId: 'skl_social',
+      skillSlug: 'linkedin-writer',
+      skillName: 'LinkedIn Writer',
+      mode: 'SOCIAL_WRITING',
+      status: 'failed',
+      conversationId: null,
+      jobId: null,
+      providerId: 'provider-1',
+      startedAt: '2026-05-22T20:00:00.000Z',
+      completedAt: '2026-05-22T20:01:00.000Z',
+      durationMs: 60000,
+      errorMessage: 'Provider missing',
+      observability: null,
+    });
+
+    expect(actions).toEqual([
+      {
+        id: 'troubleshoot-run',
+        label: 'Troubleshoot failure',
+        description: 'Review the error, provider, job, metrics, and event trace on this run.',
+        href: '/runs?run=run-failed',
+        tone: 'danger',
+      },
+      {
+        id: 'open-workflow',
+        label: 'Open workflow',
+        description: 'Review readiness and launch LinkedIn Writer again.',
+        href: '/skills/linkedin-writer',
+        tone: 'neutral',
+      },
+    ]);
   });
 });
 

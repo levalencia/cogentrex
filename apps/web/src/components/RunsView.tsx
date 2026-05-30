@@ -11,6 +11,7 @@ import {
   buildSkillRunHealthStats,
   buildSkillRunHistoryRows,
   buildSkillRunHref,
+  buildSkillRunNextActions,
   filterSkillRuns,
   resolveSkillRunSelection,
 } from '@/lib/libraryOutputs';
@@ -24,6 +25,13 @@ function runStatusClass(tone: 'success' | 'warning' | 'danger' | 'neutral'): str
   if (tone === 'warning') return 'border-amber-400/30 bg-amber-400/10 text-amber-200';
   if (tone === 'danger') return 'border-rose-400/30 bg-rose-400/10 text-rose-200';
   return 'border-slate-600 bg-slate-800/60 text-slate-300';
+}
+
+function runActionClass(tone: 'primary' | 'success' | 'danger' | 'neutral'): string {
+  if (tone === 'primary') return 'border-accent/40 bg-accent/10 text-accent hover:border-accent';
+  if (tone === 'success') return 'border-emerald-400/30 bg-emerald-400/10 text-emerald-100 hover:border-emerald-200';
+  if (tone === 'danger') return 'border-rose-400/30 bg-rose-400/10 text-rose-100 hover:border-rose-200';
+  return 'border-line bg-ink/50 text-slate-300 hover:border-accent';
 }
 
 const runStatusOptions = [
@@ -64,6 +72,7 @@ export function RunsView() {
   const selectedRun = selectedRunId ? skillRuns.find((run) => run.id === selectedRunId) : undefined;
   const selectedRunDetail = selectedRun ? buildSkillRunDetail(selectedRun) : undefined;
   const selectedRunHref = selectedRun ? buildSkillRunHref(selectedRun.id) : null;
+  const selectedRunActions = selectedRun ? buildSkillRunNextActions(selectedRun) : [];
   const selectedRunEventRows = buildSkillRunEventRows(selectedRunEvents);
 
   useEffect(() => {
@@ -342,6 +351,22 @@ export function RunsView() {
                 {selectedRunDetail.errorMessage ? (
                   <p className="mt-3 rounded-2xl border border-rose-400/20 bg-rose-400/10 p-3 text-xs leading-5 text-rose-100">{selectedRunDetail.errorMessage}</p>
                 ) : null}
+              </section>
+
+              <section className="rounded-3xl border border-line bg-ink/50 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Next actions</p>
+                <div className="mt-3 grid gap-2">
+                  {selectedRunActions.map((action) => (
+                    <Link
+                      key={action.id}
+                      href={action.href}
+                      className={`rounded-2xl border p-3 text-left transition ${runActionClass(action.tone)}`}
+                    >
+                      <span className="block text-sm font-semibold">{action.label}</span>
+                      <span className="mt-1 block text-xs leading-5 opacity-75">{action.description}</span>
+                    </Link>
+                  ))}
+                </div>
               </section>
 
               <section className="grid gap-3 sm:grid-cols-2">

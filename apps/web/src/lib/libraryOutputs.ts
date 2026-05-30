@@ -110,6 +110,14 @@ export interface SkillRunEventRow {
   createdAt: string;
 }
 
+export interface SkillRunNextAction {
+  id: 'troubleshoot-run' | 'continue-chat' | 'open-output' | 'open-workflow';
+  label: string;
+  description: string;
+  href: string;
+  tone: 'primary' | 'success' | 'danger' | 'neutral';
+}
+
 export type SkillRunStatusFilter = 'all' | 'active' | SkillRunSummary['status'];
 
 export interface SkillRunFilterInput {
@@ -534,6 +542,51 @@ export function buildSkillRunHistoryRows(skillRuns: SkillRunSummary[], limit = 6
 
 export function buildSkillRunHref(runId: string): string {
   return `/runs?run=${encodeURIComponent(runId)}`;
+}
+
+export function buildSkillRunNextActions(run: SkillRunSummary): SkillRunNextAction[] {
+  const actions: SkillRunNextAction[] = [];
+  const savedArtifactLinks = skillRunSavedArtifactLinks(run.observability);
+
+  if (run.status === 'failed') {
+    actions.push({
+      id: 'troubleshoot-run',
+      label: 'Troubleshoot failure',
+      description: 'Review the error, provider, job, metrics, and event trace on this run.',
+      href: buildSkillRunHref(run.id),
+      tone: 'danger',
+    });
+  }
+
+  if (run.conversationId) {
+    actions.push({
+      id: 'continue-chat',
+      label: 'Continue in chat',
+      description: 'Open the conversation context behind this run.',
+      href: `/chats/${encodeURIComponent(run.conversationId)}`,
+      tone: 'primary',
+    });
+  }
+
+  if (savedArtifactLinks.length) {
+    actions.push({
+      id: 'open-output',
+      label: 'Open saved output',
+      description: `Inspect ${savedArtifactLinks.length} library ${savedArtifactLinks.length === 1 ? 'artifact' : 'artifacts'} produced by this run.`,
+      href: savedArtifactLinks[0]?.href ?? '/library',
+      tone: 'success',
+    });
+  }
+
+  actions.push({
+    id: 'open-workflow',
+    label: 'Open workflow',
+    description: `Review readiness and launch ${run.skillName} again.`,
+    href: `/skills/${encodeURIComponent(run.skillSlug)}`,
+    tone: 'neutral',
+  });
+
+  return actions;
 }
 
 function workflowActivityDescription(mode: AppMode): string {
