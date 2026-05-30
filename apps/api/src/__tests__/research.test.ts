@@ -300,6 +300,17 @@ describe('deep research API', () => {
       messageId: expect.any(String),
       sourceCount: 1,
       planLength: expect.any(Number),
+      sources: [expect.objectContaining({
+        id: 1,
+        title: expect.any(String),
+        url: expect.stringMatching(/^https?:\/\//),
+      })],
+      citationAudit: expect.objectContaining({
+        citationCount: expect.any(Number),
+        validCitationCount: expect.any(Number),
+        invalidCitationCount: expect.any(Number),
+        fallbackApplied: expect.any(Boolean),
+      }),
     });
 
     database.close();

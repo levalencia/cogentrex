@@ -96,6 +96,8 @@ export interface SkillRunDetail {
   errorMessage: string | null;
   metrics: string[];
   savedArtifactLinks: Array<{ id: string; href: string; label: string }>;
+  sourceLinks: Array<{ id: number; label: string; title: string; url: string; snippet?: string | undefined; channel?: string | undefined }>;
+  citationAuditEntries: Array<{ label: string; value: string }>;
   criticalObservabilityEntries: Array<{ label: string; value: string }>;
   observabilityEntries: Array<{ key: string; value: string }>;
 }
@@ -389,9 +391,55 @@ function formatObservabilityValue(value: unknown): string {
 function skillRunObservabilityEntries(observability: Record<string, unknown> | null): SkillRunDetail['observabilityEntries'] {
   if (!observability) return [];
   return Object.entries(observability)
-    .filter(([key]) => key !== 'savedArtifacts')
+    .filter(([key]) => !['citationAudit', 'savedArtifacts', 'sources'].includes(key))
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([key, value]) => ({ key, value: formatObservabilityValue(value) }));
+}
+
+function readCitationAuditMetric(audit: Record<string, unknown> | null, key: string): number | null {
+  const value = audit?.[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function skillRunCitationAuditEntries(observability: Record<string, unknown> | null): SkillRunDetail['citationAuditEntries'] {
+  const rawAudit = observability?.citationAudit;
+  const audit = rawAudit && typeof rawAudit === 'object' && !Array.isArray(rawAudit) ? rawAudit as Record<string, unknown> : null;
+  if (!audit) return [];
+
+  const entries: SkillRunDetail['citationAuditEntries'] = [];
+  const citationCount = readCitationAuditMetric(audit, 'citationCount');
+  const validCitationCount = readCitationAuditMetric(audit, 'validCitationCount');
+  const invalidCitationCount = readCitationAuditMetric(audit, 'invalidCitationCount');
+  const fallbackApplied = audit.fallbackApplied;
+
+  if (citationCount != null) entries.push({ label: 'Citations', value: String(citationCount) });
+  if (validCitationCount != null) entries.push({ label: 'Valid citations', value: String(validCitationCount) });
+  if (invalidCitationCount != null) entries.push({ label: 'Invalid citations', value: String(invalidCitationCount) });
+  if (typeof fallbackApplied === 'boolean') entries.push({ label: 'Fallback applied', value: fallbackApplied ? 'yes' : 'no' });
+
+  return entries;
+}
+
+function skillRunSourceLinks(observability: Record<string, unknown> | null): SkillRunDetail['sourceLinks'] {
+  const rawSources = observability?.sources;
+  if (!Array.isArray(rawSources)) return [];
+
+  return rawSources.flatMap((source) => {
+    if (!source || typeof source !== 'object' || Array.isArray(source)) return [];
+    const value = source as Record<string, unknown>;
+    if (typeof value.id !== 'number' || !Number.isFinite(value.id)) return [];
+    if (typeof value.title !== 'string' || !value.title.trim()) return [];
+    if (typeof value.url !== 'string' || !value.url.trim()) return [];
+
+    return [{
+      id: value.id,
+      label: `[${value.id}] ${value.title.trim()}`,
+      title: value.title.trim(),
+      url: value.url.trim(),
+      snippet: typeof value.snippet === 'string' && value.snippet.trim() ? value.snippet.trim() : undefined,
+      channel: typeof value.channel === 'string' && value.channel.trim() ? value.channel.trim() : undefined,
+    }];
+  }).sort((left, right) => left.id - right.id);
 }
 
 function savedArtifactMetadataById(observability: Record<string, unknown> | null): Map<string, { filename?: string; type?: string }> {
@@ -469,6 +517,8 @@ export function buildSkillRunDetail(run: SkillRunSummary): SkillRunDetail {
     errorMessage: run.errorMessage,
     metrics: skillRunMetrics(run.observability),
     savedArtifactLinks: skillRunSavedArtifactLinks(run.observability),
+    sourceLinks: skillRunSourceLinks(run.observability),
+    citationAuditEntries: skillRunCitationAuditEntries(run.observability),
     criticalObservabilityEntries: skillRunCriticalObservabilityEntries(run.observability),
     observabilityEntries: skillRunObservabilityEntries(run.observability),
   };

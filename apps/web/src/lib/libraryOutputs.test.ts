@@ -1074,6 +1074,63 @@ describe('buildSkillRunDetail', () => {
     ]);
   });
 
+  it('surfaces source links and citation audit details from deep research observability', () => {
+    const detail = buildSkillRunDetail({
+      id: 'run-sources',
+      userId: 'user-1',
+      skillId: 'skill-1',
+      skillSlug: 'deep-research-default',
+      skillName: 'Deep Research',
+      mode: 'DEEP_RESEARCH',
+      status: 'completed',
+      conversationId: 'conv-1',
+      jobId: 'job-1',
+      providerId: 'provider-1',
+      startedAt: '2026-05-22T20:01:00.000Z',
+      completedAt: '2026-05-22T20:04:00.000Z',
+      durationMs: 180000,
+      errorMessage: null,
+      observability: {
+        sources: [
+          { id: 2, title: 'Agent workflow governance', url: 'https://example.com/governance', snippet: 'Governance controls for agent runs.', channel: 'web' },
+          { id: 1, title: 'AI citations guide', url: 'https://example.com/citations', snippet: 'Citation guidance.', channel: 'docs' },
+          { id: 'bad', title: 'Invalid source', url: 'https://example.com/bad' },
+        ],
+        citationAudit: {
+          citationCount: 4,
+          validCitationCount: 3,
+          invalidCitationCount: 1,
+          fallbackApplied: true,
+        },
+      },
+    });
+
+    expect(detail.sourceLinks).toEqual([
+      {
+        id: 1,
+        label: '[1] AI citations guide',
+        title: 'AI citations guide',
+        url: 'https://example.com/citations',
+        snippet: 'Citation guidance.',
+        channel: 'docs',
+      },
+      {
+        id: 2,
+        label: '[2] Agent workflow governance',
+        title: 'Agent workflow governance',
+        url: 'https://example.com/governance',
+        snippet: 'Governance controls for agent runs.',
+        channel: 'web',
+      },
+    ]);
+    expect(detail.citationAuditEntries).toEqual([
+      { label: 'Citations', value: '4' },
+      { label: 'Valid citations', value: '3' },
+      { label: 'Invalid citations', value: '1' },
+      { label: 'Fallback applied', value: 'yes' },
+    ]);
+  });
+
   it('uses saved artifact metadata when building Library links from run observability', () => {
     const detail = buildSkillRunDetail({
       id: 'run-1',
