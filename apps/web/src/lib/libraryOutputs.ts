@@ -102,6 +102,19 @@ export interface SkillRunDetail {
   observabilityEntries: Array<{ key: string; value: string }>;
 }
 
+export interface LibraryArtifactRunProvenance {
+  runId: string;
+  href: string;
+  skillName: string;
+  modeLabel: string;
+  statusLabel: string;
+  statusTone: SkillRunHistoryRow['statusTone'];
+  durationLabel: string;
+  providerLabel: string;
+  sourceCountLabel: string;
+  savedOutputLabel: string;
+}
+
 export interface SkillRunEventRow {
   id: string;
   sequenceLabel: string;
@@ -718,16 +731,41 @@ export function buildLibraryArtifactHref(artifactId: string): string {
   return `/library?artifact=${encodeURIComponent(artifactId)}`;
 }
 
-export function buildLibraryArtifactRunHref(artifact: ArtifactItem, skillRuns: SkillRunSummary[] = []): string | null {
-  if (artifact.skillRunId) return buildSkillRunHref(artifact.skillRunId);
-
-  const linkedRun = skillRuns.find((run) => {
+export function findLibraryArtifactRun(artifact: ArtifactItem, skillRuns: SkillRunSummary[] = []): SkillRunSummary | null {
+  return skillRuns.find((run) => {
     const savedArtifactIds = run.observability?.savedArtifactIds;
     if (Array.isArray(savedArtifactIds) && savedArtifactIds.includes(artifact.id)) return true;
     return run.observability?.messageId === artifact.messageId && run.conversationId === artifact.conversationId;
-  });
+  }) ?? null;
+}
 
-  return linkedRun ? buildSkillRunHref(linkedRun.id) : null;
+export function buildLibraryArtifactRunHref(artifact: ArtifactItem, skillRuns: SkillRunSummary[] = []): string | null {
+  const linkedRun = artifact.skillRunId ? null : findLibraryArtifactRun(artifact, skillRuns);
+  const runId = artifact.skillRunId ?? linkedRun?.id ?? null;
+  return runId ? buildSkillRunHref(runId) : null;
+}
+
+export function buildLibraryArtifactRunProvenance(artifact: ArtifactItem, skillRuns: SkillRunSummary[] = []): LibraryArtifactRunProvenance | null {
+  const linkedRun = artifact.skillRunId
+    ? skillRuns.find((run) => run.id === artifact.skillRunId) ?? null
+    : findLibraryArtifactRun(artifact, skillRuns);
+  if (!linkedRun) return null;
+
+  const sourceCount = readNumericMetric(linkedRun.observability, 'sourceCount');
+  const savedOutputCount = skillRunSavedArtifactLinks(linkedRun.observability).length;
+
+  return {
+    runId: linkedRun.id,
+    href: buildSkillRunHref(linkedRun.id),
+    skillName: linkedRun.skillName,
+    modeLabel: modeLabel(linkedRun.mode),
+    statusLabel: skillRunStatusLabel(linkedRun.status),
+    statusTone: skillRunStatusTone(linkedRun.status),
+    durationLabel: durationLabel(linkedRun.durationMs),
+    providerLabel: linkedRun.providerId ?? 'No provider captured',
+    sourceCountLabel: sourceCount == null ? 'No source count' : `${sourceCount} ${sourceCount === 1 ? 'source' : 'sources'}`,
+    savedOutputLabel: `${savedOutputCount} saved ${savedOutputCount === 1 ? 'output' : 'outputs'}`,
+  };
 }
 
 function searchableText(artifact: ArtifactItem, mode: AppMode | undefined): string {
