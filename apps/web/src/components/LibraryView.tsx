@@ -9,6 +9,7 @@ import {
   buildLibraryArtifactHref,
   buildLibraryArtifactRows,
   buildLibraryArtifactRunHref,
+  buildLibraryArtifactRunProvenance,
   buildLibraryModeCards,
   buildLibraryOverviewStats,
   buildRecentActivityItems,
@@ -21,6 +22,13 @@ import { api } from '@/lib/api';
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
+}
+
+function runStatusClass(tone: 'success' | 'warning' | 'danger' | 'neutral'): string {
+  if (tone === 'success') return 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200';
+  if (tone === 'warning') return 'border-amber-400/30 bg-amber-400/10 text-amber-200';
+  if (tone === 'danger') return 'border-rose-400/30 bg-rose-400/10 text-rose-100';
+  return 'border-slate-600 bg-slate-800/60 text-slate-300';
 }
 
 export function LibraryView() {
@@ -50,6 +58,7 @@ export function LibraryView() {
   const selectedArtifact = selectedArtifactId ? filteredArtifacts.find((artifact) => artifact.id === selectedArtifactId) : undefined;
   const selectedArtifactHref = selectedArtifact ? buildLibraryArtifactHref(selectedArtifact.id) : null;
   const selectedArtifactRunHref = selectedArtifact ? buildLibraryArtifactRunHref(selectedArtifact, skillRuns) : null;
+  const selectedArtifactRunProvenance = selectedArtifact ? buildLibraryArtifactRunProvenance(selectedArtifact, skillRuns) : null;
   const selectedArtifactMode = selectedArtifact ? getLibraryArtifactMode(selectedArtifact, skillRuns) : undefined;
   const recentActivity = buildRecentActivityItems(conversations, mergedArtifacts, skillRuns, 8);
 
@@ -335,6 +344,41 @@ export function LibraryView() {
                     </div>
                   </div>
                   {copyStatus ? <p className="mt-3 text-xs text-accent">{copyStatus}</p> : null}
+                  {selectedArtifactRunProvenance ? (
+                    <section className="mt-4 rounded-2xl border border-accent/20 bg-accent/5 p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.16em] text-accent">Origin run</p>
+                          <p className="mt-1 text-sm font-semibold text-white">{selectedArtifactRunProvenance.skillName}</p>
+                          <p className="mt-1 text-xs text-slate-500">{selectedArtifactRunProvenance.modeLabel}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => router.push(selectedArtifactRunProvenance.href)}
+                          className="rounded-xl border border-accent/30 bg-accent/10 px-3 py-2 text-xs font-medium text-accent transition hover:border-accent"
+                        >
+                          Inspect run
+                        </button>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <span className={`rounded-full border px-2 py-1 text-[10px] uppercase tracking-[0.14em] ${runStatusClass(selectedArtifactRunProvenance.statusTone)}`}>
+                          {selectedArtifactRunProvenance.statusLabel}
+                        </span>
+                        <span className="rounded-full border border-line bg-ink/60 px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-slate-400">
+                          {selectedArtifactRunProvenance.durationLabel}
+                        </span>
+                        <span className="rounded-full border border-line bg-ink/60 px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-slate-400">
+                          {selectedArtifactRunProvenance.providerLabel}
+                        </span>
+                        <span className="rounded-full border border-line bg-ink/60 px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-slate-400">
+                          {selectedArtifactRunProvenance.sourceCountLabel}
+                        </span>
+                        <span className="rounded-full border border-line bg-ink/60 px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-slate-400">
+                          {selectedArtifactRunProvenance.savedOutputLabel}
+                        </span>
+                      </div>
+                    </section>
+                  ) : null}
                   <pre className="mt-4 max-h-[520px] overflow-auto whitespace-pre-wrap rounded-2xl border border-line bg-black/20 p-4 text-sm leading-6 text-slate-200">
                     {selectedArtifact.content}
                   </pre>

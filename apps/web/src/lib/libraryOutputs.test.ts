@@ -5,6 +5,7 @@ import {
   buildLibraryArtifactHref,
   buildLibraryArtifactRows,
   buildLibraryArtifactRunHref,
+  buildLibraryArtifactRunProvenance,
   buildLibraryModeCards,
   buildLibraryOverviewStats,
   buildRecentActivityItems,
@@ -115,6 +116,59 @@ describe('buildLibraryArtifactRunHref', () => {
 
   it('returns null when no run provenance exists', () => {
     expect(buildLibraryArtifactRunHref(artifact, [])).toBeNull();
+  });
+});
+
+describe('buildLibraryArtifactRunProvenance', () => {
+  const artifact: ArtifactItem = {
+    id: 'art-1',
+    filename: 'Brief.md',
+    type: 'text/markdown',
+    sizeBytes: 10,
+    conversationId: 'conv-1',
+    messageId: 'msg-1',
+    content: 'Brief',
+    createdAt: '2026-05-22T20:00:00.000Z',
+    conversationTitle: 'Brief conversation',
+    conversationMode: 'CHAT',
+  };
+
+  it('summarizes origin run status, provider, duration, and source count for a saved artifact', () => {
+    expect(buildLibraryArtifactRunProvenance(artifact, [{
+      id: 'run-1',
+      userId: 'user-1',
+      skillId: 'skl_deep_research',
+      skillSlug: 'deep-research',
+      skillName: 'Deep Research',
+      mode: 'DEEP_RESEARCH',
+      status: 'completed',
+      conversationId: 'conv-1',
+      jobId: 'job-1',
+      providerId: 'provider-1',
+      startedAt: '2026-05-22T20:00:00.000Z',
+      completedAt: '2026-05-22T20:03:00.000Z',
+      durationMs: 180000,
+      errorMessage: null,
+      observability: {
+        savedArtifactIds: ['art-1'],
+        sourceCount: 7,
+      },
+    }])).toEqual({
+      runId: 'run-1',
+      href: '/runs?run=run-1',
+      skillName: 'Deep Research',
+      modeLabel: 'DEEP RESEARCH',
+      statusLabel: 'Completed',
+      statusTone: 'success',
+      durationLabel: '3m',
+      providerLabel: 'provider-1',
+      sourceCountLabel: '7 sources',
+      savedOutputLabel: '1 saved output',
+    });
+  });
+
+  it('returns null when the selected artifact has no origin run', () => {
+    expect(buildLibraryArtifactRunProvenance(artifact, [])).toBeNull();
   });
 });
 
