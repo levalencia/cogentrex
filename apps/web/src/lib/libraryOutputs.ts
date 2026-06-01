@@ -136,6 +136,15 @@ export interface SkillRunNextAction {
   tone: 'primary' | 'success' | 'danger' | 'neutral';
 }
 
+export interface SkillRunEmptyState {
+  kind: 'first-run' | 'filtered-empty';
+  title: string;
+  description: string;
+  primaryAction: { label: string; href: string };
+  secondaryAction: { label: string; href: string };
+  clearFiltersHref: string | null;
+}
+
 export type SkillRunStatusFilter = 'all' | 'active' | SkillRunSummary['status'];
 
 export interface SkillRunFilterInput {
@@ -177,6 +186,29 @@ export function buildSkillRunHistoryHref(filters: SkillRunFilterInput, runId?: s
   if (normalizedQuery) params.set('q', normalizedQuery);
   const queryString = params.toString();
   return queryString ? `/runs?${queryString}` : '/runs';
+}
+
+export function buildSkillRunEmptyState(input: { totalRuns: number; filteredRuns: number; filters: SkillRunFilterInput }): SkillRunEmptyState | null {
+  if (input.filteredRuns > 0) return null;
+  if (input.totalRuns === 0) {
+    return {
+      kind: 'first-run',
+      title: 'No workflow runs yet.',
+      description: 'Run a chat, research, social, image, or skill workflow to populate this auditable ledger.',
+      primaryAction: { label: 'Launch workflow', href: '/' },
+      secondaryAction: { label: 'Try Deep Research', href: '/skills/deep-research' },
+      clearFiltersHref: null,
+    };
+  }
+
+  return {
+    kind: 'filtered-empty',
+    title: 'No runs match these filters.',
+    description: 'Clear the current search, status, and mode filters or launch a new workflow to create more run history.',
+    primaryAction: { label: 'Clear filters', href: '/runs' },
+    secondaryAction: { label: 'Launch workflow', href: '/' },
+    clearFiltersHref: '/runs',
+  };
 }
 
 function buildSkillRunModeByConversationId(skillRuns: SkillRunSummary[], completedOnly = false): Map<string, AppMode> {

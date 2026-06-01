@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import {
   buildSkillRunDetail,
+  buildSkillRunEmptyState,
   buildSkillRunEventRows,
   buildSkillRunHealthStats,
   buildSkillRunHistoryHref,
@@ -77,6 +78,7 @@ export function RunsView() {
     [skillRuns, currentRunFilters],
   );
   const skillRunRows = buildSkillRunHistoryRows(filteredSkillRuns, 50);
+  const runEmptyState = buildSkillRunEmptyState({ totalRuns: skillRuns.length, filteredRuns: filteredSkillRuns.length, filters: currentRunFilters });
   const selectedRun = selectedRunId ? skillRuns.find((run) => run.id === selectedRunId) : undefined;
   const selectedRunDetail = selectedRun ? buildSkillRunDetail(selectedRun) : undefined;
   const selectedRunHref = selectedRun ? buildSkillRunHistoryHref(currentRunFilters, selectedRun.id) : null;
@@ -301,11 +303,27 @@ export function RunsView() {
                     </div>
                   ) : null}
                 </Link>
-              )) : (
-                <div className="rounded-2xl border border-dashed border-line p-5 text-sm text-slate-500">
-                  {skillRuns.length ? 'No runs match these filters. Clear search or choose another status/mode.' : 'No skill runs yet. Launch a workflow to start building an auditable run ledger.'}
+              )) : runEmptyState ? (
+                <div className="xl:col-span-2 rounded-3xl border border-dashed border-accent/30 bg-accent/5 p-6 text-sm text-slate-400">
+                  <p className="text-xs uppercase tracking-[0.2em] text-accent">{runEmptyState.kind === 'first-run' ? 'Start the ledger' : 'Adjust filters'}</p>
+                  <h3 className="mt-2 text-lg font-semibold text-white">{runEmptyState.title}</h3>
+                  <p className="mt-2 max-w-2xl leading-6">{runEmptyState.description}</p>
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    <Link
+                      href={runEmptyState.primaryAction.href}
+                      className="rounded-2xl border border-accent/40 bg-accent/10 px-4 py-2 text-sm font-semibold text-accent transition hover:border-accent"
+                    >
+                      {runEmptyState.primaryAction.label}
+                    </Link>
+                    <Link
+                      href={runEmptyState.secondaryAction.href}
+                      className="rounded-2xl border border-line bg-ink/60 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:border-accent"
+                    >
+                      {runEmptyState.secondaryAction.label}
+                    </Link>
+                  </div>
                 </div>
-              )}
+              ) : null}
             </div>
           </section>
         </section>
