@@ -144,6 +144,41 @@ export interface SkillRunFilterInput {
   mode: AppMode | 'all';
 }
 
+const skillRunStatusFilterValues: SkillRunStatusFilter[] = ['all', 'active', 'pending', 'running', 'completed', 'failed'];
+const skillRunModeFilterValues: Array<AppMode | 'all'> = ['all', 'CHAT', 'DEEP_RESEARCH', 'SOCIAL_WRITING', 'IMAGE_GENERATION', 'VIDEO_GENERATION'];
+
+function normalizeSkillRunStatusFilter(value: string | null): SkillRunStatusFilter {
+  return skillRunStatusFilterValues.includes(value as SkillRunStatusFilter) ? value as SkillRunStatusFilter : 'all';
+}
+
+function normalizeSkillRunModeFilter(value: string | null): AppMode | 'all' {
+  return skillRunModeFilterValues.includes(value as AppMode | 'all') ? value as AppMode | 'all' : 'all';
+}
+
+interface SearchParamsLike {
+  get(name: string): string | null;
+}
+
+export function parseSkillRunHistoryFilters(searchParams: SearchParamsLike): SkillRunFilterInput {
+  return {
+    status: normalizeSkillRunStatusFilter(searchParams.get('status')),
+    mode: normalizeSkillRunModeFilter(searchParams.get('mode')),
+    query: searchParams.get('q')?.trim() ?? '',
+  };
+}
+
+export function buildSkillRunHistoryHref(filters: SkillRunFilterInput, runId?: string | null): string {
+  const params = new URLSearchParams();
+  const normalizedRunId = runId?.trim();
+  const normalizedQuery = filters.query.trim();
+  if (normalizedRunId) params.set('run', normalizedRunId);
+  if (filters.status !== 'all') params.set('status', filters.status);
+  if (filters.mode !== 'all') params.set('mode', filters.mode);
+  if (normalizedQuery) params.set('q', normalizedQuery);
+  const queryString = params.toString();
+  return queryString ? `/runs?${queryString}` : '/runs';
+}
+
 function buildSkillRunModeByConversationId(skillRuns: SkillRunSummary[], completedOnly = false): Map<string, AppMode> {
   const byConversationId = new Map<string, { mode: AppMode; timestamp: string }>();
 

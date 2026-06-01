@@ -12,12 +12,14 @@ import {
   buildSkillRunDetail,
   buildSkillRunEventRows,
   buildSkillRunHealthStats,
+  buildSkillRunHistoryHref,
   buildSkillRunHistoryRows,
   buildSkillRunHref,
   buildSkillRunNextActions,
   filterLibraryArtifacts,
   filterSkillRuns,
   mergeLibraryArtifacts,
+  parseSkillRunHistoryFilters,
   resolveLibraryArtifactSelection,
   resolveSkillRunSelection,
 } from './libraryOutputs';
@@ -73,6 +75,26 @@ describe('resolveSkillRunSelection', () => {
 describe('buildSkillRunHref', () => {
   it('builds stable encoded run ledger deep links', () => {
     expect(buildSkillRunHref('run 1/with?chars')).toBe('/runs?run=run%201%2Fwith%3Fchars');
+  });
+});
+
+describe('run history URL filters', () => {
+  it('parses only supported status and mode filters from search params', () => {
+    const parsed = parseSkillRunHistoryFilters(new URLSearchParams('status=running&mode=DEEP_RESEARCH&q=firecrawl'));
+
+    expect(parsed).toEqual({ status: 'running', mode: 'DEEP_RESEARCH', query: 'firecrawl' });
+    expect(parseSkillRunHistoryFilters(new URLSearchParams('status=bogus&mode=WRONG&q=%20%20'))).toEqual({
+      status: 'all',
+      mode: 'all',
+      query: '',
+    });
+  });
+
+  it('builds shareable run history links while omitting default filters', () => {
+    expect(buildSkillRunHistoryHref({ status: 'failed', mode: 'SOCIAL_WRITING', query: 'provider down' }, 'run/1')).toBe(
+      '/runs?run=run%2F1&status=failed&mode=SOCIAL_WRITING&q=provider+down',
+    );
+    expect(buildSkillRunHistoryHref({ status: 'all', mode: 'all', query: '' })).toBe('/runs');
   });
 });
 
