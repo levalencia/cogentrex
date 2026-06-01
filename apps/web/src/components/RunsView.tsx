@@ -9,10 +9,11 @@ import {
   buildSkillRunDetail,
   buildSkillRunEventRows,
   buildSkillRunHealthStats,
+  buildSkillRunHistoryHref,
   buildSkillRunHistoryRows,
-  buildSkillRunHref,
   buildSkillRunNextActions,
   filterSkillRuns,
+  parseSkillRunHistoryFilters,
   resolveSkillRunSelection,
 } from '@/lib/libraryOutputs';
 
@@ -37,6 +38,8 @@ function runActionClass(tone: 'primary' | 'success' | 'danger' | 'neutral'): str
 const runStatusOptions = [
   { value: 'all', label: 'All statuses' },
   { value: 'active', label: 'Active' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'running', label: 'Running' },
   { value: 'completed', label: 'Completed' },
   { value: 'failed', label: 'Failed' },
 ] as const;
@@ -54,26 +57,37 @@ export function RunsView() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedRunId = searchParams.get('run');
+  const urlFilters = useMemo(() => parseSkillRunHistoryFilters(searchParams), [searchParams]);
   const [skillRuns, setSkillRuns] = useState<SkillRunSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [runQuery, setRunQuery] = useState('');
-  const [runStatusFilter, setRunStatusFilter] = useState<(typeof runStatusOptions)[number]['value']>('all');
-  const [runModeFilter, setRunModeFilter] = useState<AppMode | 'all'>('all');
+  const [runQuery, setRunQuery] = useState(urlFilters.query);
+  const [runStatusFilter, setRunStatusFilter] = useState<(typeof runStatusOptions)[number]['value']>(urlFilters.status);
+  const [runModeFilter, setRunModeFilter] = useState<AppMode | 'all'>(urlFilters.mode);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [requestedRunMissing, setRequestedRunMissing] = useState(false);
   const [selectedRunEvents, setSelectedRunEvents] = useState<SkillRunEvent[]>([]);
   const [isLoadingRunEvents, setIsLoadingRunEvents] = useState(false);
   const skillRunStats = buildSkillRunHealthStats(skillRuns);
+  const currentRunFilters = useMemo(
+    () => ({ status: runStatusFilter, mode: runModeFilter, query: runQuery }),
+    [runStatusFilter, runModeFilter, runQuery],
+  );
   const filteredSkillRuns = useMemo(
-    () => filterSkillRuns(skillRuns, { status: runStatusFilter, mode: runModeFilter, query: runQuery }),
-    [skillRuns, runStatusFilter, runModeFilter, runQuery],
+    () => filterSkillRuns(skillRuns, currentRunFilters),
+    [skillRuns, currentRunFilters],
   );
   const skillRunRows = buildSkillRunHistoryRows(filteredSkillRuns, 50);
   const selectedRun = selectedRunId ? skillRuns.find((run) => run.id === selectedRunId) : undefined;
   const selectedRunDetail = selectedRun ? buildSkillRunDetail(selectedRun) : undefined;
-  const selectedRunHref = selectedRun ? buildSkillRunHref(selectedRun.id) : null;
+  const selectedRunHref = selectedRun ? buildSkillRunHistoryHref(currentRunFilters, selectedRun.id) : null;
   const selectedRunActions = selectedRun ? buildSkillRunNextActions(selectedRun) : [];
   const selectedRunEventRows = buildSkillRunEventRows(selectedRunEvents);
+
+  useEffect(() => {
+    setRunQuery(urlFilters.query);
+    setRunStatusFilter(urlFilters.status);
+    setRunModeFilter(urlFilters.mode);
+  }, [urlFilters.query, urlFilters.status, urlFilters.mode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,6 +122,13 @@ export function RunsView() {
   }, [requestedRunId, selectedRunId, skillRuns]);
 
   useEffect(() => {
+    const nextHref = buildSkillRunHistoryHref(currentRunFilters, requestedRunId);
+    const currentQuery = searchParams.toString();
+    const currentHref = currentQuery ? `/runs?${currentQuery}` : '/runs';
+    if (nextHref !== currentHref) router.replace(nextHref, { scroll: false });
+  }, [currentRunFilters, requestedRunId, router, searchParams]);
+
+  useEffect(() => {
     if (!selectedRunId) {
       setSelectedRunEvents([]);
       setIsLoadingRunEvents(false);
@@ -132,7 +153,7 @@ export function RunsView() {
 
   const closeRunDetails = () => {
     setSelectedRunId(null);
-    if (requestedRunId) router.push('/runs');
+    if (requestedRunId) router.push(buildSkillRunHistoryHref(currentRunFilters));
   };
 
   return (
@@ -250,7 +271,7 @@ export function RunsView() {
               ) : skillRunRows.length ? skillRunRows.map((run) => (
                 <Link
                   key={run.id}
-                  href={run.href}
+                  href={buildSkillRunHistoryHref(currentRunFilters, run.id)}
                   onClick={() => setSelectedRunId(run.id)}
                   className={`rounded-2xl border p-4 text-left transition ${selectedRunId === run.id ? 'border-accent/70 bg-accent/10' : 'border-line bg-ink/50 hover:border-accent/60 hover:bg-accent/5'}`}
                 >
