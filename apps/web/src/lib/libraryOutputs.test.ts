@@ -10,6 +10,7 @@ import {
   buildLibraryOverviewStats,
   buildRecentActivityItems,
   buildSkillRunDetail,
+  buildSkillRunEmptyState,
   buildSkillRunEventRows,
   buildSkillRunHealthStats,
   buildSkillRunHistoryHref,
@@ -95,6 +96,30 @@ describe('run history URL filters', () => {
       '/runs?run=run%2F1&status=failed&mode=SOCIAL_WRITING&q=provider+down',
     );
     expect(buildSkillRunHistoryHref({ status: 'all', mode: 'all', query: '' })).toBe('/runs');
+  });
+});
+
+describe('run history empty states', () => {
+  it('guides first-time users to launch a workflow when no runs exist', () => {
+    expect(buildSkillRunEmptyState({ totalRuns: 0, filteredRuns: 0, filters: { status: 'all', mode: 'all', query: '' } })).toEqual({
+      kind: 'first-run',
+      title: 'No workflow runs yet.',
+      description: 'Run a chat, research, social, image, or skill workflow to populate this auditable ledger.',
+      primaryAction: { label: 'Launch workflow', href: '/' },
+      secondaryAction: { label: 'Try Deep Research', href: '/skills/deep-research' },
+      clearFiltersHref: null,
+    });
+  });
+
+  it('guides filtered empty states to clear filters while preserving launch actions', () => {
+    expect(buildSkillRunEmptyState({ totalRuns: 3, filteredRuns: 0, filters: { status: 'failed', mode: 'DEEP_RESEARCH', query: 'provider' } })).toEqual({
+      kind: 'filtered-empty',
+      title: 'No runs match these filters.',
+      description: 'Clear the current search, status, and mode filters or launch a new workflow to create more run history.',
+      primaryAction: { label: 'Clear filters', href: '/runs' },
+      secondaryAction: { label: 'Launch workflow', href: '/' },
+      clearFiltersHref: '/runs',
+    });
   });
 });
 
