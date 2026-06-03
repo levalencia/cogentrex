@@ -30,6 +30,14 @@ describe('buildSkillCockpitModel', () => {
     ]);
     expect(model.recentRuns.map((run) => run.id)).toEqual(['run-active', 'run-failed', 'run-done']);
     expect(model.recentRuns.map((run) => run.href)).toEqual(['/runs?run=run-active', '/runs?run=run-failed', '/runs?run=run-done']);
+    expect(model.controlLoops.map((loop) => [loop.id, loop.href, loop.isAdminOnly])).toEqual([
+      ['launch', '/skills', false],
+      ['observe', '/runs', false],
+      ['reuse', '/library', false],
+      ['govern', '/settings/admin/skills', true],
+      ['connectors', '/settings/admin/providers', true],
+      ['analytics', '/settings/admin/analytics', true],
+    ]);
   });
 });
 
