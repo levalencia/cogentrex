@@ -94,6 +94,83 @@ describe('workflow skill runs', () => {
     database.close();
   });
 
+  it('does not classify artifacts by partial savedArtifactIds matches', async () => {
+    const { agent, database } = await makeTestApp();
+    const user = await registerAndLogin(agent);
+    const now = '2026-05-22T20:00:00.000Z';
+
+    await database.adapter.prepare(
+      `INSERT INTO conversations (id, user_id, title, mode, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    ).run('conv-substring', user.id, 'Started as chat', 'CHAT', now, now);
+    await database.adapter.prepare(
+      `INSERT INTO messages (id, conversation_id, role, content, created_at)
+       VALUES (?, ?, ?, ?, ?)`,
+    ).run('msg-1', 'conv-substring', 'assistant', 'Chat artifact', now);
+    await database.adapter.prepare(
+      `INSERT INTO messages (id, conversation_id, role, content, created_at)
+       VALUES (?, ?, ?, ?, ?)`,
+    ).run('msg-10', 'conv-substring', 'assistant', 'Deep research artifact', now);
+    await database.adapter.prepare(
+      `INSERT INTO artifacts (id, user_id, conversation_id, message_id, type, filename, language, content, size_bytes, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run('art-1', user.id, 'conv-substring', 'msg-1', 'text/markdown', 'Chat note.md', 'markdown', 'Chat note', 9, now);
+    await database.adapter.prepare(
+      `INSERT INTO artifacts (id, user_id, conversation_id, message_id, type, filename, language, content, size_bytes, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run('art-10', user.id, 'conv-substring', 'msg-10', 'text/markdown', 'Research brief.md', 'markdown', 'Research brief', 14, now);
+    await database.adapter.prepare(
+      `INSERT INTO skill_runs (id, user_id, skill_id, skill_slug, skill_name, mode, status, conversation_id, started_at, completed_at, duration_ms, observability_json)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      'run-deep-art-10',
+      user.id,
+      'skl_deep_research',
+      'deep-research',
+      'Deep Research',
+      'DEEP_RESEARCH',
+      'completed',
+      'conv-substring',
+      '2026-05-22T20:01:00.000Z',
+      '2026-05-22T20:02:00.000Z',
+      60000,
+      JSON.stringify({ savedArtifactIds: ['art-10'], messageId: 'msg-10' }),
+    );
+    await database.adapter.prepare(
+      `INSERT INTO skill_runs (id, user_id, skill_id, skill_slug, skill_name, mode, status, conversation_id, started_at, completed_at, duration_ms, observability_json)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      'run-chat-latest',
+      user.id,
+      'skl_chat',
+      'chat',
+      'Chat',
+      'CHAT',
+      'completed',
+      'conv-substring',
+      '2026-05-22T20:03:00.000Z',
+      '2026-05-22T20:04:00.000Z',
+      60000,
+      JSON.stringify({ messageId: 'msg-other' }),
+    );
+
+    const artifacts = await agent.get('/api/artifacts').expect(200);
+    expect(artifacts.body.artifacts).toContainEqual(expect.objectContaining({
+      id: 'art-1',
+      conversationMode: 'CHAT',
+      effectiveMode: 'CHAT',
+      skillRunId: 'run-chat-latest',
+    }));
+    expect(artifacts.body.artifacts).toContainEqual(expect.objectContaining({
+      id: 'art-10',
+      conversationMode: 'DEEP_RESEARCH',
+      effectiveMode: 'DEEP_RESEARCH',
+      skillRunId: 'run-deep-art-10',
+    }));
+
+    database.close();
+  });
+
   it('records Deep Research jobs as observable skill runs', async () => {
     const { agent, database } = await makeTestApp();
     await registerAndLogin(agent);
