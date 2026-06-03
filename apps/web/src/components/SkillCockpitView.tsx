@@ -53,6 +53,7 @@ function WorkflowCard({ card, compact = false, onLaunch }: { card: LauncherItem;
 export function SkillCockpitView() {
   const router = useRouter();
   const clearChat = useAppStore((state) => state.clearChat);
+  const user = useAppStore((state) => state.user);
   const setMode = useAppStore((state) => state.setMode);
   const setSelectedWorkflowLauncher = useAppStore((state) => state.setSelectedWorkflowLauncher);
   const [readiness, setReadiness] = useState<SkillReadiness[] | null>(null);
@@ -82,6 +83,7 @@ export function SkillCockpitView() {
 
   const cockpit = useMemo(() => buildSkillCockpitModel(readiness, skillRuns), [readiness, skillRuns]);
   const workflowGroups = useMemo(() => buildWorkflowSelectionGroups(cockpit.cards), [cockpit.cards]);
+  const visibleControlLoops = cockpit.controlLoops.filter((loop) => !loop.isAdminOnly || user?.role === 'ADMIN');
 
   function openWorkflow(item: LauncherItem) {
     setMode(item.mode);
@@ -125,6 +127,33 @@ export function SkillCockpitView() {
               {workflowGroups.primaryWorkflows.map((card) => (
                 <WorkflowCard key={card.id} card={card} onLaunch={openWorkflow} compact />
               ))}
+            </div>
+
+            <div className="rounded-2xl border border-line bg-panel/60 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Control plane</p>
+                  <h3 className="mt-1 text-base font-semibold text-white">Launch, observe, reuse, and govern</h3>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+                    Cogentrex keeps the workflow loop connected: start from a skill, inspect the run, reuse the saved output, and govern routes/connectors when you are an admin.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                {visibleControlLoops.map((loop) => (
+                  <a
+                    key={loop.id}
+                    href={loop.href}
+                    className="rounded-2xl border border-line bg-ink/40 p-3 transition hover:border-accent hover:bg-accent/5"
+                  >
+                    <span className="flex items-center justify-between gap-2 text-sm font-semibold text-white">
+                      {loop.label}
+                      {loop.isAdminOnly ? <span className="rounded-full border border-amber-400/30 px-2 py-0.5 text-[9px] uppercase tracking-[0.12em] text-amber-200">Admin</span> : null}
+                    </span>
+                    <span className="mt-2 block text-xs leading-5 text-slate-500">{loop.description}</span>
+                  </a>
+                ))}
+              </div>
             </div>
 
             <div className="rounded-2xl border border-line bg-panel/60 p-4">
