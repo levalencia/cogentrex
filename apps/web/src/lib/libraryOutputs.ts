@@ -90,6 +90,7 @@ export interface SkillRunDetail {
   startedAt: string;
   completedAt: string | null;
   durationLabel: string;
+  permalink: string;
   conversationHref: string | null;
   jobId: string | null;
   providerId: string | null;
@@ -633,6 +634,7 @@ export function buildSkillRunDetail(run: SkillRunSummary): SkillRunDetail {
     startedAt: run.startedAt,
     completedAt: run.completedAt,
     durationLabel: durationLabel(run.durationMs),
+    permalink: buildSkillRunHref(run.id),
     conversationHref: run.conversationId ? `/chats/${run.conversationId}` : null,
     jobId: run.jobId,
     providerId: run.providerId,

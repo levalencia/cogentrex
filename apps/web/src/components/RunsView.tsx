@@ -393,6 +393,32 @@ export function RunsView() {
               </section>
 
               <section className="rounded-3xl border border-line bg-ink/50 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Reference links</p>
+                <div className="mt-3 grid gap-2 text-xs">
+                  <div className="rounded-2xl border border-line bg-black/10 p-3">
+                    <p className="uppercase tracking-[0.14em] text-slate-600">Run ID</p>
+                    <p className="mt-1 break-all font-mono text-slate-200">{selectedRunDetail.id}</p>
+                  </div>
+                  <Link
+                    href={selectedRunDetail.permalink}
+                    className="rounded-2xl border border-line bg-black/10 p-3 transition hover:border-accent"
+                  >
+                    <span className="block uppercase tracking-[0.14em] text-slate-600">Permanent run URL</span>
+                    <span className="mt-1 block break-all font-mono text-accent">{selectedRunDetail.permalink}</span>
+                  </Link>
+                  {selectedRunDetail.conversationHref ? (
+                    <Link
+                      href={selectedRunDetail.conversationHref}
+                      className="rounded-2xl border border-line bg-black/10 p-3 transition hover:border-accent"
+                    >
+                      <span className="block uppercase tracking-[0.14em] text-slate-600">Source chat URL</span>
+                      <span className="mt-1 block break-all font-mono text-accent">{selectedRunDetail.conversationHref}</span>
+                    </Link>
+                  ) : null}
+                </div>
+              </section>
+
+              <section className="rounded-3xl border border-line bg-ink/50 p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Next actions</p>
                 <div className="mt-3 grid gap-2">
                   {selectedRunActions.map((action) => (
