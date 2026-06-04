@@ -11,10 +11,27 @@ export interface LibraryArtifactRow {
   id: string;
   filename: string;
   subtitle: string;
+  sourceLabel: string;
+  runLinkLabel: string;
   sizeLabel: string;
   href: string;
   conversationHref: string;
   preview: string;
+}
+
+export type LibraryArtifactSourceFilter = 'all' | 'research' | 'social' | 'media' | 'chat';
+export type LibraryArtifactRunLinkFilter = 'all' | 'linked' | 'unlinked';
+
+export interface LibraryArtifactFilterInput {
+  query: string;
+  source: LibraryArtifactSourceFilter;
+  runLink: LibraryArtifactRunLinkFilter;
+}
+
+export interface LibraryFilterSummary {
+  activeFilterCount: number;
+  resultLabel: string;
+  emptyMessage: string;
 }
 
 export interface LibraryModeCard {
@@ -289,6 +306,21 @@ function artifactProvenanceLabel(artifact: ArtifactItem, mode: AppMode | undefin
     labels.push(artifact.skillRunName);
   }
   return labels.join(' · ');
+}
+
+function librarySourceFilterForMode(mode: AppMode | undefined): LibraryArtifactSourceFilter {
+  if (mode === 'DEEP_RESEARCH') return 'research';
+  if (mode === 'SOCIAL_WRITING') return 'social';
+  if (mode === 'IMAGE_GENERATION' || mode === 'VIDEO_GENERATION') return 'media';
+  return 'chat';
+}
+
+function librarySourceLabel(mode: AppMode | undefined): string {
+  const source = librarySourceFilterForMode(mode);
+  if (source === 'research') return 'Research';
+  if (source === 'social') return 'Social';
+  if (source === 'media') return 'Media';
+  return 'Chat';
 }
 
 export function buildLibraryModeCards(conversations: ConversationLike[], skillRuns: SkillRunSummary[] = [], artifacts: ArtifactItem[] = []): LibraryModeCard[] {
@@ -907,10 +939,13 @@ export function buildLibraryArtifactRows(artifacts: ArtifactItem[], skillRuns: S
   const skillRunsByArtifactId = buildSkillRunModeByArtifactId(skillRuns);
   return artifacts.map((artifact) => {
     const mode = effectiveArtifactMode(artifact, skillRunsByConversationId, skillRunsByMessageId, skillRunsByArtifactId);
+    const hasRunProvenance = Boolean(buildLibraryArtifactRunHref(artifact, skillRuns));
     return {
       id: artifact.id,
       filename: artifact.filename,
       subtitle: artifactProvenanceLabel(artifact, mode),
+      sourceLabel: librarySourceLabel(mode),
+      runLinkLabel: hasRunProvenance ? 'Run linked' : 'No run link',
       sizeLabel: sizeLabel(artifact.sizeBytes),
       href: buildLibraryArtifactHref(artifact.id),
       conversationHref: `/chats/${artifact.conversationId}`,
@@ -982,6 +1017,46 @@ export function filterLibraryArtifacts(artifacts: ArtifactItem[], query: string,
     const mode = effectiveArtifactMode(artifact, skillRunsByConversationId, skillRunsByMessageId, skillRunsByArtifactId);
     return searchableText(artifact, mode).includes(normalized);
   });
+}
+
+export function filterLibraryArtifactsByControls(
+  artifacts: ArtifactItem[],
+  filters: LibraryArtifactFilterInput,
+  skillRuns: SkillRunSummary[] = [],
+): ArtifactItem[] {
+  const normalized = filters.query.trim().toLowerCase();
+  const skillRunsByConversationId = buildSkillRunModeByConversationId(skillRuns);
+  const skillRunsByMessageId = buildSkillRunModeByMessageId(skillRuns);
+  const skillRunsByArtifactId = buildSkillRunModeByArtifactId(skillRuns);
+
+  return artifacts.filter((artifact) => {
+    const mode = effectiveArtifactMode(artifact, skillRunsByConversationId, skillRunsByMessageId, skillRunsByArtifactId);
+    const source = librarySourceFilterForMode(mode);
+    const hasRunProvenance = Boolean(buildLibraryArtifactRunHref(artifact, skillRuns));
+
+    if (normalized && !searchableText(artifact, mode).includes(normalized)) return false;
+    if (filters.source !== 'all' && filters.source !== source) return false;
+    if (filters.runLink === 'linked' && !hasRunProvenance) return false;
+    if (filters.runLink === 'unlinked' && hasRunProvenance) return false;
+    return true;
+  });
+}
+
+export function buildLibraryFilterSummary(filters: LibraryArtifactFilterInput, visibleCount: number, totalCount: number): LibraryFilterSummary {
+  const activeFilterCount = [
+    filters.query.trim() ? 'query' : null,
+    filters.source !== 'all' ? 'source' : null,
+    filters.runLink !== 'all' ? 'runLink' : null,
+  ].filter(Boolean).length;
+  const visibleNoun = visibleCount === 1 ? 'artifact' : 'artifacts';
+  const totalNoun = totalCount === 1 ? 'artifact' : 'artifacts';
+  return {
+    activeFilterCount,
+    resultLabel: activeFilterCount > 0 ? `${visibleCount} of ${totalCount} ${totalNoun} shown` : `${visibleCount} ${visibleNoun} shown`,
+    emptyMessage: activeFilterCount > 0
+      ? 'No artifacts match this search and filter combination.'
+      : 'No saved artifacts yet. Use “Save to Library” on an assistant answer to pin it here.',
+  };
 }
 
 export function buildArtifactDownload(artifact: ArtifactItem): ArtifactDownload {

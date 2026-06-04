@@ -6,6 +6,7 @@ import {
   buildLibraryArtifactRows,
   buildLibraryArtifactRunHref,
   buildLibraryArtifactRunProvenance,
+  buildLibraryFilterSummary,
   buildLibraryModeCards,
   buildLibraryOverviewStats,
   buildRecentActivityItems,
@@ -18,6 +19,7 @@ import {
   buildSkillRunHref,
   buildSkillRunNextActions,
   filterLibraryArtifacts,
+  filterLibraryArtifactsByControls,
   filterSkillRuns,
   mergeLibraryArtifacts,
   parseSkillRunHistoryFilters,
@@ -705,6 +707,109 @@ describe('buildLibraryArtifactHref', () => {
   });
 });
 
+describe('library artifact source filters', () => {
+  const artifacts: ArtifactItem[] = [
+    {
+      id: 'art-chat',
+      filename: 'Chat note.md',
+      type: 'text/markdown',
+      sizeBytes: 10,
+      conversationId: 'conv-chat',
+      messageId: 'msg-chat',
+      content: 'General assistant note',
+      createdAt: '2026-05-22T20:00:00.000Z',
+      conversationTitle: 'General chat',
+      conversationMode: 'CHAT',
+    },
+    {
+      id: 'art-research',
+      filename: 'Research brief.md',
+      type: 'text/markdown',
+      sizeBytes: 20,
+      conversationId: 'conv-research',
+      messageId: 'msg-research',
+      content: 'Research brief with sources',
+      createdAt: '2026-05-22T20:01:00.000Z',
+      conversationTitle: 'Started as chat',
+      conversationMode: 'CHAT',
+    },
+    {
+      id: 'art-social',
+      filename: 'LinkedIn draft.md',
+      type: 'text/markdown',
+      sizeBytes: 30,
+      conversationId: 'conv-social',
+      messageId: 'msg-social',
+      content: 'Social post draft',
+      createdAt: '2026-05-22T20:02:00.000Z',
+      conversationTitle: 'Launch post',
+      conversationMode: 'SOCIAL_WRITING',
+      skillRunId: 'run-social',
+    },
+  ];
+
+  const skillRuns = [
+    {
+      id: 'run-research',
+      userId: 'user-1',
+      skillId: 'skl_deep_research',
+      skillSlug: 'deep-research',
+      skillName: 'Deep Research',
+      mode: 'DEEP_RESEARCH' as const,
+      status: 'completed' as const,
+      conversationId: 'conv-research',
+      jobId: 'job-1',
+      providerId: 'provider-1',
+      startedAt: '2026-05-22T20:00:00.000Z',
+      completedAt: '2026-05-22T20:03:00.000Z',
+      durationMs: 180000,
+      errorMessage: null,
+      observability: { savedArtifactIds: ['art-research'], sourceCount: 5 },
+    },
+    {
+      id: 'run-social',
+      userId: 'user-1',
+      skillId: 'skl_social',
+      skillSlug: 'linkedin-writer',
+      skillName: 'LinkedIn Writer',
+      mode: 'SOCIAL_WRITING' as const,
+      status: 'completed' as const,
+      conversationId: 'conv-social',
+      jobId: null,
+      providerId: 'provider-1',
+      startedAt: '2026-05-22T20:00:00.000Z',
+      completedAt: '2026-05-22T20:02:00.000Z',
+      durationMs: 120000,
+      errorMessage: null,
+      observability: { savedArtifactIds: ['art-social'] },
+    },
+  ];
+
+  it('filters saved artifacts by workflow source without treating Deep Research as chat', () => {
+    expect(filterLibraryArtifactsByControls(artifacts, { query: '', source: 'research', runLink: 'all' }, skillRuns).map((artifact) => artifact.id)).toEqual(['art-research']);
+    expect(filterLibraryArtifactsByControls(artifacts, { query: '', source: 'chat', runLink: 'all' }, skillRuns).map((artifact) => artifact.id)).toEqual(['art-chat']);
+    expect(filterLibraryArtifactsByControls(artifacts, { query: '', source: 'social', runLink: 'all' }, skillRuns).map((artifact) => artifact.id)).toEqual(['art-social']);
+  });
+
+  it('filters saved artifacts by whether they have origin run provenance', () => {
+    expect(filterLibraryArtifactsByControls(artifacts, { query: '', source: 'all', runLink: 'linked' }, skillRuns).map((artifact) => artifact.id)).toEqual(['art-research', 'art-social']);
+    expect(filterLibraryArtifactsByControls(artifacts, { query: '', source: 'all', runLink: 'unlinked' }, skillRuns).map((artifact) => artifact.id)).toEqual(['art-chat']);
+  });
+
+  it('summarizes active library filters for the UI empty state and count badge', () => {
+    expect(buildLibraryFilterSummary({ query: 'brief', source: 'research', runLink: 'linked' }, 1, 3)).toEqual({
+      activeFilterCount: 3,
+      resultLabel: '1 of 3 artifacts shown',
+      emptyMessage: 'No artifacts match this search and filter combination.',
+    });
+    expect(buildLibraryFilterSummary({ query: '', source: 'all', runLink: 'all' }, 3, 3)).toEqual({
+      activeFilterCount: 0,
+      resultLabel: '3 artifacts shown',
+      emptyMessage: 'No saved artifacts yet. Use “Save to Library” on an assistant answer to pin it here.',
+    });
+  });
+});
+
 describe('buildLibraryArtifactRows', () => {
   it('summarizes persisted artifacts with source conversation context', () => {
     const rows = buildLibraryArtifactRows([
@@ -727,6 +832,8 @@ describe('buildLibraryArtifactRows', () => {
         id: 'art-1',
         filename: 'AI research brief.md',
         subtitle: 'AI strategy research · DEEP RESEARCH',
+        sourceLabel: 'Research',
+        runLinkLabel: 'No run link',
         sizeLabel: '1.5 KB',
         href: '/library?artifact=art-1',
         conversationHref: '/chats/conv-1',

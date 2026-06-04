@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import type { ArtifactItem, SkillRunSummary } from '@cogentrex/shared';
+import type { LibraryArtifactRunLinkFilter, LibraryArtifactSourceFilter } from '@/lib/libraryOutputs';
 import { useAppStore } from '@/store/appStore';
 import {
   buildArtifactDownload,
@@ -10,10 +11,11 @@ import {
   buildLibraryArtifactRows,
   buildLibraryArtifactRunHref,
   buildLibraryArtifactRunProvenance,
+  buildLibraryFilterSummary,
   buildLibraryModeCards,
   buildLibraryOverviewStats,
   buildRecentActivityItems,
-  filterLibraryArtifacts,
+  filterLibraryArtifactsByControls,
   getLibraryArtifactMode,
   mergeLibraryArtifacts,
   resolveLibraryArtifactSelection,
@@ -41,6 +43,8 @@ export function LibraryView() {
   const [skillRuns, setSkillRuns] = useState<SkillRunSummary[]>([]);
   const [isLoadingArtifacts, setIsLoadingArtifacts] = useState(true);
   const [artifactQuery, setArtifactQuery] = useState('');
+  const [artifactSourceFilter, setArtifactSourceFilter] = useState<LibraryArtifactSourceFilter>('all');
+  const [artifactRunLinkFilter, setArtifactRunLinkFilter] = useState<LibraryArtifactRunLinkFilter>('all');
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
   const [requestedArtifactMissing, setRequestedArtifactMissing] = useState(false);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
@@ -51,8 +55,17 @@ export function LibraryView() {
   const cards = buildLibraryModeCards(conversations, skillRuns, mergedArtifacts);
   const overviewStats = buildLibraryOverviewStats(conversations, mergedArtifacts, skillRuns);
   const filteredArtifacts = useMemo(
-    () => filterLibraryArtifacts(mergedArtifacts, artifactQuery, skillRuns),
-    [mergedArtifacts, artifactQuery, skillRuns],
+    () => filterLibraryArtifactsByControls(
+      mergedArtifacts,
+      { query: artifactQuery, source: artifactSourceFilter, runLink: artifactRunLinkFilter },
+      skillRuns,
+    ),
+    [mergedArtifacts, artifactQuery, artifactSourceFilter, artifactRunLinkFilter, skillRuns],
+  );
+  const filterSummary = buildLibraryFilterSummary(
+    { query: artifactQuery, source: artifactSourceFilter, runLink: artifactRunLinkFilter },
+    filteredArtifacts.length,
+    mergedArtifacts.length,
   );
   const artifactRows = buildLibraryArtifactRows(filteredArtifacts, skillRuns);
   const selectedArtifact = selectedArtifactId ? filteredArtifacts.find((artifact) => artifact.id === selectedArtifactId) : undefined;
@@ -257,6 +270,52 @@ export function LibraryView() {
                 placeholder="Search title, mode, or content…"
                 className="mt-2 w-full rounded-2xl border border-line bg-ink/70 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-accent"
               />
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <label className="block text-xs uppercase tracking-[0.16em] text-slate-500" htmlFor="artifact-source-filter">
+                  Source
+                  <select
+                    id="artifact-source-filter"
+                    value={artifactSourceFilter}
+                    onChange={(event) => setArtifactSourceFilter(event.target.value as LibraryArtifactSourceFilter)}
+                    className="mt-2 w-full rounded-2xl border border-line bg-ink/70 px-3 py-2 text-sm normal-case tracking-normal text-white outline-none transition focus:border-accent"
+                  >
+                    <option value="all">All sources</option>
+                    <option value="research">Research</option>
+                    <option value="social">Social</option>
+                    <option value="media">Media</option>
+                    <option value="chat">Chat</option>
+                  </select>
+                </label>
+                <label className="block text-xs uppercase tracking-[0.16em] text-slate-500" htmlFor="artifact-run-filter">
+                  Run link
+                  <select
+                    id="artifact-run-filter"
+                    value={artifactRunLinkFilter}
+                    onChange={(event) => setArtifactRunLinkFilter(event.target.value as LibraryArtifactRunLinkFilter)}
+                    className="mt-2 w-full rounded-2xl border border-line bg-ink/70 px-3 py-2 text-sm normal-case tracking-normal text-white outline-none transition focus:border-accent"
+                  >
+                    <option value="all">All artifacts</option>
+                    <option value="linked">Has origin run</option>
+                    <option value="unlinked">No origin run</option>
+                  </select>
+                </label>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                <span>{filterSummary.resultLabel}</span>
+                {filterSummary.activeFilterCount > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setArtifactQuery('');
+                      setArtifactSourceFilter('all');
+                      setArtifactRunLinkFilter('all');
+                    }}
+                    className="rounded-full border border-line px-3 py-1 text-slate-300 transition hover:border-accent hover:text-accent"
+                  >
+                    Clear {filterSummary.activeFilterCount} filters
+                  </button>
+                ) : null}
+              </div>
               <div className="mt-4 space-y-2">
                 {requestedArtifactMissing ? (
                   <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4 text-xs leading-5 text-amber-100">
@@ -280,13 +339,21 @@ export function LibraryView() {
                     className={`block w-full rounded-2xl border px-4 py-3 text-left transition ${selectedArtifact?.id === artifact.id ? 'border-accent/70 bg-accent/10' : 'border-line bg-ink/50 hover:border-accent/60 hover:bg-accent/5'}`}
                   >
                     <p className="truncate text-sm font-medium text-white">{artifact.filename}</p>
-                    <p className="mt-1 truncate text-xs text-slate-500">{artifact.subtitle}</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      <span className="rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-accent">
+                        {artifact.sourceLabel}
+                      </span>
+                      <span className="rounded-full border border-line bg-ink/60 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-slate-400">
+                        {artifact.runLinkLabel}
+                      </span>
+                    </div>
+                    <p className="mt-2 truncate text-xs text-slate-500">{artifact.subtitle}</p>
                     <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">{artifact.preview}</p>
                     <p className="mt-2 text-xs text-slate-600">{artifact.sizeLabel}</p>
                   </a>
                 )) : (
                   <div className="rounded-2xl border border-dashed border-line p-5 text-sm text-slate-500">
-                    {artifactQuery ? 'No artifacts match this search.' : 'No saved artifacts yet. Use “Save to Library” on an assistant answer to pin it here.'}
+                    {filterSummary.emptyMessage}
                   </div>
                 )}
               </div>
