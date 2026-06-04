@@ -53,7 +53,7 @@ function skillRunMessageFilterSql(messageIdSql: string): string {
 function skillRunArtifactFilterSql(artifactIdSql: string): string {
   return `${LATEST_SKILL_RUN_FILTER_SQL}
     AND sr.observability_json LIKE '%"savedArtifactIds"%'
-    AND sr.observability_json LIKE '%' || ${artifactIdSql} || '%'`;
+    AND sr.observability_json LIKE '%"' || ${artifactIdSql} || '"%'`;
 }
 
 function skillRunFieldSql(field: string, messageIdSql: string, artifactIdSql?: string): string {
