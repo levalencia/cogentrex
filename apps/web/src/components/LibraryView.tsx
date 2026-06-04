@@ -377,6 +377,20 @@ export function LibraryView() {
                           {selectedArtifactRunProvenance.savedOutputLabel}
                         </span>
                       </div>
+                      <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+                        <div className="rounded-2xl border border-line bg-black/10 p-3">
+                          <p className="uppercase tracking-[0.14em] text-slate-600">Artifact ID</p>
+                          <p className="mt-1 break-all font-mono text-slate-200">{selectedArtifact.id}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => router.push(selectedArtifactRunProvenance.href)}
+                          className="rounded-2xl border border-line bg-black/10 p-3 text-left transition hover:border-accent"
+                        >
+                          <span className="block uppercase tracking-[0.14em] text-slate-600">Run ID</span>
+                          <span className="mt-1 block break-all font-mono text-accent">{selectedArtifactRunProvenance.runId}</span>
+                        </button>
+                      </div>
                     </section>
                   ) : null}
                   <pre className="mt-4 max-h-[520px] overflow-auto whitespace-pre-wrap rounded-2xl border border-line bg-black/20 p-4 text-sm leading-6 text-slate-200">

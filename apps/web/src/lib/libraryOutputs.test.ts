@@ -1142,6 +1142,7 @@ describe('buildSkillRunDetail', () => {
       statusLabel: 'Completed',
       statusTone: 'success',
       durationLabel: '3m',
+      permalink: '/runs?run=run-1',
       conversationHref: '/chats/conv-1',
       jobId: 'job-1',
       providerId: 'provider-1',
