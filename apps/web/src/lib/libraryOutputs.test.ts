@@ -141,6 +141,63 @@ describe('run history empty states', () => {
   });
 });
 
+describe('Run Ledger saved output handoff', () => {
+  it('keeps the Run Ledger → saved output → Library path deep-linked and inspectable', () => {
+    const run: SkillRunSummary = {
+      id: 'run-deep-research',
+      userId: 'user-1',
+      skillId: 'skl_deep_research',
+      skillSlug: 'deep-research',
+      skillName: 'Deep Research',
+      mode: 'DEEP_RESEARCH',
+      status: 'completed',
+      conversationId: 'conv-research',
+      jobId: 'job-1',
+      providerId: 'provider-1',
+      startedAt: '2026-05-22T20:00:00.000Z',
+      completedAt: '2026-05-22T20:03:00.000Z',
+      durationMs: 180000,
+      errorMessage: null,
+      observability: {
+        savedArtifactIds: ['art-research-output'],
+        savedArtifacts: [{ id: 'art-research-output', filename: 'Research answer.md', type: 'text/markdown' }],
+        savedArtifactCount: 1,
+        sourceCount: 4,
+      },
+    };
+    const artifact: ArtifactItem = {
+      id: 'art-research-output',
+      filename: 'Research answer.md',
+      type: 'text/markdown',
+      sizeBytes: 42,
+      conversationId: 'conv-research',
+      messageId: 'msg-research-answer',
+      content: '# Research answer',
+      createdAt: '2026-05-22T20:04:00.000Z',
+      conversationTitle: 'Started as chat',
+      conversationMode: 'CHAT',
+      baseConversationMode: 'CHAT',
+    };
+
+    const runDetail = buildSkillRunDetail(run);
+    expect(runDetail.savedArtifactLinks).toEqual([{ id: 'art-research-output', href: '/library?artifact=art-research-output', label: 'Research answer.md' }]);
+    expect(buildSkillRunNextActions(run).find((action) => action.id === 'open-output')).toMatchObject({ href: '/library?artifact=art-research-output' });
+    expect(resolveLibraryArtifactSelection([artifact], null, 'art-research-output')).toEqual({ selectedArtifactId: 'art-research-output', requestedArtifactMissing: false });
+    expect(buildLibraryArtifactRows([artifact], [run])[0]).toMatchObject({
+      id: 'art-research-output',
+      href: '/library?artifact=art-research-output',
+      subtitle: 'Started as chat · DEEP RESEARCH',
+    });
+    expect(buildLibraryArtifactRunProvenance(artifact, [run])).toMatchObject({
+      runId: 'run-deep-research',
+      href: '/runs?run=run-deep-research',
+      modeLabel: 'DEEP RESEARCH',
+      sourceCountLabel: '4 sources',
+      savedOutputLabel: '1 saved output',
+    });
+  });
+});
+
 describe('buildLibraryArtifactRunHref', () => {
   const artifact: ArtifactItem = {
     id: 'art-1',
