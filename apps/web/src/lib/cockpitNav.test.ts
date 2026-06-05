@@ -21,6 +21,6 @@ describe('getCockpitNavItems', () => {
     const items = getCockpitNavItems('ADMIN', '/settings/admin/skills');
 
     expect(items.map((item) => item.label)).toEqual(['Workflows', 'Chat', 'Runs', 'Library', 'Admin']);
-    expect(items.find((item) => item.label === 'Admin')).toMatchObject({ href: '/settings/admin/skills', isActive: true });
+    expect(items.find((item) => item.label === 'Admin')).toMatchObject({ href: '/settings/admin/skills', description: 'Skill packages, providers, analytics', isActive: true });
   });
 });

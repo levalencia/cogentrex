@@ -8,8 +8,11 @@ import {
   getLauncherPromptTemplates,
   getLauncherSkillSlug,
   getPrimaryLauncherItems,
+  getSkillAssistModeOptions,
   getSkillAssistPickerOptions,
+  getSkillAssistSuggestionsForPrompt,
   mergeSkillAssistSlugs,
+  previewSkillAssistResolution,
   summarizeLauncherReadiness,
 } from './workflowLauncher';
 
@@ -66,6 +69,52 @@ describe('workflow launcher helpers', () => {
     expect(getSkillAssistPickerOptions('SOCIAL_WRITING')).toEqual([]);
     expect(options.filter((option) => option.group === 'Project management')).toHaveLength(3);
     expect(options.filter((option) => option.group === 'Visual & diagrams')).toHaveLength(3);
+  });
+
+  it('explains Skill Assist as Auto, Manual, or Off for the composer', () => {
+    expect(getSkillAssistModeOptions()).toEqual([
+      expect.objectContaining({ mode: 'auto', label: 'Auto' }),
+      expect.objectContaining({ mode: 'manual', label: 'Manual' }),
+      expect.objectContaining({ mode: 'off', label: 'Off' }),
+    ]);
+  });
+
+  it('suggests PM plus Mermaid skills for a project timeline diagram prompt', () => {
+    expect(getSkillAssistSuggestionsForPrompt('Create a timeline diagram for this project in Mermaid', 'CHAT').map((option) => option.slug)).toEqual([
+      'mermaid-diagrams',
+      'project-management-coach',
+      'scrum-delivery-planner',
+    ]);
+  });
+
+  it('previews manual selection as explicit skill combination', () => {
+    expect(previewSkillAssistResolution({
+      mode: 'manual',
+      appMode: 'CHAT',
+      prompt: 'Create a timeline diagram',
+      selectedSkillSlugs: ['project-management-coach', 'mermaid-diagrams'],
+    })).toEqual({
+      mode: 'manual',
+      label: 'Manual: PM coach + Mermaid',
+      description: 'Cogentrex will use only the skills you selected for this run.',
+      selectedLabels: ['PM coach', 'Mermaid'],
+      suggestedLabels: [],
+    });
+  });
+
+  it('previews Auto as resolver-owned with prompt-based suggestions', () => {
+    expect(previewSkillAssistResolution({
+      mode: 'auto',
+      appMode: 'CHAT',
+      prompt: 'Create a project timeline diagram',
+      selectedSkillSlugs: [],
+    })).toEqual({
+      mode: 'auto',
+      label: 'Auto skill selection',
+      description: 'Cogentrex will choose relevant published skills from your prompt and workflow context.',
+      selectedLabels: [],
+      suggestedLabels: ['PM coach', 'Mermaid', 'Scrum planner'],
+    });
   });
 
   it('merges launcher and picker skill slugs without duplicates', () => {

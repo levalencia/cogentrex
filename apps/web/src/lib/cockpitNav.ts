@@ -52,7 +52,7 @@ export function getCockpitNavItems(role: PublicUser['role'] | undefined, pathnam
       id: 'admin',
       label: 'Admin',
       href: '/settings/admin/skills',
-      description: 'Skills, providers, analytics',
+      description: 'Skill packages, providers, analytics',
     });
   }
 

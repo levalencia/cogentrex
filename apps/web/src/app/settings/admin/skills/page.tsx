@@ -263,7 +263,7 @@ export default function AdminSkillsPage() {
             <p className="text-xs uppercase tracking-[0.22em] text-accent">Admin</p>
             <h1 className="mt-2 text-3xl font-semibold">Skill Catalog</h1>
             <p className="mt-2 max-w-3xl text-slate-400">
-              Govern installed skills from a single operator table. Import kits, create drafts, configure provider routes, and inspect files in the side panel.
+              Import skill packages, test/stage/publish them, and decide which ones users can use through Skill Assist. Published skills can be selected automatically or manually in the Chat runner.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
