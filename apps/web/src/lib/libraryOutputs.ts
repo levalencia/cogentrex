@@ -248,12 +248,10 @@ function buildSkillRunModeByArtifactId(skillRuns: SkillRunSummary[]): Map<string
   const byArtifactId = new Map<string, { mode: AppMode; timestamp: string }>();
 
   for (const run of skillRuns) {
-    const savedArtifactIds = run.observability?.savedArtifactIds;
-    if (!Array.isArray(savedArtifactIds)) continue;
+    const savedArtifactIds = savedArtifactIdsFromObservability(run.observability);
+    if (!savedArtifactIds.length) continue;
     const timestamp = run.completedAt ?? run.startedAt;
-    for (const value of savedArtifactIds) {
-      if (typeof value !== 'string' || !value.trim()) continue;
-      const artifactId = value.trim();
+    for (const artifactId of savedArtifactIds) {
       const existing = byArtifactId.get(artifactId);
       if (!existing || new Date(timestamp).getTime() > new Date(existing.timestamp).getTime()) {
         byArtifactId.set(artifactId, { mode: run.mode, timestamp });
@@ -576,14 +574,18 @@ function savedArtifactMetadataById(observability: Record<string, unknown> | null
   return new Map(entries);
 }
 
-function skillRunSavedArtifactLinks(observability: Record<string, unknown> | null): SkillRunDetail['savedArtifactLinks'] {
+function savedArtifactIdsFromObservability(observability: Record<string, unknown> | null): string[] {
   const rawIds = observability?.savedArtifactIds;
-  const fallbackArtifactId = typeof observability?.artifactId === 'string' ? observability.artifactId.trim() : '';
-  const candidateIds = Array.isArray(rawIds) ? rawIds : fallbackArtifactId ? [fallbackArtifactId] : [];
+  const ids = Array.isArray(rawIds)
+    ? rawIds.filter((id): id is string => typeof id === 'string' && id.trim().length > 0).map((id) => id.trim())
+    : [];
+  const metadataIds = Array.from(savedArtifactMetadataById(observability).keys());
+  return Array.from(new Set([...ids, ...metadataIds]));
+}
+
+function skillRunSavedArtifactLinks(observability: Record<string, unknown> | null): SkillRunDetail['savedArtifactLinks'] {
   const metadataById = savedArtifactMetadataById(observability);
-  const uniqueIds = Array.from(new Set(candidateIds
-    .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
-    .map((id) => id.trim())));
+  const uniqueIds = savedArtifactIdsFromObservability(observability);
 
   return uniqueIds.map((id) => {
     const metadata = metadataById.get(id);
@@ -802,8 +804,7 @@ export function buildLibraryArtifactHref(artifactId: string): string {
 
 export function findLibraryArtifactRun(artifact: ArtifactItem, skillRuns: SkillRunSummary[] = []): SkillRunSummary | null {
   return skillRuns.find((run) => {
-    const savedArtifactIds = run.observability?.savedArtifactIds;
-    if (Array.isArray(savedArtifactIds) && savedArtifactIds.includes(artifact.id)) return true;
+    if (savedArtifactIdsFromObservability(run.observability).includes(artifact.id)) return true;
     return run.observability?.messageId === artifact.messageId && run.conversationId === artifact.conversationId;
   }) ?? null;
 }

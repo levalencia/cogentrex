@@ -162,6 +162,48 @@ describe('artifact routes', () => {
     database.close();
   });
 
+  it('uses saved artifact metadata before falling back to a newer chat run when compact ids are absent', async () => {
+    const { agent, database } = await makeTestApp();
+    const user = await registerAndLogin(agent);
+    const { conversationId } = await seedConversationWithAssistantMessage(database, user.id, {
+      messageId: 'msg-legacy-research-answer',
+      title: 'Started as chat',
+      mode: 'CHAT',
+    });
+
+    await database.adapter.prepare(
+      `INSERT INTO skill_runs (
+        id, user_id, skill_id, skill_slug, skill_name, mode, status,
+        conversation_id, job_id, provider_id, started_at, completed_at, duration_ms, observability_json
+      ) VALUES
+      (
+        'skr-legacy-research-metadata-link', @userId, 'skl_deep_research', 'deep-research', 'Deep Research', 'DEEP_RESEARCH', 'completed',
+        @conversationId, 'job-1', NULL, '2026-05-22T20:01:00.000Z', '2026-05-22T20:03:00.000Z', 120000, '{"savedArtifacts":[{"id":"art-legacy-research","filename":"Legacy research answer.md"}],"savedArtifactCount":1}'
+      ),
+      (
+        'skr-later-chat-after-metadata-save', @userId, 'skl_chat', 'chat', 'Chat', 'CHAT', 'completed',
+        @conversationId, NULL, NULL, '2026-05-22T20:05:00.000Z', '2026-05-22T20:06:00.000Z', 60000, '{"messageId":"msg-later-chat","estimatedTokens":12}'
+      )`,
+    ).run({ userId: user.id, conversationId });
+
+    await database.adapter.prepare(
+      `INSERT INTO artifacts (id, user_id, conversation_id, message_id, type, filename, language, content, size_bytes, created_at)
+       VALUES ('art-legacy-research', @userId, @conversationId, 'msg-legacy-research-answer', 'text/markdown', 'Legacy research answer.md', 'markdown', '# Research', 10, '2026-05-22T20:04:00.000Z')`,
+    ).run({ userId: user.id, conversationId });
+
+    const response = await agent.get('/api/artifacts').expect(200);
+
+    expect(response.body.artifacts[0]).toMatchObject({
+      id: 'art-legacy-research',
+      conversationMode: 'DEEP_RESEARCH',
+      baseConversationMode: 'CHAT',
+      effectiveMode: 'DEEP_RESEARCH',
+      skillRunId: 'skr-legacy-research-metadata-link',
+    });
+
+    database.close();
+  });
+
   it('uses the skill run tied to the saved assistant message instead of a newer chat run', async () => {
     const { agent, database } = await makeTestApp();
     const user = await registerAndLogin(agent);
