@@ -71,6 +71,10 @@ describe('resolveSkillRunSelection', () => {
     expect(resolveSkillRunSelection(runs, 'run-1', 'missing-run')).toEqual({ selectedRunId: 'run-1', requestedRunMissing: true });
     expect(resolveSkillRunSelection(runs, null, 'missing-run')).toEqual({ selectedRunId: 'run-1', requestedRunMissing: true });
   });
+
+  it('clears the selected run when the shareable run URL param is removed', () => {
+    expect(resolveSkillRunSelection(runs, 'run-2', null)).toEqual({ selectedRunId: null, requestedRunMissing: false });
+  });
 });
 
 describe('buildSkillRunHref', () => {

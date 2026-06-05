@@ -379,7 +379,11 @@ export function resolveSkillRunSelection(
   requestedRunId: string | null,
 ): SkillRunSelectionState {
   const requestedId = requestedRunId?.trim() || null;
-  const requestedRun = requestedId ? skillRuns.find((run) => run.id === requestedId) : undefined;
+  if (!requestedId) {
+    return { selectedRunId: null, requestedRunMissing: false };
+  }
+
+  const requestedRun = skillRuns.find((run) => run.id === requestedId);
   if (requestedRun) {
     return { selectedRunId: requestedRun.id, requestedRunMissing: false };
   }
