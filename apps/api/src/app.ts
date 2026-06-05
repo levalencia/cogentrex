@@ -61,7 +61,7 @@ import { capabilityRoutes } from './capabilities/capabilityRoutes.js';
 import { SkillRepository } from './skills/skillRepository.js';
 import { SkillService } from './skills/skillService.js';
 import { SkillRunRepository } from './skills/skillRunRepository.js';
-import { adminSkillRoutes, skillRoutes } from './skills/skillRoutes.js';
+import { adminSkillRoutes, runRoutes, skillRoutes } from './skills/skillRoutes.js';
 import { AdminAnalyticsService } from './admin/adminAnalyticsService.js';
 
 export interface AppDependencies {
@@ -185,6 +185,7 @@ export async function createApp(env: AppEnv, deps: AppDependencies = {}) {
   }));
   app.use('/api/providers', providerRoutes(authService, providerService));
   app.use('/api/skills', skillRoutes(authService, skillService, providerService, env, skillRunRepository));
+  app.use('/api/runs', runRoutes(authService, skillRunRepository));
   app.use('/api/capabilities', capabilityRoutes(authService, capabilityService));
   app.use('/api/admin/skills', adminSkillRoutes(authService, skillService));
   app.use('/api/admin/qa', adminQaFixtureRoutes(authService, qaFixtureService, env));

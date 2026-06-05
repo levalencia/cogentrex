@@ -45,7 +45,7 @@ function WorkflowCard({ card, compact = false, onLaunch }: { card: LauncherItem;
           <span className="opacity-70">{card.operatorNote}</span>
         </span>
       ) : null}
-      <span className="mt-3 inline-flex rounded-full border border-current/20 px-3 py-1 text-xs font-medium opacity-90">Start workflow</span>
+      <span className="mt-3 inline-flex rounded-full border border-current/20 px-3 py-1 text-xs font-medium opacity-90">Start in Chat</span>
     </button>
   );
 }
@@ -97,10 +97,10 @@ export function SkillCockpitView() {
       <header className="border-b border-line bg-panel/50 px-6 py-4 backdrop-blur">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-accent">Workflow cockpit</p>
+            <p className="text-xs uppercase tracking-[0.24em] text-accent">Workflow launcher</p>
             <h1 className="mt-2 text-2xl font-semibold text-white">Choose what you want Cogentrex to do</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-              Launch user-facing workflows. Skills and provider details stay in the admin registry behind the scenes.
+              Start from an outcome, then run it in Chat with Skill Assist set to Auto, Manual, or Off. Admins govern the skill packages behind each workflow.
             </p>
           </div>
           <button
@@ -118,8 +118,8 @@ export function SkillCockpitView() {
           <section className="space-y-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Workflow launcher</p>
-                <h2 className="mt-1 text-lg font-semibold text-white">Core workflows</h2>
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Workflow shortcuts</p>
+                <h2 className="mt-1 text-lg font-semibold text-white">Start from a known outcome</h2>
               </div>
               {isLoading ? <span className="rounded-full border border-line px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-slate-500">Checking live config</span> : null}
             </div>
@@ -132,10 +132,30 @@ export function SkillCockpitView() {
             <div className="rounded-2xl border border-line bg-panel/60 p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Control plane</p>
-                  <h3 className="mt-1 text-base font-semibold text-white">Launch, observe, reuse, and govern</h3>
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">How it works</p>
+                  <h3 className="mt-1 text-base font-semibold text-white">Workflow → Skill Assist → Run → Library</h3>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-                    Cogentrex keeps the workflow loop connected: start from a skill, inspect the run, reuse the saved output, and govern routes/connectors when you are an admin.
+                    Skills are implementation packages. The product surface is the workflow you choose, the run Cogentrex tracks, and the output you can reuse.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                {cockpit.operatingModel.map((step) => (
+                  <div key={step.id} className="rounded-2xl border border-line bg-ink/40 p-3">
+                    <p className="text-sm font-semibold text-white">{step.label}</p>
+                    <p className="mt-2 text-xs leading-5 text-slate-500">{step.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-line bg-panel/60 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Control plane</p>
+                  <h3 className="mt-1 text-base font-semibold text-white">Import, assist, run, and observe</h3>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+                    Users ask for outcomes. Skill Assist either chooses the right skill packages automatically or lets the user pick a few explicitly. Tracked executions become auditable runs with reusable outputs.
                   </p>
                 </div>
               </div>

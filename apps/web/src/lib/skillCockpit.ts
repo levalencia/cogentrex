@@ -10,20 +10,50 @@ export interface SkillCockpitControlLoop {
   isAdminOnly: boolean;
 }
 
+export interface SkillCockpitOperatingStep {
+  id: 'choose' | 'assist' | 'run' | 'reuse';
+  label: string;
+  description: string;
+}
+
 export interface SkillCockpitModel {
   cards: LauncherItem[];
   readinessSummary: LauncherReadinessSummary;
   health: SkillRunHealthStats;
   recentRuns: SkillRunHistoryRow[];
   controlLoops: SkillCockpitControlLoop[];
+  operatingModel: SkillCockpitOperatingStep[];
 }
+
+const operatingModel: SkillCockpitOperatingStep[] = [
+  {
+    id: 'choose',
+    label: '1. Choose a workflow',
+    description: 'Users start from an outcome: answer, research, social draft, image, video, or reusable artifact.',
+  },
+  {
+    id: 'assist',
+    label: '2. Set Skill Assist',
+    description: 'Auto lets Cogentrex choose published skill packages; Manual makes the selection explicit; Off keeps the run plain.',
+  },
+  {
+    id: 'run',
+    label: '3. Track the run',
+    description: 'Tracked workflow executions belong in the Runs ledger with status, events, provider context, failures, and links.',
+  },
+  {
+    id: 'reuse',
+    label: '4. Reuse the output',
+    description: 'Durable artifacts and saved answers move to Library with provenance back to the chat or run that produced them.',
+  },
+];
 
 const controlLoops: SkillCockpitControlLoop[] = [
   {
     id: 'launch',
     label: 'Launch workflows',
     description: 'Start chat, research, social, image, or video workflows from the user cockpit.',
-    href: '/skills',
+    href: '/workflows',
     isAdminOnly: false,
   },
   {
@@ -42,8 +72,8 @@ const controlLoops: SkillCockpitControlLoop[] = [
   },
   {
     id: 'govern',
-    label: 'Govern skills',
-    description: 'Curate published skills, routes, readiness, and mode-specific workflow configuration.',
+    label: 'Govern skill packages',
+    description: 'Curate the published skill packages and routing that Skill Assist can use behind each workflow.',
     href: '/settings/admin/skills',
     isAdminOnly: true,
   },
@@ -71,5 +101,6 @@ export function buildSkillCockpitModel(readiness: SkillReadiness[] | null, skill
     health: buildSkillRunHealthStats(skillRuns),
     recentRuns: buildSkillRunHistoryRows(skillRuns, recentRunLimit),
     controlLoops,
+    operatingModel,
   };
 }

@@ -69,6 +69,37 @@ export function skillRoutes(auth: AuthService, skills: SkillService, providers: 
   return router;
 }
 
+export function runRoutes(auth: AuthService, skillRuns: SkillRunRepository): Router {
+  const router = Router();
+  router.use(requireAuth(auth));
+
+  router.get('/', async (req, res, next) => {
+    try {
+      const user = currentUser(req);
+      const limit = typeof req.query.limit === 'string' ? Number.parseInt(req.query.limit, 10) : 50;
+      res.json({ runs: await skillRuns.listForUser(user.id, Number.isFinite(limit) ? limit : 50) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get('/:id/events', async (req, res, next) => {
+    try {
+      const user = currentUser(req);
+      const events = await skillRuns.listEventsForUserRun(user.id, req.params.id);
+      if (!events) {
+        res.status(404).json({ error: { message: 'Run not found' } });
+        return;
+      }
+      res.json({ events });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  return router;
+}
+
 export function adminSkillRoutes(auth: AuthService, skills: SkillService): Router {
   const router = Router();
   router.use(requireAuth(auth));

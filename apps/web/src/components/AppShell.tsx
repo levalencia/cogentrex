@@ -22,8 +22,8 @@ export function AppShell() {
   const conversationId = params?.id as string | undefined;
   const isLibraryRoute = pathname?.startsWith('/library') ?? false;
   const isRunsRoute = pathname?.startsWith('/runs') ?? false;
-  const isSkillDetailRoute = pathname?.startsWith('/skills/') ?? false;
-  const isSkillsRoute = pathname === '/' || pathname === '/skills';
+  const isWorkflowDetailRoute = (pathname?.startsWith('/workflows/') ?? false) || (pathname?.startsWith('/skills/') ?? false);
+  const isWorkflowsRoute = pathname === '/' || pathname === '/workflows' || pathname === '/skills';
 
   useEffect(() => {
     void bootstrap();
@@ -55,7 +55,7 @@ export function AppShell() {
   return (
     <div className="flex h-screen overflow-hidden bg-ink text-slate-100">
       <Sidebar />
-      {isRunsRoute ? <RunsView /> : isLibraryRoute ? <LibraryView /> : isSkillDetailRoute ? <SkillDetailView /> : isSkillsRoute ? <SkillCockpitView /> : <ChatView />}
+      {isRunsRoute ? <RunsView /> : isLibraryRoute ? <LibraryView /> : isWorkflowDetailRoute ? <SkillDetailView /> : isWorkflowsRoute ? <SkillCockpitView /> : <ChatView />}
     </div>
   );
 }

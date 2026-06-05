@@ -2,6 +2,7 @@ import type { AppMode, CapabilityStatus, PromptTemplate, SkillReadiness } from '
 
 export type LauncherItemStatus = 'available' | 'near_existing';
 export type LauncherItemTone = 'slate' | 'emerald' | 'blue' | 'purple' | 'pink' | 'amber';
+export type SkillAssistMode = 'auto' | 'manual' | 'off';
 
 export interface LauncherReadinessBadge {
   status: CapabilityStatus | 'unconfigured';
@@ -47,6 +48,38 @@ export interface SkillAssistPickerOption {
   description: string;
   group: 'Project management' | 'Visual & diagrams';
 }
+
+export interface SkillAssistModeOption {
+  mode: SkillAssistMode;
+  label: string;
+  description: string;
+}
+
+export interface SkillAssistResolutionPreview {
+  mode: SkillAssistMode;
+  label: string;
+  description: string;
+  selectedLabels: string[];
+  suggestedLabels: string[];
+}
+
+const skillAssistModeOptions: SkillAssistModeOption[] = [
+  {
+    mode: 'auto',
+    label: 'Auto',
+    description: 'Cogentrex chooses relevant published skills from the prompt and workflow context.',
+  },
+  {
+    mode: 'manual',
+    label: 'Manual',
+    description: 'Pick the exact skills for this run, for example PM Planning plus Mermaid.',
+  },
+  {
+    mode: 'off',
+    label: 'Off',
+    description: 'Plain provider chat without skill instructions.',
+  },
+];
 
 const skillAssistPickerOptions: SkillAssistPickerOption[] = [
   {
@@ -245,6 +278,91 @@ export function getLauncherSkillSlug(itemId: string): string | null {
 export function getSkillAssistPickerOptions(mode: AppMode): SkillAssistPickerOption[] {
   if (mode !== 'CHAT' && mode !== 'DEEP_RESEARCH') return [];
   return skillAssistPickerOptions.map((option) => ({ ...option }));
+}
+
+export function getSkillAssistModeOptions(): SkillAssistModeOption[] {
+  return skillAssistModeOptions.map((option) => ({ ...option }));
+}
+
+export function getSkillAssistSuggestionsForPrompt(prompt: string, mode: AppMode): SkillAssistPickerOption[] {
+  const options = getSkillAssistPickerOptions(mode);
+  if (!options.length) return [];
+
+  const normalized = prompt.toLowerCase();
+  if (!normalized.trim()) return [];
+
+  const scores = new Map<string, number>();
+  const add = (slug: string, score: number) => scores.set(slug, (scores.get(slug) ?? 0) + score);
+
+  if (/\b(project|timeline|roadmap|milestone|milestones|gantt|sprint|delivery|plan|planning)\b/.test(normalized)) {
+    add('project-management-coach', 4);
+    add('scrum-delivery-planner', 2);
+  }
+  if (/\b(risk|risks|dependency|dependencies|stakeholder|scope)\b/.test(normalized)) {
+    add('pmp-risk-register', 3);
+    add('project-management-coach', 1);
+  }
+  if (/\b(diagram|chart|flow|flowchart|sequence|timeline|gantt|mermaid)\b/.test(normalized)) {
+    add('mermaid-diagrams', normalized.includes('mermaid') ? 5 : 3);
+  }
+  if (/\b(excalidraw|whiteboard|sketch|hand-drawn|hand drawn|architecture diagram)\b/.test(normalized)) {
+    add('excalidraw-diagramming', 4);
+  }
+  if (/\b(mockup|screen|ui|landing|html|prototype|design)\b/.test(normalized)) {
+    add('claude-design', 3);
+  }
+
+  return options
+    .map((option) => ({ option, score: scores.get(option.slug) ?? 0 }))
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score || a.option.label.localeCompare(b.option.label))
+    .slice(0, 4)
+    .map((item) => ({ ...item.option }));
+}
+
+export function previewSkillAssistResolution(input: {
+  mode: SkillAssistMode;
+  appMode: AppMode;
+  prompt: string;
+  selectedSkillSlugs: string[];
+  launcherSkillSlug?: string | null;
+}): SkillAssistResolutionPreview {
+  const allOptions = getSkillAssistPickerOptions(input.appMode);
+  const labelBySlug = new Map(allOptions.map((option) => [option.slug, option.label]));
+  const launcherLabel = input.launcherSkillSlug ? labelBySlug.get(input.launcherSkillSlug) ?? input.launcherSkillSlug : null;
+  const selectedLabels = mergeSkillAssistSlugs(input.launcherSkillSlug, input.selectedSkillSlugs).map((slug) => labelBySlug.get(slug) ?? slug);
+  const suggestedLabels = getSkillAssistSuggestionsForPrompt(input.prompt, input.appMode).map((option) => option.label);
+
+  if (input.mode === 'off') {
+    return {
+      mode: input.mode,
+      label: 'Plain chat',
+      description: 'No skill package instructions will be injected into this run.',
+      selectedLabels: [],
+      suggestedLabels: [],
+    };
+  }
+  if (input.mode === 'manual') {
+    return {
+      mode: input.mode,
+      label: selectedLabels.length ? `Manual: ${selectedLabels.join(' + ')}` : 'Manual: choose skills',
+      description: selectedLabels.length
+        ? 'Cogentrex will use only the skills you selected for this run.'
+        : 'Pick one or more skills, or switch back to Auto if you want Cogentrex to decide.',
+      selectedLabels,
+      suggestedLabels: [],
+    };
+  }
+
+  return {
+    mode: input.mode,
+    label: launcherLabel ? `Auto + ${launcherLabel}` : 'Auto skill selection',
+    description: launcherLabel
+      ? 'Cogentrex will prioritize the selected launcher skill and may use other relevant published skills.'
+      : 'Cogentrex will choose relevant published skills from your prompt and workflow context.',
+    selectedLabels: launcherLabel ? [launcherLabel] : [],
+    suggestedLabels,
+  };
 }
 
 export function mergeSkillAssistSlugs(...groups: Array<string | string[] | null | undefined>): string[] {

@@ -24,11 +24,15 @@ import {
   getLauncherPlaceholder,
   getLauncherPromptTemplates,
   getLauncherSkillSlug,
+  getSkillAssistModeOptions,
   getSkillAssistPickerOptions,
   getLauncherToneClasses,
   getReadinessBadgeClasses,
   mergeSkillAssistSlugs,
+  previewSkillAssistResolution,
   type LauncherItem,
+  type SkillAssistMode,
+  type SkillAssistPickerOption,
 } from '@/lib/workflowLauncher';
 import { buildResearchWorkspaceCards, type ResearchWorkspaceStatus } from '@/lib/researchWorkspace';
 import { buildReferencedSources, linkCitationMarkers } from '@/lib/citations';
@@ -209,10 +213,10 @@ function MessageList({ onEditImage }: { onEditImage: (content: string) => void }
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-6 md:px-8">
         {!messages.length ? (
           <section className="my-auto py-16">
-            <p className="text-sm uppercase tracking-[0.3em] text-accent">Research & workflow cockpit</p>
-            <h1 className="mt-5 max-w-3xl text-5xl font-semibold tracking-tight text-white md:text-7xl">What should Cogentrex operate?</h1>
+            <p className="text-sm uppercase tracking-[0.3em] text-accent">Skill-assisted task runner</p>
+            <h1 className="mt-5 max-w-3xl text-5xl font-semibold tracking-tight text-white md:text-7xl">What do you want Cogentrex to do?</h1>
             <p className="mt-5 max-w-2xl text-lg text-slate-300">
-              Route quick answers, deep research, social drafts, and media generation through the same provider-aware workspace.
+              Describe the task, then let Skill Assist choose the right skills or pick them manually for this run.
             </p>
             <div className="mt-8 grid gap-3 md:grid-cols-2">
               {getLauncherItems().slice(0, 4).map((workflow) => (
@@ -282,7 +286,7 @@ function WorkflowLauncher({
   return (
     <section className="rounded-2xl border border-line bg-ink/35 p-2">
       <div className="mb-1 flex flex-wrap items-center justify-between gap-2 px-1">
-        <p className="text-[10px] uppercase tracking-[0.22em] text-accent">Workflow</p>
+        <p className="text-[10px] uppercase tracking-[0.22em] text-accent">Task</p>
         {selectedWorkflow ? <p className="text-[11px] text-slate-500">{selectedWorkflow.description}</p> : null}
       </div>
       <div className="flex w-full gap-1.5 overflow-x-auto pb-0.5">
@@ -306,6 +310,130 @@ function WorkflowLauncher({
           );
         })}
       </div>
+    </section>
+  );
+}
+
+function groupSkillOptions(options: SkillAssistPickerOption[]): Array<{ group: SkillAssistPickerOption['group']; options: SkillAssistPickerOption[] }> {
+  const groups: Array<{ group: SkillAssistPickerOption['group']; options: SkillAssistPickerOption[] }> = [];
+  for (const option of options) {
+    const group = groups.find((item) => item.group === option.group);
+    if (group) {
+      group.options.push(option);
+    } else {
+      groups.push({ group: option.group, options: [option] });
+    }
+  }
+  return groups;
+}
+
+function SkillAssistPanel({
+  appMode,
+  prompt,
+  assistMode,
+  selectedSkillSlugs,
+  launcherSkillSlug,
+  options,
+  disabled,
+  onModeChange,
+  onToggleSkill,
+}: {
+  appMode: AppMode;
+  prompt: string;
+  assistMode: SkillAssistMode;
+  selectedSkillSlugs: string[];
+  launcherSkillSlug: string | null;
+  options: SkillAssistPickerOption[];
+  disabled: boolean;
+  onModeChange: (mode: SkillAssistMode) => void;
+  onToggleSkill: (slug: string) => void;
+}) {
+  if (!options.length) return null;
+
+  const modeOptions = getSkillAssistModeOptions();
+  const preview = previewSkillAssistResolution({
+    mode: assistMode,
+    appMode,
+    prompt,
+    selectedSkillSlugs,
+    launcherSkillSlug,
+  });
+  const selectedSet = new Set(mergeSkillAssistSlugs(launcherSkillSlug, selectedSkillSlugs));
+  const groupedOptions = groupSkillOptions(options);
+
+  return (
+    <section className="rounded-2xl border border-accent/20 bg-accent/5 p-3" aria-label="Skill Assist controls">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.22em] text-accent">Skill Assist</p>
+          <h3 className="mt-1 text-sm font-semibold text-white">{preview.label}</h3>
+          <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-400">{preview.description}</p>
+        </div>
+        <div className="flex rounded-xl border border-line bg-ink/60 p-1">
+          {modeOptions.map((option) => {
+            const active = assistMode === option.mode;
+            return (
+              <button
+                key={option.mode}
+                type="button"
+                onClick={() => onModeChange(option.mode)}
+                disabled={disabled}
+                aria-pressed={active}
+                title={option.description}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${active ? 'bg-accent text-ink' : 'text-slate-400 hover:text-white'}`}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {assistMode === 'auto' && preview.suggestedLabels.length ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+          <span>Likely for this prompt:</span>
+          {preview.suggestedLabels.map((label) => (
+            <span key={label} className="rounded-full border border-accent/25 bg-accent/10 px-2 py-1 text-accent">{label}</span>
+          ))}
+        </div>
+      ) : null}
+
+      {assistMode === 'manual' ? (
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          {selectedSet.size === 0 ? (
+            <p role="alert" className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-100 md:col-span-2">
+              Manual mode needs at least one skill package. Choose one below, or switch to Auto for Cogentrex selection / Off for plain chat.
+            </p>
+          ) : null}
+          {groupedOptions.map((group) => (
+            <div key={group.group} className="rounded-2xl border border-line bg-ink/35 p-3">
+              <p className="mb-2 text-[10px] uppercase tracking-[0.18em] text-slate-500">{group.group}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {group.options.map((option) => {
+                  const selected = selectedSet.has(option.slug);
+                  const locked = launcherSkillSlug === option.slug;
+                  return (
+                    <button
+                      key={option.slug}
+                      type="button"
+                      onClick={() => onToggleSkill(option.slug)}
+                      disabled={disabled || locked}
+                      title={locked ? 'Selected by the active launcher' : option.description}
+                      className={`rounded-lg border px-2 py-1 text-[11px] transition-colors disabled:cursor-not-allowed ${selected ? 'border-accent bg-accent/15 text-accent' : 'border-slate-700 bg-panel/50 text-slate-300 hover:border-accent/60'}`}
+                    >
+                      {option.label}{locked ? ' · launcher' : ''}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {assistMode === 'off' ? (
+        <p className="mt-3 rounded-xl border border-line bg-ink/40 px-3 py-2 text-xs text-slate-500">Skill packages are disabled for this run. Provider, files, and image context still work normally.</p>
+      ) : null}
     </section>
   );
 }
@@ -396,7 +524,7 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['linkedin', 'x']);
   const [useResearch, setUseResearch] = useState(false);
   const [researchSources, setResearchSources] = useState(5);
-  const [useSkills, setUseSkills] = useState(false);
+  const [skillAssistMode, setSkillAssistMode] = useState<SkillAssistMode>('auto');
   const [selectedSkillSlugs, setSelectedSkillSlugs] = useState<string[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -541,6 +669,14 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
     const value = input.trim();
     if ((!value && uploadedFiles.length === 0 && chatImages.length === 0) || isStreaming) return;
 
+    const launcherSkillSlug = getLauncherSkillSlug(selectedLauncherId);
+    const canUseSkillAssist = mode === 'CHAT' || mode === 'DEEP_RESEARCH';
+    const effectiveSkillSlugs = canUseSkillAssist && skillAssistMode !== 'off'
+      ? mergeSkillAssistSlugs(launcherSkillSlug, skillAssistMode === 'manual' ? selectedSkillSlugs : []).slice(0, 6)
+      : [];
+    const effectiveUseSkills = canUseSkillAssist && (skillAssistMode === 'auto' || effectiveSkillSlugs.length > 0);
+    if (canUseSkillAssist && skillAssistMode === 'manual' && effectiveSkillSlugs.length === 0) return;
+
     let fullContent = value;
 
     // Attach text files
@@ -567,16 +703,13 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
       }
     }
 
-    const launcherSkillSlug = getLauncherSkillSlug(selectedLauncherId);
-    const effectiveSkillSlugs = mergeSkillAssistSlugs(launcherSkillSlug, selectedSkillSlugs).slice(0, 6);
-    const effectiveUseSkills = ((mode === 'CHAT' || mode === 'DEEP_RESEARCH') && useSkills) || effectiveSkillSlugs.length > 0;
     setInput('');
     setUploadedFiles([]);
     onSend(fullContent, {
       useSkills: effectiveUseSkills,
       ...(effectiveSkillSlugs.length ? { selectedSkillSlugs: effectiveSkillSlugs } : {}),
     });
-  }, [input, uploadedFiles, chatImages, isStreaming, onSend, mode, useSkills, selectedLauncherId, selectedSkillSlugs]);
+  }, [input, uploadedFiles, chatImages, isStreaming, onSend, mode, skillAssistMode, selectedLauncherId, selectedSkillSlugs]);
 
   const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -631,6 +764,9 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
 
   const skillAssistOptions = getSkillAssistPickerOptions(mode);
   const selectedLauncherSkillSlug = getLauncherSkillSlug(selectedLauncherId);
+  const manualSkillAssistRequiresSelection = (mode === 'CHAT' || mode === 'DEEP_RESEARCH')
+    && skillAssistMode === 'manual'
+    && mergeSkillAssistSlugs(selectedLauncherSkillSlug, selectedSkillSlugs).length === 0;
   const promptTemplates = getLauncherPromptTemplates(selectedLauncherId, skillReadiness ?? []);
   const applyPromptTemplate = useCallback((prompt: string) => {
     setInput(prompt);
@@ -873,42 +1009,24 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
         ) : null}
         <div className="flex flex-col gap-3">
           <WorkflowLauncher selectedLauncherId={selectedLauncherId} mode={mode} skillReadiness={skillReadiness} onSelect={selectLauncherItem} />
+          {(mode === 'CHAT' || mode === 'DEEP_RESEARCH') ? (
+            <SkillAssistPanel
+              appMode={mode}
+              prompt={input}
+              assistMode={skillAssistMode}
+              selectedSkillSlugs={selectedSkillSlugs}
+              launcherSkillSlug={selectedLauncherSkillSlug}
+              options={skillAssistOptions}
+              disabled={isStreaming || !!pendingPlan || analyzing}
+              onModeChange={setSkillAssistMode}
+              onToggleSkill={toggleSkillAssistSlug}
+            />
+          ) : null}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 flex-wrap">
               <ProviderPicker />
               {mode !== 'IMAGE_GENERATION' && mode !== 'VIDEO_GENERATION' && mode !== 'SOCIAL_WRITING' ? (
                 <>
-                  {mode === 'CHAT' || mode === 'DEEP_RESEARCH' ? (
-                    <label className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors ${useSkills ? 'border-accent bg-accent/10 text-accent' : 'border-line text-slate-300 hover:border-accent'}`} title={mode === 'DEEP_RESEARCH' ? 'Inject relevant operating skills into planning and synthesis' : 'Inject relevant operating skills into this chat turn'}>
-                      <input
-                        type="checkbox"
-                        checked={useSkills}
-                        onChange={(event) => setUseSkills(event.target.checked)}
-                        disabled={isStreaming}
-                        className="rounded border-line bg-panel text-accent"
-                      />
-                      Skill Assist
-                    </label>
-                  ) : null}
-                  {skillAssistOptions.length ? (
-                    <div className="flex max-w-3xl flex-wrap items-center gap-1.5 rounded-xl border border-line bg-ink/30 px-2 py-1" aria-label="Skill Assist picker">
-                      {skillAssistOptions.map((option) => {
-                        const selected = selectedSkillSlugs.includes(option.slug) || selectedLauncherSkillSlug === option.slug;
-                        return (
-                          <button
-                            key={option.slug}
-                            type="button"
-                            onClick={() => toggleSkillAssistSlug(option.slug)}
-                            disabled={isStreaming || selectedLauncherSkillSlug === option.slug}
-                            title={`${option.group}: ${option.description}`}
-                            className={`rounded-lg border px-2 py-1 text-[11px] transition-colors disabled:cursor-not-allowed ${selected ? 'border-accent bg-accent/15 text-accent' : 'border-slate-700 bg-panel/50 text-slate-300 hover:border-accent/60'}`}
-                          >
-                            {option.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : null}
                   <input ref={fileInputRef} type="file" multiple accept=".txt,.md,.json,.pdf,.doc,.docx" onChange={handleFileUpload} className="hidden" />
                   <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isStreaming} className="rounded-xl border border-line px-3 py-2 text-sm text-slate-300 hover:border-accent disabled:opacity-50">📎 Attach Files</button>
                 </>
@@ -925,7 +1043,7 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
             ) : (
               <button
                 onClick={submit}
-                disabled={isStreaming || (!input.trim() && uploadedFiles.length === 0 && chatImages.length === 0) || providers.length === 0 || !!pendingPlan || analyzing}
+                disabled={isStreaming || (!input.trim() && uploadedFiles.length === 0 && chatImages.length === 0) || manualSkillAssistRequiresSelection || providers.length === 0 || !!pendingPlan || analyzing}
                 className="rounded-2xl bg-accent px-5 py-2 font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {analyzing ? 'Analyzing images...' : pendingPlan ? 'Reviewing Plan...' : isStreaming ? 'Working...' : editingImages.length > 0 ? 'Edit Image' : mode === 'IMAGE_GENERATION' ? 'Generate Image' : mode === 'VIDEO_GENERATION' ? 'Generate Video' : 'Send'}

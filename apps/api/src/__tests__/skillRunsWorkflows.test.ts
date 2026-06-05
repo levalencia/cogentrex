@@ -16,7 +16,8 @@ describe('workflow skill runs', () => {
       .send({ topic: 'Launch note for Cogentrex', platforms: ['linkedin'], useResearch: false })
       .expect(200);
 
-    const runs = await agent.get('/api/skills/runs').expect(200);
+    const runs = await agent.get('/api/runs').expect(200);
+    const legacyRuns = await agent.get('/api/skills/runs').expect(200);
     const run = runs.body.runs.find((item: { skillSlug: string }) => item.skillSlug === 'linkedin-writer');
     expect(run).toEqual(expect.objectContaining({
       skillSlug: 'linkedin-writer',
@@ -25,8 +26,11 @@ describe('workflow skill runs', () => {
       conversationId: response.body.conversationId,
       eventCount: 2,
     }));
+    expect(legacyRuns.body.runs).toContainEqual(expect.objectContaining({ id: run.id }));
 
-    const events = await agent.get(`/api/skills/runs/${run.id}/events`).expect(200);
+    const events = await agent.get(`/api/runs/${run.id}/events`).expect(200);
+    const legacyEvents = await agent.get(`/api/skills/runs/${run.id}/events`).expect(200);
+    expect(legacyEvents.body.events.map((event: { id: string }) => event.id)).toEqual(events.body.events.map((event: { id: string }) => event.id));
     expect(events.body.events).toEqual([
       expect.objectContaining({
         runId: run.id,
@@ -43,6 +47,7 @@ describe('workflow skill runs', () => {
       }),
     ]);
 
+    await agent.get('/api/runs/skr_missing/events').expect(404);
     await agent.get('/api/skills/runs/skr_missing/events').expect(404);
 
     await agent
