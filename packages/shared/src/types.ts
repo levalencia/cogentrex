@@ -154,6 +154,11 @@ export interface WorkflowRunEventsResponse {
   events: SkillRunEvent[];
 }
 
+export interface WorkflowRunDetailResponse {
+  run: SkillRunSummary;
+  events: SkillRunEvent[];
+}
+
 export interface AdminAnalyticsTotals {
   totalRuns: number;
   completedRuns: number;

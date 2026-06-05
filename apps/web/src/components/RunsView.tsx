@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AppMode, SkillRunEvent, SkillRunSummary } from '@cogentrex/shared';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -14,6 +14,7 @@ import {
   buildSkillRunHistoryRows,
   buildSkillRunNextActions,
   filterSkillRuns,
+  mergeSkillRunDetail,
   parseSkillRunHistoryFilters,
   resolveSkillRunSelection,
 } from '@/lib/libraryOutputs';
@@ -66,6 +67,7 @@ export function RunsView() {
   const [runModeFilter, setRunModeFilter] = useState<AppMode | 'all'>(urlFilters.mode);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [requestedRunMissing, setRequestedRunMissing] = useState(false);
+  const attemptedRunDetailIds = useRef(new Set<string>());
   const [selectedRunEvents, setSelectedRunEvents] = useState<SkillRunEvent[]>([]);
   const [isLoadingRunEvents, setIsLoadingRunEvents] = useState(false);
   const skillRunStats = buildSkillRunHealthStats(skillRuns);
@@ -108,6 +110,26 @@ export function RunsView() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!requestedRunId || isLoading || skillRuns.some((run) => run.id === requestedRunId) || attemptedRunDetailIds.current.has(requestedRunId)) return;
+    let cancelled = false;
+    attemptedRunDetailIds.current.add(requestedRunId);
+    api.getSkillRun(requestedRunId)
+      .then((result) => {
+        if (cancelled) return;
+        setSkillRuns((runs) => mergeSkillRunDetail(runs, result.run));
+        setSelectedRunEvents(result.events);
+        setSelectedRunId(result.run.id);
+        setRequestedRunMissing(false);
+      })
+      .catch(() => {
+        if (!cancelled) setRequestedRunMissing(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoading, requestedRunId, skillRuns]);
 
   useEffect(() => {
     if (requestedRunId) {

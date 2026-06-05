@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ArtifactItem } from '@cogentrex/shared';
+import type { ArtifactItem, SkillRunSummary } from '@cogentrex/shared';
 import {
   buildArtifactDownload,
   buildLibraryArtifactHref,
@@ -20,13 +20,14 @@ import {
   filterLibraryArtifacts,
   filterSkillRuns,
   mergeLibraryArtifacts,
+  mergeSkillRunDetail,
   parseSkillRunHistoryFilters,
   resolveLibraryArtifactSelection,
   resolveSkillRunSelection,
 } from './libraryOutputs';
 
 describe('resolveSkillRunSelection', () => {
-  const runs = [
+  const runs: SkillRunSummary[] = [
     {
       id: 'run-1',
       userId: 'user-1',
@@ -70,6 +71,23 @@ describe('resolveSkillRunSelection', () => {
   it('preserves the current or newest run when a requested run is missing', () => {
     expect(resolveSkillRunSelection(runs, 'run-1', 'missing-run')).toEqual({ selectedRunId: 'run-1', requestedRunMissing: true });
     expect(resolveSkillRunSelection(runs, null, 'missing-run')).toEqual({ selectedRunId: 'run-1', requestedRunMissing: true });
+  });
+
+  it('merges a fetched run detail into the current ledger so older deep links can be inspected', () => {
+    const olderRun: SkillRunSummary = {
+      ...runs[0]!,
+      id: 'run-older',
+      skillName: 'Older Deep Research',
+      skillSlug: 'deep-research',
+      mode: 'DEEP_RESEARCH' as const,
+      startedAt: '2026-05-20T20:00:00.000Z',
+      completedAt: '2026-05-20T20:01:00.000Z',
+    };
+
+    const merged = mergeSkillRunDetail(runs, olderRun);
+
+    expect(merged.map((run) => run.id)).toEqual(['run-2', 'run-1', 'run-older']);
+    expect(resolveSkillRunSelection(merged, null, 'run-older')).toEqual({ selectedRunId: 'run-older', requestedRunMissing: false });
   });
 });
 
