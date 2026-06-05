@@ -235,9 +235,18 @@ export function RunsView() {
                   Use this page for operational debugging. Library remains focused on saved artifacts and reusable outputs.
                 </p>
               </div>
-              <div className="rounded-2xl border border-line bg-ink/50 px-4 py-3 text-right">
-                <p className="text-[10px] uppercase tracking-[0.16em] text-slate-600">Latest</p>
-                <p className="mt-1 text-sm font-semibold text-white">{skillRunStats.latestRunAt ? formatDate(skillRunStats.latestRunAt) : '—'}</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-line bg-ink/50 px-4 py-3 text-right">
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-slate-600">Health</p>
+                  <p className={`mt-1 inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${runStatusClass(skillRunStats.operationalStatusTone)}`}>
+                    {skillRunStats.operationalStatusLabel}
+                  </p>
+                  <p className="mt-2 text-xs text-slate-500">{skillRunStats.successRateLabel}</p>
+                </div>
+                <div className="rounded-2xl border border-line bg-ink/50 px-4 py-3 text-right">
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-slate-600">Latest</p>
+                  <p className="mt-1 text-sm font-semibold text-white">{skillRunStats.latestRunAt ? formatDate(skillRunStats.latestRunAt) : '—'}</p>
+                </div>
               </div>
             </div>
 
