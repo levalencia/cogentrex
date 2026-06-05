@@ -659,6 +659,13 @@ function skillRunSummary(run: SkillRunSummary): string {
   return 'Completed skill run.';
 }
 
+export function mergeSkillRunDetail(skillRuns: SkillRunSummary[], run: SkillRunSummary): SkillRunSummary[] {
+  const byId = new Map(skillRuns.map((item) => [item.id, item]));
+  byId.set(run.id, run);
+  return sortTimestampDesc(Array.from(byId.values()).map((item) => ({ run: item, timestamp: item.completedAt ?? item.startedAt })))
+    .map(({ run: item }) => item);
+}
+
 export function filterSkillRuns(skillRuns: SkillRunSummary[], filters: SkillRunFilterInput): SkillRunSummary[] {
   const query = filters.query.trim().toLowerCase();
   const matchesStatus = (run: SkillRunSummary) => {

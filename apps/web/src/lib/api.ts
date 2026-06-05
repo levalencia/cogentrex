@@ -1,4 +1,4 @@
-import type { AdminAnalyticsSummary, ArtifactItem, ChatMessage, ConversationSummary, MediaArtifact, ProjectSummary, ProviderConfigView, PublicUser, RequestMetric, StreamEvent, ImageGenerationOptions, GeneratedPost, SocialPlatformConfig, WorkflowReadiness, SkillDetail, SkillReadiness, SkillSummary, SkillFileSummary, CreateSkillInput, ImportSkillKitInput, UpdateSkillInput, UpdateSkillRouteInput, WorkflowRunEventsResponse, WorkflowRunListResponse } from '@cogentrex/shared';
+import type { AdminAnalyticsSummary, ArtifactItem, ChatMessage, ConversationSummary, MediaArtifact, ProjectSummary, ProviderConfigView, PublicUser, RequestMetric, StreamEvent, ImageGenerationOptions, GeneratedPost, SocialPlatformConfig, WorkflowReadiness, SkillDetail, SkillReadiness, SkillSummary, SkillFileSummary, CreateSkillInput, ImportSkillKitInput, UpdateSkillInput, UpdateSkillRouteInput, WorkflowRunDetailResponse, WorkflowRunEventsResponse, WorkflowRunListResponse } from '@cogentrex/shared';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001';
 
@@ -52,7 +52,8 @@ export const api = {
   getSkill: (slug: string) => jsonRequest<{ skill: SkillDetail }>(`/api/skills/${encodeURIComponent(slug)}`),
   getSkillReadiness: () => jsonRequest<{ skills: SkillReadiness[] }>('/api/skills/readiness'),
   listSkillRuns: () => jsonRequest<WorkflowRunListResponse>('/api/runs'),
-  listSkillRunEvents: (runId: string) => jsonRequest<WorkflowRunEventsResponse>(`/api/runs/${runId}/events`),
+  getSkillRun: (runId: string) => jsonRequest<WorkflowRunDetailResponse>(`/api/runs/${encodeURIComponent(runId)}`),
+  listSkillRunEvents: (runId: string) => jsonRequest<WorkflowRunEventsResponse>(`/api/runs/${encodeURIComponent(runId)}/events`),
   getMetrics: (conversationId: string) => jsonRequest<{ metrics: RequestMetric[] }>(`/api/chat/conversations/${conversationId}/metrics`),
   getDiagnostics: (conversationId: string) => jsonRequest<{ metrics: RequestMetric[]; reasoning?: StreamEvent[] }>(`/api/chat/conversations/${conversationId}/diagnostics`),
   listConversations: (projectId?: string | null) => jsonRequest<{ conversations: ConversationSummary[] }>(`/api/chat/conversations${projectId !== undefined ? `?projectId=${projectId ?? 'null'}` : ''}`),

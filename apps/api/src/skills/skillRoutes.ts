@@ -83,6 +83,21 @@ export function runRoutes(auth: AuthService, skillRuns: SkillRunRepository): Rou
     }
   });
 
+  router.get('/:id', async (req, res, next) => {
+    try {
+      const user = currentUser(req);
+      const run = await skillRuns.getForUser(user.id, req.params.id);
+      if (!run) {
+        res.status(404).json({ error: { message: 'Run not found' } });
+        return;
+      }
+      const events = await skillRuns.listEventsForUserRun(user.id, req.params.id);
+      res.json({ run, events: events ?? [] });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   router.get('/:id/events', async (req, res, next) => {
     try {
       const user = currentUser(req);

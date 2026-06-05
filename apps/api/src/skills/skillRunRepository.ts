@@ -337,6 +337,13 @@ export class SkillRunRepository {
     return rows.map(mapRun);
   }
 
+  async getForUser(userId: string, runId: string): Promise<SkillRunSummary | null> {
+    const row = await this.db.prepare(
+      `${selectRunWithEventCount} WHERE skill_runs.id = ? AND skill_runs.user_id = ?`,
+    ).get(runId, userId) as SkillRunRow | undefined;
+    return row ? mapRun(row) : null;
+  }
+
   async listEventsForUserRun(userId: string, runId: string): Promise<SkillRunEvent[] | null> {
     const run = await this.db.prepare('SELECT id FROM skill_runs WHERE id = ? AND user_id = ?').get(runId, userId) as { id: string } | undefined;
     if (!run) return null;

@@ -28,8 +28,12 @@ describe('workflow skill runs', () => {
     }));
     expect(legacyRuns.body.runs).toContainEqual(expect.objectContaining({ id: run.id }));
 
+    const detail = await agent.get(`/api/runs/${run.id}`).expect(200);
+    expect(detail.body.run).toEqual(expect.objectContaining({ id: run.id, skillSlug: 'linkedin-writer' }));
+
     const events = await agent.get(`/api/runs/${run.id}/events`).expect(200);
     const legacyEvents = await agent.get(`/api/skills/runs/${run.id}/events`).expect(200);
+    expect(detail.body.events.map((event: { id: string }) => event.id)).toEqual(events.body.events.map((event: { id: string }) => event.id));
     expect(legacyEvents.body.events.map((event: { id: string }) => event.id)).toEqual(events.body.events.map((event: { id: string }) => event.id));
     expect(events.body.events).toEqual([
       expect.objectContaining({
