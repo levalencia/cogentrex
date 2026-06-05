@@ -63,6 +63,10 @@ export interface SkillRunHealthStats {
   completedRuns: number;
   activeRuns: number;
   failedRuns: number;
+  terminalRuns: number;
+  successRateLabel: string;
+  operationalStatusLabel: string;
+  operationalStatusTone: SkillRunHistoryRow['statusTone'];
   latestRunAt: string | null;
 }
 
@@ -697,13 +701,37 @@ function skillRunSearchableText(run: SkillRunSummary): string {
 
 export function buildSkillRunHealthStats(skillRuns: SkillRunSummary[]): SkillRunHealthStats {
   const timestampValues = skillRuns.map((run) => run.completedAt ?? run.startedAt);
+  const completedRuns = skillRuns.filter((run) => run.status === 'completed').length;
+  const activeRuns = skillRuns.filter((run) => run.status === 'pending' || run.status === 'running').length;
+  const failedRuns = skillRuns.filter((run) => run.status === 'failed').length;
+  const terminalRuns = completedRuns + failedRuns;
+  const successRateLabel = terminalRuns
+    ? `${Math.round((completedRuns / terminalRuns) * 100)}% successful`
+    : 'No completed runs yet';
+  const operationalStatus = skillRunOperationalStatus({ totalRuns: skillRuns.length, activeRuns, failedRuns, terminalRuns });
+
   return {
     totalRuns: skillRuns.length,
-    completedRuns: skillRuns.filter((run) => run.status === 'completed').length,
-    activeRuns: skillRuns.filter((run) => run.status === 'pending' || run.status === 'running').length,
-    failedRuns: skillRuns.filter((run) => run.status === 'failed').length,
+    completedRuns,
+    activeRuns,
+    failedRuns,
+    terminalRuns,
+    successRateLabel,
+    operationalStatusLabel: operationalStatus.label,
+    operationalStatusTone: operationalStatus.tone,
     latestRunAt: timestampValues.length ? sortTimestampDesc(timestampValues.map((timestamp) => ({ timestamp })))[0]?.timestamp ?? null : null,
   };
+}
+
+function skillRunOperationalStatus(input: Pick<SkillRunHealthStats, 'totalRuns' | 'activeRuns' | 'failedRuns' | 'terminalRuns'>): {
+  label: string;
+  tone: SkillRunHealthStats['operationalStatusTone'];
+} {
+  if (input.totalRuns === 0) return { label: 'No history yet', tone: 'neutral' };
+  if (input.terminalRuns === 0 && input.activeRuns > 0) return { label: 'In flight', tone: 'warning' };
+  if (input.failedRuns > 0) return { label: 'Needs attention', tone: 'danger' };
+  if (input.activeRuns > 0) return { label: 'Running', tone: 'warning' };
+  return { label: 'Healthy', tone: 'success' };
 }
 
 export function buildSkillRunHistoryRows(skillRuns: SkillRunSummary[], limit = 6): SkillRunHistoryRow[] {

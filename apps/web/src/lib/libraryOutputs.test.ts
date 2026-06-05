@@ -1095,7 +1095,45 @@ describe('buildSkillRunHealthStats', () => {
       completedRuns: 1,
       activeRuns: 1,
       failedRuns: 1,
+      terminalRuns: 2,
+      successRateLabel: '50% successful',
+      operationalStatusLabel: 'Needs attention',
+      operationalStatusTone: 'danger',
       latestRunAt: '2026-05-22T20:09:00.000Z',
+    });
+  });
+
+  it('keeps empty or in-flight-only ledgers in a neutral operational state', () => {
+    expect(buildSkillRunHealthStats([])).toMatchObject({
+      terminalRuns: 0,
+      successRateLabel: 'No completed runs yet',
+      operationalStatusLabel: 'No history yet',
+      operationalStatusTone: 'neutral',
+    });
+
+    expect(buildSkillRunHealthStats([
+      {
+        id: 'run-active',
+        userId: 'user-1',
+        skillId: 'skill-1',
+        skillSlug: 'deep-research-default',
+        skillName: 'Deep Research',
+        mode: 'DEEP_RESEARCH',
+        status: 'running',
+        conversationId: 'conv-1',
+        jobId: 'job-1',
+        providerId: 'provider-1',
+        startedAt: '2026-05-22T20:01:00.000Z',
+        completedAt: null,
+        durationMs: null,
+        errorMessage: null,
+        observability: null,
+      },
+    ])).toMatchObject({
+      terminalRuns: 0,
+      successRateLabel: 'No completed runs yet',
+      operationalStatusLabel: 'In flight',
+      operationalStatusTone: 'warning',
     });
   });
 });
