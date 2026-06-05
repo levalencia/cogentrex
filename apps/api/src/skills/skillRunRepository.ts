@@ -282,7 +282,7 @@ export class SkillRunRepository {
         `SELECT * FROM skill_runs
          WHERE user_id = ?
            AND conversation_id = ?
-           AND observability_json LIKE '%"messageId":"' || ? || '"%'
+           AND REPLACE(observability_json, ' ', '') LIKE '%"messageId":"' || ? || '"%'
          ORDER BY COALESCE(completed_at, started_at) DESC, started_at DESC
          LIMIT 1`,
       ).get(userId, conversationId, messageId) as SkillRunRow | undefined;

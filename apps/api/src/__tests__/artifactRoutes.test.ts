@@ -204,6 +204,55 @@ describe('artifact routes', () => {
     database.close();
   });
 
+  it('uses pretty-printed saved artifact metadata before falling back to a newer chat run', async () => {
+    const { agent, database } = await makeTestApp();
+    const user = await registerAndLogin(agent);
+    const { conversationId } = await seedConversationWithAssistantMessage(database, user.id, {
+      messageId: 'msg-pretty-research-answer',
+      title: 'Started as chat',
+      mode: 'CHAT',
+    });
+
+    await database.adapter.prepare(
+      `INSERT INTO skill_runs (
+        id, user_id, skill_id, skill_slug, skill_name, mode, status,
+        conversation_id, job_id, provider_id, started_at, completed_at, duration_ms, observability_json
+      ) VALUES
+      (
+        'skr-pretty-research-metadata-link', @userId, 'skl_deep_research', 'deep-research', 'Deep Research', 'DEEP_RESEARCH', 'completed',
+        @conversationId, 'job-1', NULL, '2026-05-22T20:01:00.000Z', '2026-05-22T20:03:00.000Z', 120000, @researchObservability
+      ),
+      (
+        'skr-later-chat-after-pretty-save', @userId, 'skl_chat', 'chat', 'Chat', 'CHAT', 'completed',
+        @conversationId, NULL, NULL, '2026-05-22T20:05:00.000Z', '2026-05-22T20:06:00.000Z', 60000, '{"messageId":"msg-later-chat","estimatedTokens":12}'
+      )`,
+    ).run({
+      userId: user.id,
+      conversationId,
+      researchObservability: JSON.stringify({
+        savedArtifacts: [{ id: 'art-pretty-research', filename: 'Pretty research answer.md' }],
+        savedArtifactCount: 1,
+      }, null, 2),
+    });
+
+    await database.adapter.prepare(
+      `INSERT INTO artifacts (id, user_id, conversation_id, message_id, type, filename, language, content, size_bytes, created_at)
+       VALUES ('art-pretty-research', @userId, @conversationId, 'msg-pretty-research-answer', 'text/markdown', 'Pretty research answer.md', 'markdown', '# Research', 10, '2026-05-22T20:04:00.000Z')`,
+    ).run({ userId: user.id, conversationId });
+
+    const response = await agent.get('/api/artifacts').expect(200);
+
+    expect(response.body.artifacts[0]).toMatchObject({
+      id: 'art-pretty-research',
+      conversationMode: 'DEEP_RESEARCH',
+      baseConversationMode: 'CHAT',
+      effectiveMode: 'DEEP_RESEARCH',
+      skillRunId: 'skr-pretty-research-metadata-link',
+    });
+
+    database.close();
+  });
+
   it('uses the skill run tied to the saved assistant message instead of a newer chat run', async () => {
     const { agent, database } = await makeTestApp();
     const user = await registerAndLogin(agent);
@@ -220,13 +269,17 @@ describe('artifact routes', () => {
       ) VALUES
       (
         'skr-research-message', @userId, 'skl_deep_research', 'deep-research', 'Deep Research', 'DEEP_RESEARCH', 'completed',
-        @conversationId, 'job-1', NULL, '2026-05-22T20:01:00.000Z', '2026-05-22T20:03:00.000Z', 120000, '{"messageId":"msg-research-answer","sourceCount":3}'
+        @conversationId, 'job-1', NULL, '2026-05-22T20:01:00.000Z', '2026-05-22T20:03:00.000Z', 120000, @researchObservability
       ),
       (
         'skr-later-chat', @userId, 'skl_chat', 'chat', 'Chat', 'CHAT', 'completed',
         @conversationId, NULL, NULL, '2026-05-22T20:05:00.000Z', '2026-05-22T20:06:00.000Z', 60000, '{"messageId":"msg-later-chat","estimatedTokens":12}'
       )`,
-    ).run({ userId: user.id, conversationId });
+    ).run({
+      userId: user.id,
+      conversationId,
+      researchObservability: JSON.stringify({ messageId, sourceCount: 3 }, null, 2),
+    });
 
     const response = await agent
       .post('/api/artifacts/from-message')
