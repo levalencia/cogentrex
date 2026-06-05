@@ -161,6 +161,26 @@ describe('buildLibraryArtifactRunHref', () => {
     }])).toBe('/runs?run=run-1');
   });
 
+  it('falls back to saved artifact metadata when compact saved artifact ids are absent', () => {
+    expect(buildLibraryArtifactRunHref(artifact, [{
+      id: 'run-1',
+      userId: 'user-1',
+      skillId: 'skl_deep_research',
+      skillSlug: 'deep-research',
+      skillName: 'Deep Research',
+      mode: 'DEEP_RESEARCH',
+      status: 'completed',
+      conversationId: 'conv-1',
+      jobId: null,
+      providerId: null,
+      startedAt: '2026-05-22T20:00:00.000Z',
+      completedAt: '2026-05-22T20:00:10.000Z',
+      durationMs: 10000,
+      errorMessage: null,
+      observability: { savedArtifacts: [{ id: 'art-1', filename: 'Brief.md' }] },
+    }])).toBe('/runs?run=run-1');
+  });
+
   it('returns null when no run provenance exists', () => {
     expect(buildLibraryArtifactRunHref(artifact, [])).toBeNull();
   });
@@ -265,6 +285,33 @@ describe('buildSkillRunNextActions', () => {
         tone: 'neutral',
       },
     ]);
+  });
+
+  it('uses saved artifact metadata as the output link source when savedArtifactIds is missing', () => {
+    const actions = buildSkillRunNextActions({
+      id: 'run-deep',
+      userId: 'user-1',
+      skillId: 'skl_deep_research',
+      skillSlug: 'deep-research',
+      skillName: 'Deep Research',
+      mode: 'DEEP_RESEARCH',
+      status: 'completed',
+      conversationId: 'conv-1',
+      jobId: 'job-1',
+      providerId: 'provider-1',
+      startedAt: '2026-05-22T20:00:00.000Z',
+      completedAt: '2026-05-22T20:03:00.000Z',
+      durationMs: 180000,
+      errorMessage: null,
+      observability: {
+        savedArtifacts: [{ id: 'art-1', filename: 'Brief.md' }, { id: 'art-2', filename: 'Sources.md' }],
+      },
+    });
+
+    expect(actions.find((action) => action.id === 'open-output')).toMatchObject({
+      href: '/library?artifact=art-1',
+      description: 'Inspect 2 library artifacts produced by this run.',
+    });
   });
 
   it('prioritizes failed-run troubleshooting when there is no conversation or saved output', () => {
