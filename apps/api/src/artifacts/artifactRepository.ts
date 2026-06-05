@@ -46,15 +46,20 @@ interface ArtifactRow {
 const LATEST_SKILL_RUN_FILTER_SQL = 'sr.conversation_id = c.id AND sr.user_id = c.user_id';
 const LATEST_SKILL_RUN_ORDER_SQL = 'COALESCE(sr.completed_at, sr.started_at) DESC, sr.started_at DESC';
 
+function compactJsonSql(jsonSql: string): string {
+  return `REPLACE(${jsonSql}, ' ', '')`;
+}
+
 function skillRunMessageFilterSql(messageIdSql: string): string {
-  return `${LATEST_SKILL_RUN_FILTER_SQL} AND sr.observability_json LIKE '%"messageId":"' || ${messageIdSql} || '"%'`;
+  return `${LATEST_SKILL_RUN_FILTER_SQL} AND ${compactJsonSql('sr.observability_json')} LIKE '%"messageId":"' || ${messageIdSql} || '"%'`;
 }
 
 function skillRunArtifactFilterSql(artifactIdSql: string): string {
+  const compactObservabilityJson = compactJsonSql('sr.observability_json');
   return `${LATEST_SKILL_RUN_FILTER_SQL}
     AND (
-      (sr.observability_json LIKE '%"savedArtifactIds"%' AND sr.observability_json LIKE '%"' || ${artifactIdSql} || '"%')
-      OR (sr.observability_json LIKE '%"savedArtifacts"%' AND sr.observability_json LIKE '%"id":"' || ${artifactIdSql} || '"%')
+      (${compactObservabilityJson} LIKE '%"savedArtifactIds"%' AND ${compactObservabilityJson} LIKE '%"' || ${artifactIdSql} || '"%')
+      OR (${compactObservabilityJson} LIKE '%"savedArtifacts"%' AND ${compactObservabilityJson} LIKE '%"id":"' || ${artifactIdSql} || '"%')
     )`;
 }
 
