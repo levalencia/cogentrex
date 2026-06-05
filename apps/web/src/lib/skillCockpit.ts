@@ -53,7 +53,7 @@ const controlLoops: SkillCockpitControlLoop[] = [
     id: 'launch',
     label: 'Launch workflows',
     description: 'Start chat, research, social, image, or video workflows from the user cockpit.',
-    href: '/skills',
+    href: '/workflows',
     isAdminOnly: false,
   },
   {

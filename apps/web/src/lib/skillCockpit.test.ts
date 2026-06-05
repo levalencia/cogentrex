@@ -38,7 +38,7 @@ describe('buildSkillCockpitModel', () => {
     ]);
     expect(model.operatingModel[1]?.description).toContain('Auto lets Cogentrex choose published skill packages');
     expect(model.controlLoops.map((loop) => [loop.id, loop.href, loop.isAdminOnly])).toEqual([
-      ['launch', '/skills', false],
+      ['launch', '/workflows', false],
       ['observe', '/runs', false],
       ['reuse', '/library', false],
       ['govern', '/settings/admin/skills', true],

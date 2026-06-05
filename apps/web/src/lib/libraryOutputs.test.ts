@@ -105,8 +105,8 @@ describe('run history empty states', () => {
       kind: 'first-run',
       title: 'No workflow runs yet.',
       description: 'Run a chat, research, social, image, or skill workflow to populate this auditable ledger.',
-      primaryAction: { label: 'Launch workflow', href: '/' },
-      secondaryAction: { label: 'Try Deep Research', href: '/skills/deep-research' },
+      primaryAction: { label: 'Launch workflow', href: '/workflows' },
+      secondaryAction: { label: 'Try Deep Research', href: '/workflows/deep-research' },
       clearFiltersHref: null,
     });
   });
@@ -117,7 +117,7 @@ describe('run history empty states', () => {
       title: 'No runs match these filters.',
       description: 'Clear the current search, status, and mode filters or launch a new workflow to create more run history.',
       primaryAction: { label: 'Clear filters', href: '/runs' },
-      secondaryAction: { label: 'Launch workflow', href: '/' },
+      secondaryAction: { label: 'Launch workflow', href: '/workflows' },
       clearFiltersHref: '/runs',
     });
   });
@@ -261,7 +261,7 @@ describe('buildSkillRunNextActions', () => {
         id: 'open-workflow',
         label: 'Open workflow',
         description: 'Review readiness and launch Deep Research again.',
-        href: '/skills/deep-research',
+        href: '/workflows/deep-research',
         tone: 'neutral',
       },
     ]);
@@ -298,7 +298,7 @@ describe('buildSkillRunNextActions', () => {
         id: 'open-workflow',
         label: 'Open workflow',
         description: 'Review readiness and launch LinkedIn Writer again.',
-        href: '/skills/linkedin-writer',
+        href: '/workflows/linkedin-writer',
         tone: 'neutral',
       },
     ]);

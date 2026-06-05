@@ -57,8 +57,8 @@ export function SkillDetailView() {
       .catch((requestError: unknown) => {
         if (cancelled) return;
         const message = requestError instanceof ApiError && requestError.status === 404
-          ? 'This skill package is not published or no longer exists.'
-          : 'Could not load this skill package.';
+          ? 'This workflow is not published or no longer exists.'
+          : 'Could not load this workflow.';
         setError(message);
       })
       .finally(() => {
@@ -83,7 +83,7 @@ export function SkillDetailView() {
       <main className="flex h-full flex-1 items-center justify-center bg-[radial-gradient(circle_at_top_right,#16233d,#0b0f19_45%)]">
         <div className="text-center text-slate-400">
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-accent border-t-transparent" />
-          <p className="mt-4 text-sm">Loading skill package…</p>
+          <p className="mt-4 text-sm">Loading workflow…</p>
         </div>
       </main>
     );
@@ -93,10 +93,10 @@ export function SkillDetailView() {
     return (
       <main className="flex h-full flex-1 items-center justify-center bg-ink px-6">
         <section className="max-w-md rounded-3xl border border-line bg-panel/70 p-6 text-center">
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Skill package</p>
-          <h1 className="mt-2 text-2xl font-semibold text-white">Package unavailable</h1>
-          <p className="mt-3 text-sm leading-6 text-slate-400">{error ?? 'Could not load this skill package.'}</p>
-          <button type="button" onClick={() => router.push('/skills')} className="mt-5 rounded-2xl border border-line px-4 py-2 text-sm text-slate-300 hover:border-accent hover:text-accent">
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Workflow</p>
+          <h1 className="mt-2 text-2xl font-semibold text-white">Workflow unavailable</h1>
+          <p className="mt-3 text-sm leading-6 text-slate-400">{error ?? 'Could not load this workflow.'}</p>
+          <button type="button" onClick={() => router.push('/workflows')} className="mt-5 rounded-2xl border border-line px-4 py-2 text-sm text-slate-300 hover:border-accent hover:text-accent">
             Back to Workflows
           </button>
         </section>
@@ -107,10 +107,10 @@ export function SkillDetailView() {
   return (
     <main className="flex h-full flex-1 flex-col overflow-hidden bg-[radial-gradient(circle_at_top_right,#16233d,#0b0f19_45%)]">
       <header className="border-b border-line bg-panel/50 px-6 py-5 backdrop-blur">
-        <button type="button" onClick={() => router.push('/skills')} className="text-sm text-slate-400 hover:text-accent">← Back to Workflows</button>
+        <button type="button" onClick={() => router.push('/workflows')} className="text-sm text-slate-400 hover:text-accent">← Back to Workflows</button>
         <div className="mt-4 flex flex-wrap items-start justify-between gap-5">
           <div className="max-w-3xl">
-            <p className="text-xs uppercase tracking-[0.24em] text-accent">Skill package</p>
+            <p className="text-xs uppercase tracking-[0.24em] text-accent">Workflow</p>
             <div className="mt-3 flex items-center gap-3">
               <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-line bg-ink/60 text-2xl">{getSkillIconGlyph(skill.icon)}</span>
               <div>
@@ -192,7 +192,7 @@ export function SkillDetailView() {
                   </button>
                 </div>
               ) : (
-                <p className="mt-4 rounded-2xl border border-dashed border-line p-4 text-sm text-slate-500">No runs yet for this skill package. Run it once to start the audit trail.</p>
+                <p className="mt-4 rounded-2xl border border-dashed border-line p-4 text-sm text-slate-500">No runs yet for this workflow. Run it once to start the audit trail.</p>
               )}
             </section>
 

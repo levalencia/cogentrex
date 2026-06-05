@@ -196,8 +196,8 @@ export function buildSkillRunEmptyState(input: { totalRuns: number; filteredRuns
       kind: 'first-run',
       title: 'No workflow runs yet.',
       description: 'Run a chat, research, social, image, or skill workflow to populate this auditable ledger.',
-      primaryAction: { label: 'Launch workflow', href: '/' },
-      secondaryAction: { label: 'Try Deep Research', href: '/skills/deep-research' },
+      primaryAction: { label: 'Launch workflow', href: '/workflows' },
+      secondaryAction: { label: 'Try Deep Research', href: '/workflows/deep-research' },
       clearFiltersHref: null,
     };
   }
@@ -207,7 +207,7 @@ export function buildSkillRunEmptyState(input: { totalRuns: number; filteredRuns
     title: 'No runs match these filters.',
     description: 'Clear the current search, status, and mode filters or launch a new workflow to create more run history.',
     primaryAction: { label: 'Clear filters', href: '/runs' },
-    secondaryAction: { label: 'Launch workflow', href: '/' },
+    secondaryAction: { label: 'Launch workflow', href: '/workflows' },
     clearFiltersHref: '/runs',
   };
 }
@@ -756,7 +756,7 @@ export function buildSkillRunNextActions(run: SkillRunSummary): SkillRunNextActi
     id: 'open-workflow',
     label: 'Open workflow',
     description: `Review readiness and launch ${run.skillName} again.`,
-    href: `/skills/${encodeURIComponent(run.skillSlug)}`,
+    href: `/workflows/${encodeURIComponent(run.skillSlug)}`,
     tone: 'neutral',
   });
 
