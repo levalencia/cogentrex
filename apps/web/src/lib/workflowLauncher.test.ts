@@ -71,9 +71,10 @@ describe('workflow launcher helpers', () => {
     expect(options.filter((option) => option.group === 'Visual & diagrams')).toHaveLength(3);
   });
 
-  it('explains Skill Assist as Auto, Manual, or Off for the composer', () => {
+  it('explains Skill Assist as Auto, Hybrid, Manual, or Off for the composer', () => {
     expect(getSkillAssistModeOptions()).toEqual([
       expect.objectContaining({ mode: 'auto', label: 'Auto' }),
+      expect.objectContaining({ mode: 'hybrid', label: 'Hybrid' }),
       expect.objectContaining({ mode: 'manual', label: 'Manual' }),
       expect.objectContaining({ mode: 'off', label: 'Off' }),
     ]);
@@ -111,9 +112,24 @@ describe('workflow launcher helpers', () => {
     })).toEqual({
       mode: 'auto',
       label: 'Auto skill selection',
-      description: 'Cogentrex will choose relevant published skills from your prompt and workflow context.',
+      description: 'Cogentrex will choose relevant published skills from your task prompt.',
       selectedLabels: [],
       suggestedLabels: ['PM coach', 'Mermaid', 'Scrum planner'],
+    });
+  });
+
+  it('previews Hybrid as user-selected skills plus prompt suggestions', () => {
+    expect(previewSkillAssistResolution({
+      mode: 'hybrid',
+      appMode: 'CHAT',
+      prompt: 'Create a project timeline diagram in Mermaid',
+      selectedSkillSlugs: ['project-management-coach'],
+    })).toEqual({
+      mode: 'hybrid',
+      label: 'Hybrid: PM coach + suggestions',
+      description: 'Cogentrex will prioritize your selected skills and add relevant suggestions from the prompt.',
+      selectedLabels: ['PM coach'],
+      suggestedLabels: ['Mermaid', 'Scrum planner'],
     });
   });
 
@@ -127,8 +143,8 @@ describe('workflow launcher helpers', () => {
   it('returns mode-aware composer placeholder copy', () => {
     expect(getLauncherPlaceholder('deep-research')).toBe('What should Cogentrex research with sources?');
     expect(getLauncherPlaceholder('algorithmic-art')).toBe('Describe the generative artwork, palette, motion, medium, and constraints...');
-    expect(getLauncherPlaceholder('artifact-brief')).toBe('What brief, memo, or artifact should Cogentrex draft?');
-    expect(getLauncherPlaceholder('missing')).toBe('Ask Cogentrex... (Press Enter to send)');
+    expect(getLauncherPlaceholder('artifact-brief')).toBe('What brief, memo, or reusable output should Cogentrex create?');
+    expect(getLauncherPlaceholder('missing')).toBe('What do you want Cogentrex to do?');
   });
 
   it('extracts configured workflow prompt templates from readiness route config', () => {
@@ -178,7 +194,7 @@ describe('workflow launcher helpers', () => {
     expect(items.find((item) => item.id === 'video-studio')?.readiness).toEqual({
       status: 'unconfigured',
       label: 'Not enabled',
-      message: 'This workflow is not enabled yet.',
+      message: 'This task starter is not enabled yet.',
     });
   });
 
@@ -205,7 +221,7 @@ describe('workflow launcher helpers', () => {
       optional: ['Source fetch', 'Streaming trace'],
       outputs: ['Cited answer', 'Saved artifact', 'Diagram-ready outline'],
     });
-    expect(deepResearch?.operatorNote).toBe('Research uses capabilities and adapters; diagram or artifact output is an output affordance, not a separate research engine.');
+    expect(deepResearch?.operatorNote).toBe('Research uses capabilities and adapters; artifacts are reusable outputs, not separate tasks.');
   });
 
   it('summarizes launcher readiness for cockpit-level status pills', () => {

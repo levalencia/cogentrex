@@ -45,7 +45,7 @@ function WorkflowCard({ card, compact = false, onLaunch }: { card: LauncherItem;
           <span className="opacity-70">{card.operatorNote}</span>
         </span>
       ) : null}
-      <span className="mt-3 inline-flex rounded-full border border-current/20 px-3 py-1 text-xs font-medium opacity-90">Start in Chat</span>
+      <span className="mt-3 inline-flex rounded-full border border-current/20 px-3 py-1 text-xs font-medium opacity-90">Start task</span>
     </button>
   );
 }
@@ -97,10 +97,10 @@ export function SkillCockpitView() {
       <header className="border-b border-line bg-panel/50 px-6 py-4 backdrop-blur">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-accent">Workflow launcher</p>
-            <h1 className="mt-2 text-2xl font-semibold text-white">Choose what you want Cogentrex to do</h1>
+            <p className="text-xs uppercase tracking-[0.24em] text-accent">New task</p>
+            <h1 className="mt-2 text-2xl font-semibold text-white">What do you want Cogentrex to do?</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-              Start from an outcome, then run it in Chat with Skill Assist set to Auto, Manual, or Off. Admins govern the skill packages behind each workflow.
+              Describe the outcome, then use Skill Assist in Auto, Hybrid, Manual, or Off. Admins govern which skill packages can be used behind the scenes.
             </p>
           </div>
           <button
@@ -118,8 +118,8 @@ export function SkillCockpitView() {
           <section className="space-y-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Workflow shortcuts</p>
-                <h2 className="mt-1 text-lg font-semibold text-white">Start from a known outcome</h2>
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Task starters</p>
+                <h2 className="mt-1 text-lg font-semibold text-white">Start from the result you want</h2>
               </div>
               {isLoading ? <span className="rounded-full border border-line px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-slate-500">Checking live config</span> : null}
             </div>
@@ -133,9 +133,9 @@ export function SkillCockpitView() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-xs uppercase tracking-[0.2em] text-slate-500">How it works</p>
-                  <h3 className="mt-1 text-base font-semibold text-white">Workflow → Skill Assist → Run → Library</h3>
+                  <h3 className="mt-1 text-base font-semibold text-white">Task → Skill Assist → Run → Library</h3>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-                    Skills are implementation packages. The product surface is the workflow you choose, the run Cogentrex tracks, and the output you can reuse.
+                    Skills are implementation packages. The product surface is the task you ask for, the run Cogentrex tracks, and the output you can reuse.
                   </p>
                 </div>
               </div>
@@ -155,7 +155,7 @@ export function SkillCockpitView() {
                   <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Control plane</p>
                   <h3 className="mt-1 text-base font-semibold text-white">Import, assist, run, and observe</h3>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-                    Users ask for outcomes. Skill Assist either chooses the right skill packages automatically or lets the user pick a few explicitly. Tracked executions become auditable runs with reusable outputs.
+                    Users ask for outcomes. Skill Assist can choose skills automatically, combine user-selected skills with suggestions, or run only the selected packages. Tracked executions become auditable runs with reusable outputs.
                   </p>
                 </div>
               </div>
@@ -180,9 +180,9 @@ export function SkillCockpitView() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Output helpers</p>
-                  <h3 className="mt-1 text-base font-semibold text-white">Reusable outputs after a workflow runs</h3>
+                  <h3 className="mt-1 text-base font-semibold text-white">Reusable outputs after a task runs</h3>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-                    Brief and artifact helpers enhance a workflow result; they are not separate skills for users to configure here.
+                    Brief and artifact helpers enhance a task result; they are not separate skills for users to configure here.
                   </p>
                 </div>
               </div>

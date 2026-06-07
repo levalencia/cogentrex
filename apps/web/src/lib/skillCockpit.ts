@@ -28,18 +28,18 @@ export interface SkillCockpitModel {
 const operatingModel: SkillCockpitOperatingStep[] = [
   {
     id: 'choose',
-    label: '1. Choose a workflow',
-    description: 'Users start from an outcome: answer, research, social draft, image, video, or reusable artifact.',
+    label: '1. Describe the task',
+    description: 'Users start from the result they want: answer, research, social draft, image, video, or reusable artifact.',
   },
   {
     id: 'assist',
     label: '2. Set Skill Assist',
-    description: 'Auto lets Cogentrex choose published skill packages; Manual makes the selection explicit; Off keeps the run plain.',
+    description: 'Auto chooses published skill packages; Hybrid combines user picks with suggestions; Manual uses only selected skills; Off keeps the run plain.',
   },
   {
     id: 'run',
     label: '3. Track the run',
-    description: 'Tracked workflow executions belong in the Runs ledger with status, events, provider context, failures, and links.',
+    description: 'Tracked task executions belong in the Runs ledger with status, events, provider context, failures, and links.',
   },
   {
     id: 'reuse',
@@ -51,8 +51,8 @@ const operatingModel: SkillCockpitOperatingStep[] = [
 const controlLoops: SkillCockpitControlLoop[] = [
   {
     id: 'launch',
-    label: 'Launch workflows',
-    description: 'Start chat, research, social, image, or video workflows from the user cockpit.',
+    label: 'Start tasks',
+    description: 'Start chat, research, social, image, or video tasks from the user cockpit.',
     href: '/workflows',
     isAdminOnly: false,
   },
@@ -66,21 +66,21 @@ const controlLoops: SkillCockpitControlLoop[] = [
   {
     id: 'reuse',
     label: 'Reuse outputs',
-    description: 'Open Library artifacts with workflow provenance, markdown copy, and chat/run links.',
+    description: 'Open Library artifacts with task provenance, markdown copy, and chat/run links.',
     href: '/library',
     isAdminOnly: false,
   },
   {
     id: 'govern',
     label: 'Govern skill packages',
-    description: 'Curate the published skill packages and routing that Skill Assist can use behind each workflow.',
+    description: 'Curate the published skill packages and routing that Skill Assist can use behind user tasks.',
     href: '/settings/admin/skills',
     isAdminOnly: true,
   },
   {
     id: 'connectors',
     label: 'Manage connectors',
-    description: 'Review provider/search configuration that controls workflow readiness and routing.',
+    description: 'Review provider/search configuration that controls task readiness and routing.',
     href: '/settings/admin/providers',
     isAdminOnly: true,
   },
