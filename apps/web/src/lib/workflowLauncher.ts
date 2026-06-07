@@ -2,7 +2,7 @@ import type { AppMode, CapabilityStatus, PromptTemplate, SkillReadiness } from '
 
 export type LauncherItemStatus = 'available' | 'near_existing';
 export type LauncherItemTone = 'slate' | 'emerald' | 'blue' | 'purple' | 'pink' | 'amber';
-export type SkillAssistMode = 'auto' | 'manual' | 'off';
+export type SkillAssistMode = 'auto' | 'hybrid' | 'manual' | 'off';
 
 export interface LauncherReadinessBadge {
   status: CapabilityStatus | 'unconfigured';
@@ -67,12 +67,17 @@ const skillAssistModeOptions: SkillAssistModeOption[] = [
   {
     mode: 'auto',
     label: 'Auto',
-    description: 'Cogentrex chooses relevant published skills from the prompt and workflow context.',
+    description: 'Cogentrex chooses relevant published skills from the task prompt.',
+  },
+  {
+    mode: 'hybrid',
+    label: 'Hybrid',
+    description: 'Pick one or two skills and let Cogentrex suggest the rest.',
   },
   {
     mode: 'manual',
     label: 'Manual',
-    description: 'Pick the exact skills for this run, for example PM Planning plus Mermaid.',
+    description: 'Pick the exact skills for this run.',
   },
   {
     mode: 'off',
@@ -123,19 +128,19 @@ const skillAssistPickerOptions: SkillAssistPickerOption[] = [
 const launcherItems: LauncherItem[] = [
   {
     id: 'ask-chat',
-    label: 'Ask / Chat',
-    eyebrow: 'Fast answer',
-    description: 'Provider-routed answers, files, image context, and artifact drafting.',
+    label: 'Ask Cogentrex',
+    eyebrow: 'General task',
+    description: 'Ask a question, draft an output, or work with files and image context.',
     mode: 'CHAT',
     status: 'available',
     tone: 'slate',
-    placeholder: 'Ask Cogentrex... (Press Enter to send)',
+    placeholder: 'What do you want Cogentrex to do?',
     capabilitySummary: {
       required: ['Text model'],
       optional: ['Vision', 'File context', 'Tool calling'],
       outputs: ['Answer', 'Saved artifact'],
     },
-    operatorNote: 'Chat is the general workflow surface; providers and tools stay behind routing.',
+    operatorNote: 'This is the default task surface; providers, tools, and skills stay behind Skill Assist.',
   },
   {
     id: 'algorithmic-art',
@@ -151,13 +156,13 @@ const launcherItems: LauncherItem[] = [
       optional: ['Code artifact', 'Image prompt handoff', 'Motion notes'],
       outputs: ['Creative-code sketch', 'Prompt/spec artifact', 'Iteration plan'],
     },
-    operatorNote: 'Algorithmic Art is a skill-assisted Chat launcher for creative-code guidance; it does not add a separate runtime engine.',
+    operatorNote: 'Algorithmic Art is a skill-assisted task preset for creative-code guidance; it does not add a separate runtime engine.',
   },
   {
     id: 'deep-research',
     label: 'Deep Research',
     eyebrow: 'Evidence loop',
-    description: 'Plan searches, gather sources, show reasoning, and synthesize citations.',
+    description: 'Research a question with sources, visible reasoning, and cited synthesis.',
     mode: 'DEEP_RESEARCH',
     status: 'available',
     tone: 'emerald',
@@ -167,7 +172,7 @@ const launcherItems: LauncherItem[] = [
       optional: ['Source fetch', 'Streaming trace'],
       outputs: ['Cited answer', 'Saved artifact', 'Diagram-ready outline'],
     },
-    operatorNote: 'Research uses capabilities and adapters; diagram or artifact output is an output affordance, not a separate research engine.',
+    operatorNote: 'Research uses capabilities and adapters; artifacts are reusable outputs, not separate tasks.',
   },
   {
     id: 'social-writer',
@@ -183,7 +188,7 @@ const launcherItems: LauncherItem[] = [
       optional: ['Vision', 'Web research', 'LinkedIn publishing'],
       outputs: ['Platform drafts', 'Saved artifact'],
     },
-    operatorNote: 'Social Writing drafts content first; OAuth publishing readiness remains separate from draft generation.',
+    operatorNote: 'Social Writing drafts content first; publishing readiness remains separate from draft generation.',
   },
   {
     id: 'image-studio',
@@ -221,17 +226,17 @@ const launcherItems: LauncherItem[] = [
     id: 'artifact-brief',
     label: 'Brief / Artifact Writer',
     eyebrow: 'Structured output',
-    description: 'Draft memos, briefs, and reusable outputs from the chat workspace.',
+    description: 'Turn a task result into a memo, brief, or reusable artifact.',
     mode: 'CHAT',
     status: 'near_existing',
     tone: 'amber',
-    placeholder: 'What brief, memo, or artifact should Cogentrex draft?',
+    placeholder: 'What brief, memo, or reusable output should Cogentrex create?',
     capabilitySummary: {
       required: ['Text model'],
       optional: ['Research context', 'Source citations'],
       outputs: ['Markdown artifact', 'Reusable brief'],
     },
-    operatorNote: 'Artifact Writer is an output affordance on Chat today, not a separate runtime engine.',
+    operatorNote: 'Artifact Writer is an output affordance on task results today, not a separate runtime engine.',
   },
 ];
 
@@ -330,8 +335,11 @@ export function previewSkillAssistResolution(input: {
   const allOptions = getSkillAssistPickerOptions(input.appMode);
   const labelBySlug = new Map(allOptions.map((option) => [option.slug, option.label]));
   const launcherLabel = input.launcherSkillSlug ? labelBySlug.get(input.launcherSkillSlug) ?? input.launcherSkillSlug : null;
-  const selectedLabels = mergeSkillAssistSlugs(input.launcherSkillSlug, input.selectedSkillSlugs).map((slug) => labelBySlug.get(slug) ?? slug);
-  const suggestedLabels = getSkillAssistSuggestionsForPrompt(input.prompt, input.appMode).map((option) => option.label);
+  const selectedSlugs = mergeSkillAssistSlugs(input.launcherSkillSlug, input.selectedSkillSlugs);
+  const selectedLabels = selectedSlugs.map((slug) => labelBySlug.get(slug) ?? slug);
+  const suggestedLabels = getSkillAssistSuggestionsForPrompt(input.prompt, input.appMode)
+    .filter((option) => !selectedSlugs.includes(option.slug))
+    .map((option) => option.label);
 
   if (input.mode === 'off') {
     return {
@@ -353,13 +361,24 @@ export function previewSkillAssistResolution(input: {
       suggestedLabels: [],
     };
   }
+  if (input.mode === 'hybrid') {
+    return {
+      mode: input.mode,
+      label: selectedLabels.length ? `Hybrid: ${selectedLabels.join(' + ')} + suggestions` : 'Hybrid: choose skills + suggestions',
+      description: selectedLabels.length
+        ? 'Cogentrex will prioritize your selected skills and add relevant suggestions from the prompt.'
+        : 'Pick one or two skills you already want; Cogentrex will suggest the rest from the task.',
+      selectedLabels,
+      suggestedLabels,
+    };
+  }
 
   return {
     mode: input.mode,
     label: launcherLabel ? `Auto + ${launcherLabel}` : 'Auto skill selection',
     description: launcherLabel
-      ? 'Cogentrex will prioritize the selected launcher skill and may use other relevant published skills.'
-      : 'Cogentrex will choose relevant published skills from your prompt and workflow context.',
+      ? 'Cogentrex will prioritize the selected task skill and may use other relevant published skills.'
+      : 'Cogentrex will choose relevant published skills from your task prompt.',
     selectedLabels: launcherLabel ? [launcherLabel] : [],
     suggestedLabels,
   };
@@ -378,7 +397,7 @@ export function mergeSkillAssistSlugs(...groups: Array<string | string[] | null 
 }
 
 export function getLauncherPlaceholder(itemId: string): string {
-  return getLauncherItem(itemId)?.placeholder ?? 'Ask Cogentrex... (Press Enter to send)';
+  return getLauncherItem(itemId)?.placeholder ?? 'What do you want Cogentrex to do?';
 }
 
 export function getLauncherPromptTemplates(itemId: string, readiness: SkillReadiness[]): PromptTemplate[] {
@@ -479,6 +498,6 @@ function unconfiguredReadiness(): LauncherReadinessBadge {
   return {
     status: 'unconfigured',
     label: 'Not enabled',
-    message: 'This workflow is not enabled yet.',
+    message: 'This task starter is not enabled yet.',
   };
 }

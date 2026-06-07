@@ -26,6 +26,7 @@ import {
   getLauncherSkillSlug,
   getSkillAssistModeOptions,
   getSkillAssistPickerOptions,
+  getSkillAssistSuggestionsForPrompt,
   getLauncherToneClasses,
   getReadinessBadgeClasses,
   mergeSkillAssistSlugs,
@@ -391,16 +392,25 @@ function SkillAssistPanel({
 
       {assistMode === 'auto' && preview.suggestedLabels.length ? (
         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-400">
-          <span>Likely for this prompt:</span>
+          <span>Cogentrex would choose:</span>
           {preview.suggestedLabels.map((label) => (
             <span key={label} className="rounded-full border border-accent/25 bg-accent/10 px-2 py-1 text-accent">{label}</span>
           ))}
         </div>
       ) : null}
 
-      {assistMode === 'manual' ? (
+      {assistMode === 'hybrid' && preview.suggestedLabels.length ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+          <span>Suggested to add:</span>
+          {preview.suggestedLabels.map((label) => (
+            <span key={label} className="rounded-full border border-accent/25 bg-accent/10 px-2 py-1 text-accent">{label}</span>
+          ))}
+        </div>
+      ) : null}
+
+      {assistMode === 'manual' || assistMode === 'hybrid' ? (
         <div className="mt-3 grid gap-3 md:grid-cols-2">
-          {selectedSet.size === 0 ? (
+          {assistMode === 'manual' && selectedSet.size === 0 ? (
             <p role="alert" className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-100 md:col-span-2">
               Manual mode needs at least one skill package. Choose one below, or switch to Auto for Cogentrex selection / Off for plain chat.
             </p>
@@ -671,10 +681,17 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
 
     const launcherSkillSlug = getLauncherSkillSlug(selectedLauncherId);
     const canUseSkillAssist = mode === 'CHAT' || mode === 'DEEP_RESEARCH';
-    const effectiveSkillSlugs = canUseSkillAssist && skillAssistMode !== 'off'
-      ? mergeSkillAssistSlugs(launcherSkillSlug, skillAssistMode === 'manual' ? selectedSkillSlugs : []).slice(0, 6)
+    const hybridSuggestionSlugs = canUseSkillAssist && skillAssistMode === 'hybrid'
+      ? getSkillAssistSuggestionsForPrompt(value, mode).map((option) => option.slug)
       : [];
-    const effectiveUseSkills = canUseSkillAssist && (skillAssistMode === 'auto' || effectiveSkillSlugs.length > 0);
+    const effectiveSkillSlugs = canUseSkillAssist && skillAssistMode !== 'off'
+      ? mergeSkillAssistSlugs(
+        launcherSkillSlug,
+        skillAssistMode === 'manual' || skillAssistMode === 'hybrid' ? selectedSkillSlugs : [],
+        skillAssistMode === 'hybrid' ? hybridSuggestionSlugs : [],
+      ).slice(0, 6)
+      : [];
+    const effectiveUseSkills = canUseSkillAssist && (skillAssistMode === 'auto' || skillAssistMode === 'hybrid' || effectiveSkillSlugs.length > 0);
     if (canUseSkillAssist && skillAssistMode === 'manual' && effectiveSkillSlugs.length === 0) return;
 
     let fullContent = value;

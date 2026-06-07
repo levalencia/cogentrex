@@ -88,7 +88,7 @@ export function Sidebar() {
 
       {/* New Chat */}
       <div className="space-y-3 p-3">
-        <button onClick={handleNewChat} className="w-full rounded-2xl bg-accent px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-white">New workflow</button>
+        <button onClick={handleNewChat} className="w-full rounded-2xl bg-accent px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-white">New task</button>
         <nav className="space-y-1" aria-label="Cogentrex cockpit">
           {cockpitNavItems.map((item) => (
             <button

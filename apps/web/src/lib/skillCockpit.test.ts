@@ -31,12 +31,12 @@ describe('buildSkillCockpitModel', () => {
     expect(model.recentRuns.map((run) => run.id)).toEqual(['run-active', 'run-failed', 'run-done']);
     expect(model.recentRuns.map((run) => run.href)).toEqual(['/runs?run=run-active', '/runs?run=run-failed', '/runs?run=run-done']);
     expect(model.operatingModel.map((step) => step.label)).toEqual([
-      '1. Choose a workflow',
+      '1. Describe the task',
       '2. Set Skill Assist',
       '3. Track the run',
       '4. Reuse the output',
     ]);
-    expect(model.operatingModel[1]?.description).toContain('Auto lets Cogentrex choose published skill packages');
+    expect(model.operatingModel[1]?.description).toContain('Hybrid combines user picks with suggestions');
     expect(model.controlLoops.map((loop) => [loop.id, loop.href, loop.isAdminOnly])).toEqual([
       ['launch', '/workflows', false],
       ['observe', '/runs', false],
@@ -45,6 +45,7 @@ describe('buildSkillCockpitModel', () => {
       ['connectors', '/settings/admin/providers', true],
       ['analytics', '/settings/admin/analytics', true],
     ]);
+    expect(model.controlLoops.find((loop) => loop.id === 'launch')?.label).toBe('Start tasks');
   });
 });
 
