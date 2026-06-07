@@ -156,6 +156,12 @@ export interface SkillRunFilterInput {
   query: string;
   status: SkillRunStatusFilter;
   mode: AppMode | 'all';
+  providerId?: string | 'all';
+}
+
+export interface SkillRunProviderOption {
+  value: string | 'all';
+  label: string;
 }
 
 const skillRunStatusFilterValues: SkillRunStatusFilter[] = ['all', 'active', 'pending', 'running', 'completed', 'failed'];
@@ -177,6 +183,7 @@ export function parseSkillRunHistoryFilters(searchParams: SearchParamsLike): Ski
   return {
     status: normalizeSkillRunStatusFilter(searchParams.get('status')),
     mode: normalizeSkillRunModeFilter(searchParams.get('mode')),
+    providerId: searchParams.get('provider')?.trim() || 'all',
     query: searchParams.get('q')?.trim() ?? '',
   };
 }
@@ -185,9 +192,11 @@ export function buildSkillRunHistoryHref(filters: SkillRunFilterInput, runId?: s
   const params = new URLSearchParams();
   const normalizedRunId = runId?.trim();
   const normalizedQuery = filters.query.trim();
+  const normalizedProviderId = filters.providerId?.trim();
   if (normalizedRunId) params.set('run', normalizedRunId);
   if (filters.status !== 'all') params.set('status', filters.status);
   if (filters.mode !== 'all') params.set('mode', filters.mode);
+  if (normalizedProviderId && normalizedProviderId !== 'all') params.set('provider', normalizedProviderId);
   if (normalizedQuery) params.set('q', normalizedQuery);
   const queryString = params.toString();
   return queryString ? `/runs?${queryString}` : '/runs';
@@ -209,7 +218,7 @@ export function buildSkillRunEmptyState(input: { totalRuns: number; filteredRuns
   return {
     kind: 'filtered-empty',
     title: 'No runs match these filters.',
-    description: 'Clear the current search, status, and mode filters or launch a new workflow to create more run history.',
+    description: 'Clear the current search, status, mode, and provider filters or launch a new workflow to create more run history.',
     primaryAction: { label: 'Clear filters', href: '/runs' },
     secondaryAction: { label: 'Launch workflow', href: '/workflows' },
     clearFiltersHref: '/runs',
@@ -672,18 +681,33 @@ export function mergeSkillRunDetail(skillRuns: SkillRunSummary[], run: SkillRunS
 
 export function filterSkillRuns(skillRuns: SkillRunSummary[], filters: SkillRunFilterInput): SkillRunSummary[] {
   const query = filters.query.trim().toLowerCase();
+  const providerId = filters.providerId?.trim() || 'all';
   const matchesStatus = (run: SkillRunSummary) => {
     if (filters.status === 'all') return true;
     if (filters.status === 'active') return run.status === 'pending' || run.status === 'running';
     return run.status === filters.status;
   };
   const matchesMode = (run: SkillRunSummary) => filters.mode === 'all' || run.mode === filters.mode;
+  const matchesProvider = (run: SkillRunSummary) => providerId === 'all' || run.providerId === providerId;
   const matchesQuery = (run: SkillRunSummary) => !query || skillRunSearchableText(run).includes(query);
 
   return sortTimestampDesc(skillRuns
-    .filter((run) => matchesStatus(run) && matchesMode(run) && matchesQuery(run))
+    .filter((run) => matchesStatus(run) && matchesMode(run) && matchesProvider(run) && matchesQuery(run))
     .map((run) => ({ run, timestamp: run.completedAt ?? run.startedAt })))
     .map(({ run }) => run);
+}
+
+export function buildSkillRunProviderOptions(skillRuns: SkillRunSummary[]): SkillRunProviderOption[] {
+  const providerIds = new Set<string>();
+  for (const run of skillRuns) {
+    const providerId = run.providerId?.trim();
+    if (providerId) providerIds.add(providerId);
+  }
+
+  return [
+    { value: 'all', label: 'All providers' },
+    ...Array.from(providerIds).sort((a, b) => a.localeCompare(b)).map((providerId) => ({ value: providerId, label: providerId })),
+  ];
 }
 
 function skillRunSearchableText(run: SkillRunSummary): string {

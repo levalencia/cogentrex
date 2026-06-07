@@ -13,6 +13,7 @@ import {
   buildSkillRunHistoryHref,
   buildSkillRunHistoryRows,
   buildSkillRunNextActions,
+  buildSkillRunProviderOptions,
   filterSkillRuns,
   mergeSkillRunDetail,
   parseSkillRunHistoryFilters,
@@ -65,6 +66,7 @@ export function RunsView() {
   const [runQuery, setRunQuery] = useState(urlFilters.query);
   const [runStatusFilter, setRunStatusFilter] = useState<(typeof runStatusOptions)[number]['value']>(urlFilters.status);
   const [runModeFilter, setRunModeFilter] = useState<AppMode | 'all'>(urlFilters.mode);
+  const [runProviderFilter, setRunProviderFilter] = useState<string | 'all'>(urlFilters.providerId ?? 'all');
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [requestedRunMissing, setRequestedRunMissing] = useState(false);
   const attemptedRunDetailIds = useRef(new Set<string>());
@@ -72,9 +74,10 @@ export function RunsView() {
   const [isLoadingRunEvents, setIsLoadingRunEvents] = useState(false);
   const skillRunStats = buildSkillRunHealthStats(skillRuns);
   const currentRunFilters = useMemo(
-    () => ({ status: runStatusFilter, mode: runModeFilter, query: runQuery }),
-    [runStatusFilter, runModeFilter, runQuery],
+    () => ({ status: runStatusFilter, mode: runModeFilter, providerId: runProviderFilter, query: runQuery }),
+    [runStatusFilter, runModeFilter, runProviderFilter, runQuery],
   );
+  const runProviderOptions = useMemo(() => buildSkillRunProviderOptions(skillRuns), [skillRuns]);
   const filteredSkillRuns = useMemo(
     () => filterSkillRuns(skillRuns, currentRunFilters),
     [skillRuns, currentRunFilters],
@@ -91,7 +94,8 @@ export function RunsView() {
     setRunQuery(urlFilters.query);
     setRunStatusFilter(urlFilters.status);
     setRunModeFilter(urlFilters.mode);
-  }, [urlFilters.query, urlFilters.status, urlFilters.mode]);
+    setRunProviderFilter(urlFilters.providerId ?? 'all');
+  }, [urlFilters.query, urlFilters.status, urlFilters.mode, urlFilters.providerId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -250,7 +254,7 @@ export function RunsView() {
               </div>
             </div>
 
-            <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_180px_180px_auto]">
+            <div className="mt-4 grid gap-3 xl:grid-cols-[1fr_180px_180px_220px_auto]">
               <label className="block">
                 <span className="sr-only">Search skill runs</span>
                 <input
@@ -281,6 +285,18 @@ export function RunsView() {
                   className="w-full rounded-2xl border border-line bg-ink/70 px-4 py-3 text-sm text-white outline-none transition focus:border-accent"
                 >
                   {runModeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="sr-only">Filter run provider</span>
+                <select
+                  value={runProviderFilter}
+                  onChange={(event) => setRunProviderFilter(event.target.value)}
+                  className="w-full rounded-2xl border border-line bg-ink/70 px-4 py-3 text-sm text-white outline-none transition focus:border-accent"
+                >
+                  {runProviderOptions.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
