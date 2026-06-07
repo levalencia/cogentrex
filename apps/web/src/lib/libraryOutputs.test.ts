@@ -16,6 +16,7 @@ import {
   buildSkillRunHistoryHref,
   buildSkillRunHistoryRows,
   buildSkillRunHref,
+  buildSkillRunProviderOptions,
   buildSkillRunNextActions,
   filterLibraryArtifacts,
   filterSkillRuns,
@@ -98,28 +99,44 @@ describe('buildSkillRunHref', () => {
 });
 
 describe('run history URL filters', () => {
-  it('parses only supported status and mode filters from search params', () => {
-    const parsed = parseSkillRunHistoryFilters(new URLSearchParams('status=running&mode=DEEP_RESEARCH&q=firecrawl'));
+  it('parses supported status, mode, provider, and query filters from search params', () => {
+    const parsed = parseSkillRunHistoryFilters(new URLSearchParams('status=running&mode=DEEP_RESEARCH&provider=prv_foundry&q=firecrawl'));
 
-    expect(parsed).toEqual({ status: 'running', mode: 'DEEP_RESEARCH', query: 'firecrawl' });
-    expect(parseSkillRunHistoryFilters(new URLSearchParams('status=bogus&mode=WRONG&q=%20%20'))).toEqual({
+    expect(parsed).toEqual({ status: 'running', mode: 'DEEP_RESEARCH', providerId: 'prv_foundry', query: 'firecrawl' });
+    expect(parseSkillRunHistoryFilters(new URLSearchParams('status=bogus&mode=WRONG&provider=%20%20&q=%20%20'))).toEqual({
       status: 'all',
       mode: 'all',
+      providerId: 'all',
       query: '',
     });
   });
 
   it('builds shareable run history links while omitting default filters', () => {
-    expect(buildSkillRunHistoryHref({ status: 'failed', mode: 'SOCIAL_WRITING', query: 'provider down' }, 'run/1')).toBe(
-      '/runs?run=run%2F1&status=failed&mode=SOCIAL_WRITING&q=provider+down',
+    expect(buildSkillRunHistoryHref({ status: 'failed', mode: 'SOCIAL_WRITING', providerId: 'prv_foundry', query: 'provider down' }, 'run/1')).toBe(
+      '/runs?run=run%2F1&status=failed&mode=SOCIAL_WRITING&provider=prv_foundry&q=provider+down',
     );
-    expect(buildSkillRunHistoryHref({ status: 'all', mode: 'all', query: '' })).toBe('/runs');
+    expect(buildSkillRunHistoryHref({ status: 'all', mode: 'all', providerId: 'all', query: '' })).toBe('/runs');
+  });
+});
+
+describe('buildSkillRunProviderOptions', () => {
+  it('builds stable provider filter options from captured run providers', () => {
+    expect(buildSkillRunProviderOptions([
+      { id: 'run-1', userId: 'user-1', skillId: 'skill-1', skillSlug: 'deep-research', skillName: 'Deep Research', mode: 'DEEP_RESEARCH', status: 'completed', conversationId: 'conv-1', jobId: null, providerId: 'prv_zeta', startedAt: '2026-05-22T20:00:00.000Z', completedAt: '2026-05-22T20:01:00.000Z', durationMs: 60000, errorMessage: null, observability: null },
+      { id: 'run-2', userId: 'user-1', skillId: 'skill-2', skillSlug: 'chat', skillName: 'Chat', mode: 'CHAT', status: 'completed', conversationId: 'conv-2', jobId: null, providerId: null, startedAt: '2026-05-22T20:02:00.000Z', completedAt: '2026-05-22T20:03:00.000Z', durationMs: 60000, errorMessage: null, observability: null },
+      { id: 'run-3', userId: 'user-1', skillId: 'skill-3', skillSlug: 'social', skillName: 'Social', mode: 'SOCIAL_WRITING', status: 'completed', conversationId: 'conv-3', jobId: null, providerId: 'prv_alpha', startedAt: '2026-05-22T20:04:00.000Z', completedAt: '2026-05-22T20:05:00.000Z', durationMs: 60000, errorMessage: null, observability: null },
+      { id: 'run-4', userId: 'user-1', skillId: 'skill-4', skillSlug: 'image', skillName: 'Image', mode: 'IMAGE_GENERATION', status: 'completed', conversationId: 'conv-4', jobId: null, providerId: 'prv_alpha', startedAt: '2026-05-22T20:06:00.000Z', completedAt: '2026-05-22T20:07:00.000Z', durationMs: 60000, errorMessage: null, observability: null },
+    ])).toEqual([
+      { value: 'all', label: 'All providers' },
+      { value: 'prv_alpha', label: 'prv_alpha' },
+      { value: 'prv_zeta', label: 'prv_zeta' },
+    ]);
   });
 });
 
 describe('run history empty states', () => {
   it('guides first-time users to launch a workflow when no runs exist', () => {
-    expect(buildSkillRunEmptyState({ totalRuns: 0, filteredRuns: 0, filters: { status: 'all', mode: 'all', query: '' } })).toEqual({
+    expect(buildSkillRunEmptyState({ totalRuns: 0, filteredRuns: 0, filters: { status: 'all', mode: 'all', providerId: 'all', query: '' } })).toEqual({
       kind: 'first-run',
       title: 'No workflow runs yet.',
       description: 'Run a chat, research, social, image, or skill workflow to populate this auditable ledger.',
@@ -130,10 +147,10 @@ describe('run history empty states', () => {
   });
 
   it('guides filtered empty states to clear filters while preserving launch actions', () => {
-    expect(buildSkillRunEmptyState({ totalRuns: 3, filteredRuns: 0, filters: { status: 'failed', mode: 'DEEP_RESEARCH', query: 'provider' } })).toEqual({
+    expect(buildSkillRunEmptyState({ totalRuns: 3, filteredRuns: 0, filters: { status: 'failed', mode: 'DEEP_RESEARCH', providerId: 'prv_foundry', query: 'provider' } })).toEqual({
       kind: 'filtered-empty',
       title: 'No runs match these filters.',
-      description: 'Clear the current search, status, and mode filters or launch a new workflow to create more run history.',
+      description: 'Clear the current search, status, mode, and provider filters or launch a new workflow to create more run history.',
       primaryAction: { label: 'Clear filters', href: '/runs' },
       secondaryAction: { label: 'Launch workflow', href: '/workflows' },
       clearFiltersHref: '/runs',
@@ -1638,6 +1655,11 @@ describe('filterSkillRuns', () => {
     expect(filterSkillRuns(runs, { status: 'all', mode: 'DEEP_RESEARCH', query: 'firecrawl' }).map((run) => run.id)).toEqual(['run-1']);
     expect(filterSkillRuns(runs, { status: 'active', mode: 'all', query: 'image' }).map((run) => run.id)).toEqual(['run-3']);
     expect(filterSkillRuns(runs, { status: 'all', mode: 'all', query: '' }).map((run) => run.id)).toEqual(['run-3', 'run-2', 'run-1']);
+  });
+
+  it('filters skill runs by exact provider id without matching null-provider runs', () => {
+    expect(filterSkillRuns(runs, { status: 'all', mode: 'all', providerId: 'foundry', query: '' }).map((run) => run.id)).toEqual(['run-3']);
+    expect(filterSkillRuns(runs, { status: 'all', mode: 'all', providerId: 'firecrawl', query: '' }).map((run) => run.id)).toEqual(['run-1']);
   });
 });
 
