@@ -13,6 +13,9 @@ export interface ArtifactRecord {
   language: string | null;
   content: string;
   sizeBytes: number;
+  tags?: string[] | undefined;
+  projectId?: string | null | undefined;
+  projectName?: string | undefined;
   createdAt: string;
   conversationTitle?: string | undefined;
   conversationMode?: AppMode | undefined;
@@ -33,6 +36,9 @@ interface ArtifactRow {
   language: string | null;
   content: string;
   size_bytes: number;
+  tags_json: string | null;
+  project_id: string | null;
+  project_name?: string | null;
   created_at: string;
   conversation_title?: string | null;
   conversation_mode?: AppMode | null;
@@ -99,6 +105,33 @@ function artifactProvenanceSelectSql(messageIdSql: string, artifactIdSql?: strin
   `;
 }
 
+function parseTags(tagsJson: string | null | undefined): string[] | undefined {
+  if (!tagsJson) return undefined;
+  try {
+    const parsed = JSON.parse(tagsJson) as unknown;
+    if (!Array.isArray(parsed)) return undefined;
+    const tags = parsed.filter((tag): tag is string => typeof tag === 'string' && tag.trim().length > 0);
+    return tags.length ? tags : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function normalizeTags(tags: string[] | undefined): string[] | undefined {
+  if (!tags?.length) return undefined;
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  for (const tag of tags) {
+    const cleaned = tag.trim();
+    if (!cleaned) continue;
+    const key = cleaned.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    normalized.push(cleaned);
+  }
+  return normalized.length ? normalized : undefined;
+}
+
 function mapArtifact(row: ArtifactRow): ArtifactRecord {
   const artifact: ArtifactRecord = {
     id: row.id,
@@ -112,6 +145,10 @@ function mapArtifact(row: ArtifactRow): ArtifactRecord {
     sizeBytes: row.size_bytes,
     createdAt: row.created_at,
   };
+  const tags = parseTags(row.tags_json);
+  if (tags) artifact.tags = tags;
+  if (row.project_id) artifact.projectId = row.project_id;
+  if (row.project_name) artifact.projectName = row.project_name;
   if (row.conversation_title) artifact.conversationTitle = row.conversation_title;
   if (row.conversation_mode) artifact.conversationMode = row.conversation_mode;
   if (row.base_conversation_mode) artifact.baseConversationMode = row.base_conversation_mode;
@@ -157,16 +194,30 @@ function appendSources(content: string, sources: ResearchSource[]): string {
   return `${content.trim()}\n\n## Sources\n\n${sourceLines.join('\n')}`;
 }
 
+interface CreateArtifactFromMessageOptions {
+  filename?: string | undefined;
+  tags?: string[] | undefined;
+  projectId?: string | null | undefined;
+}
+
+interface UpdateArtifactMetadataInput {
+  filename?: string | undefined;
+  tags?: string[] | undefined;
+  projectId?: string | null | undefined;
+}
+
 export class ArtifactRepository {
   constructor(private readonly db: DbAdapter) {}
 
   async create(record: Omit<ArtifactRecord, 'id' | 'createdAt'>): Promise<ArtifactRecord> {
     const id = createId('art');
     const createdAt = nowIso();
+    const tags = normalizeTags(record.tags);
     const artifact: ArtifactRecord = { ...record, id, createdAt };
+    if (tags) artifact.tags = tags;
     await this.db.prepare(
-      `INSERT INTO artifacts (id, user_id, conversation_id, message_id, type, filename, language, content, size_bytes, created_at)
-       VALUES (@id, @userId, @conversationId, @messageId, @type, @filename, @language, @content, @sizeBytes, @createdAt)`,
+      `INSERT INTO artifacts (id, user_id, conversation_id, message_id, type, filename, language, content, size_bytes, tags_json, project_id, created_at)
+       VALUES (@id, @userId, @conversationId, @messageId, @type, @filename, @language, @content, @sizeBytes, @tagsJson, @projectId, @createdAt)`,
     ).run({
       id,
       userId: record.userId,
@@ -177,6 +228,8 @@ export class ArtifactRepository {
       language: record.language ?? null,
       content: record.content,
       sizeBytes: record.sizeBytes,
+      tagsJson: tags ? JSON.stringify(tags) : null,
+      projectId: record.projectId ?? null,
       createdAt,
     });
     return artifact;
@@ -184,9 +237,10 @@ export class ArtifactRepository {
 
   async findById(userId: string, id: string): Promise<ArtifactRecord | undefined> {
     const row = await this.db.prepare(
-      `SELECT a.*, ${artifactProvenanceSelectSql('a.message_id', 'a.id')}
+      `SELECT a.*, p.name AS project_name, ${artifactProvenanceSelectSql('a.message_id', 'a.id')}
        FROM artifacts a
        JOIN conversations c ON c.id = a.conversation_id
+       LEFT JOIN projects p ON p.id = a.project_id AND p.user_id = a.user_id
        WHERE a.id = ? AND a.user_id = ? AND c.user_id = ?`,
     ).get(id, userId, userId) as ArtifactRow | undefined;
     return row ? mapArtifact(row) : undefined;
@@ -194,16 +248,17 @@ export class ArtifactRepository {
 
   async listForUser(userId: string): Promise<ArtifactRecord[]> {
     const rows = await this.db.prepare(
-      `SELECT a.*, ${artifactProvenanceSelectSql('a.message_id', 'a.id')}
+      `SELECT a.*, p.name AS project_name, ${artifactProvenanceSelectSql('a.message_id', 'a.id')}
        FROM artifacts a
        JOIN conversations c ON c.id = a.conversation_id
+       LEFT JOIN projects p ON p.id = a.project_id AND p.user_id = a.user_id
        WHERE a.user_id = ? AND c.user_id = ?
        ORDER BY a.created_at DESC`,
     ).all(userId, userId) as ArtifactRow[];
     return rows.map(mapArtifact);
   }
 
-  async createFromMessage(userId: string, messageId: string): Promise<ArtifactRecord | undefined> {
+  async createFromMessage(userId: string, messageId: string, options: CreateArtifactFromMessageOptions = {}): Promise<ArtifactRecord | undefined> {
     const row = await this.db.prepare(
       `SELECT m.id AS message_id, m.conversation_id, m.content, m.metadata_json, ${artifactProvenanceSelectSql('m.id')}
        FROM messages m
@@ -225,17 +280,31 @@ export class ArtifactRepository {
 
     if (!row) return undefined;
 
+    let projectName: string | undefined;
+    if (options.projectId) {
+      const project = await this.db.prepare(
+        'SELECT name FROM projects WHERE id = ? AND user_id = ?',
+      ).get(options.projectId, userId) as { name: string } | undefined;
+      if (!project) return undefined;
+      projectName = project.name;
+    }
+
     const content = appendSources(row.content, extractSources(row.metadata_json));
-    const record = await this.create({
+    const recordInput: Omit<ArtifactRecord, 'id' | 'createdAt'> = {
       userId,
       conversationId: row.conversation_id,
       messageId: row.message_id,
       type: 'text/markdown',
-      filename: filenameFromTitle(row.conversation_title),
+      filename: filenameFromTitle(options.filename ?? row.conversation_title),
       language: 'markdown',
       content,
       sizeBytes: Buffer.byteLength(content, 'utf-8'),
-    });
+    };
+    const tags = normalizeTags(options.tags);
+    if (tags) recordInput.tags = tags;
+    if (options.projectId) recordInput.projectId = options.projectId;
+    if (projectName) recordInput.projectName = projectName;
+    const record = await this.create(recordInput);
     record.conversationTitle = row.conversation_title;
     record.conversationMode = row.conversation_mode;
     if (row.base_conversation_mode) record.baseConversationMode = row.base_conversation_mode;
@@ -248,9 +317,10 @@ export class ArtifactRepository {
 
   async listForConversation(userId: string, conversationId: string): Promise<ArtifactRecord[]> {
     const rows = await this.db.prepare(
-      `SELECT a.*, ${artifactProvenanceSelectSql('a.message_id', 'a.id')}
+      `SELECT a.*, p.name AS project_name, ${artifactProvenanceSelectSql('a.message_id', 'a.id')}
        FROM artifacts a
        JOIN conversations c ON c.id = a.conversation_id
+       LEFT JOIN projects p ON p.id = a.project_id AND p.user_id = a.user_id
        WHERE a.user_id = ? AND a.conversation_id = ? AND c.user_id = ?
        ORDER BY a.created_at ASC`,
     ).all(userId, conversationId, userId) as ArtifactRow[];
@@ -259,13 +329,51 @@ export class ArtifactRepository {
 
   async listForMessage(userId: string, messageId: string): Promise<ArtifactRecord[]> {
     const rows = await this.db.prepare(
-      `SELECT a.*, ${artifactProvenanceSelectSql('a.message_id', 'a.id')}
+      `SELECT a.*, p.name AS project_name, ${artifactProvenanceSelectSql('a.message_id', 'a.id')}
        FROM artifacts a
        JOIN conversations c ON c.id = a.conversation_id
+       LEFT JOIN projects p ON p.id = a.project_id AND p.user_id = a.user_id
        WHERE a.user_id = ? AND a.message_id = ? AND c.user_id = ?
        ORDER BY a.created_at ASC`,
     ).all(userId, messageId, userId) as ArtifactRow[];
     return rows.map(mapArtifact);
+  }
+
+  async updateMetadata(userId: string, id: string, input: UpdateArtifactMetadataInput): Promise<ArtifactRecord | undefined> {
+    const existing = await this.findById(userId, id);
+    if (!existing) return undefined;
+
+    const hasTags = Object.prototype.hasOwnProperty.call(input, 'tags');
+    const hasProjectId = Object.prototype.hasOwnProperty.call(input, 'projectId');
+    const nextProjectId = hasProjectId ? (input.projectId ?? null) : (existing.projectId ?? null);
+    let projectName: string | undefined;
+    if (nextProjectId) {
+      const project = await this.db.prepare(
+        'SELECT name FROM projects WHERE id = ? AND user_id = ?',
+      ).get(nextProjectId, userId) as { name: string } | undefined;
+      if (!project) return undefined;
+      projectName = project.name;
+    }
+
+    const filename = input.filename ? filenameFromTitle(input.filename) : existing.filename;
+    const tags = hasTags ? (normalizeTags(input.tags) ?? []) : (existing.tags ?? []);
+    await this.db.prepare(
+      `UPDATE artifacts
+       SET filename = @filename,
+           tags_json = @tagsJson,
+           project_id = @projectId
+       WHERE id = @id AND user_id = @userId`,
+    ).run({
+      id,
+      userId,
+      filename,
+      tagsJson: tags.length ? JSON.stringify(tags) : null,
+      projectId: nextProjectId,
+    });
+
+    const updated = await this.findById(userId, id);
+    if (updated && projectName) updated.projectName = projectName;
+    return updated;
   }
 
   async deleteForConversation(userId: string, conversationId: string): Promise<void> {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import type { ArtifactItem, SkillRunSummary } from '@cogentrex/shared';
 import { useAppStore } from '@/store/appStore';
 import {
@@ -65,11 +65,18 @@ function buildArtifactTypeCards(artifacts: ArtifactItem[], skillRuns: Parameters
   ];
 }
 
+function parseTags(tagsInput: string): string[] | undefined {
+  const tags = Array.from(new Set(tagsInput.split(',').map((tag) => tag.trim()).filter(Boolean)));
+  return tags.length ? tags : undefined;
+}
+
 export function LibraryView() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedArtifactId = searchParams.get('artifact');
   const workspaceArtifacts = useAppStore((state) => state.artifacts);
+  const projects = useAppStore((state) => state.projects);
+  const updateArtifactMetadata = useAppStore((state) => state.updateArtifactMetadata);
   const [libraryArtifacts, setLibraryArtifacts] = useState<ArtifactItem[]>([]);
   const [skillRuns, setSkillRuns] = useState<SkillRunSummary[]>([]);
   const [isLoadingArtifacts, setIsLoadingArtifacts] = useState(true);
@@ -77,6 +84,12 @@ export function LibraryView() {
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
   const [requestedArtifactMissing, setRequestedArtifactMissing] = useState(false);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
+  const [isEditingArtifact, setIsEditingArtifact] = useState(false);
+  const [editFilename, setEditFilename] = useState('');
+  const [editTags, setEditTags] = useState('');
+  const [editProjectId, setEditProjectId] = useState('');
+  const [editStatus, setEditStatus] = useState<string | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const mergedArtifacts = useMemo(
     () => mergeLibraryArtifacts(libraryArtifacts, workspaceArtifacts),
     [libraryArtifacts, workspaceArtifacts],
@@ -128,6 +141,17 @@ export function LibraryView() {
     }
   }, [filteredArtifacts, requestedArtifactId, selectedArtifactId]);
 
+  useEffect(() => {
+    if (!selectedArtifact) {
+      setIsEditingArtifact(false);
+      return;
+    }
+    setEditFilename(selectedArtifact.filename);
+    setEditTags((selectedArtifact.tags ?? []).join(', '));
+    setEditProjectId(selectedArtifact.projectId ?? '');
+    setEditStatus(null);
+  }, [selectedArtifact]);
+
   async function copyTextToClipboard(text: string): Promise<boolean> {
     const clipboard = navigator.clipboard;
     if (clipboard?.writeText) {
@@ -176,6 +200,29 @@ export function LibraryView() {
     anchor.click();
     anchor.remove();
     URL.revokeObjectURL(url);
+  }
+
+  async function saveArtifactMetadata(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedArtifact || isSavingEdit) return;
+    setIsSavingEdit(true);
+    setEditStatus(null);
+    try {
+      const tags = parseTags(editTags);
+      const input: { filename: string; tags?: string[]; projectId: string | null } = {
+        filename: editFilename.trim() || selectedArtifact.filename,
+        projectId: editProjectId || null,
+      };
+      if (tags) input.tags = tags;
+      const artifact = await updateArtifactMetadata(selectedArtifact.id, input);
+      setLibraryArtifacts((current) => current.map((item) => item.id === artifact.id ? artifact : item));
+      setEditStatus('Saved metadata');
+      setIsEditingArtifact(false);
+    } catch (error) {
+      setEditStatus(error instanceof Error ? error.message : 'Could not save metadata');
+    } finally {
+      setIsSavingEdit(false);
+    }
   }
 
   return (
@@ -273,6 +320,20 @@ export function LibraryView() {
                       <p className="mt-1 text-xs text-slate-500">
                         {selectedArtifact.conversationTitle ?? 'Untitled output'} · {selectedArtifactMode?.replace('_', ' ') ?? 'Unknown mode'}
                       </p>
+                      {selectedArtifact.projectName || selectedArtifact.tags?.length ? (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {selectedArtifact.projectName ? (
+                            <span className="rounded-full border border-accent/30 bg-accent/10 px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-accent">
+                              Project: {selectedArtifact.projectName}
+                            </span>
+                          ) : null}
+                          {selectedArtifact.tags?.map((tag) => (
+                            <span key={tag} className="rounded-full border border-line bg-ink/60 px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-slate-400">
+                              #{tag}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {selectedArtifactRunHref ? (
@@ -284,6 +345,13 @@ export function LibraryView() {
                           Open origin run
                         </button>
                       ) : null}
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingArtifact((value) => !value)}
+                        className="rounded-xl border border-accent/40 bg-accent/10 px-3 py-2 text-xs font-medium text-accent transition hover:border-accent"
+                      >
+                        {isEditingArtifact ? 'Cancel edit' : 'Edit metadata'}
+                      </button>
                       <button
                         type="button"
                         onClick={() => router.push(`/chats/${selectedArtifact.conversationId}`)}
@@ -315,6 +383,62 @@ export function LibraryView() {
                     </div>
                   </div>
                   {copyStatus ? <p className="mt-3 text-xs text-accent">{copyStatus}</p> : null}
+                  {editStatus ? <p className={`mt-3 text-xs ${editStatus.startsWith('Could') || editStatus.includes('failed') ? 'text-rose-200' : 'text-accent'}`}>{editStatus}</p> : null}
+                  {isEditingArtifact ? (
+                    <form onSubmit={saveArtifactMetadata} className="mt-4 rounded-2xl border border-accent/20 bg-accent/5 p-4">
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <label className="text-xs uppercase tracking-[0.16em] text-slate-500" htmlFor="library-artifact-name">
+                          Artifact name
+                          <input
+                            id="library-artifact-name"
+                            value={editFilename}
+                            onChange={(event) => setEditFilename(event.target.value)}
+                            className="mt-2 w-full rounded-xl border border-line bg-ink px-3 py-2 text-sm normal-case tracking-normal text-white outline-none focus:border-accent"
+                          />
+                        </label>
+                        <label className="text-xs uppercase tracking-[0.16em] text-slate-500" htmlFor="library-artifact-project">
+                          Project
+                          <select
+                            id="library-artifact-project"
+                            value={editProjectId}
+                            onChange={(event) => setEditProjectId(event.target.value)}
+                            className="mt-2 w-full rounded-xl border border-line bg-ink px-3 py-2 text-sm normal-case tracking-normal text-white outline-none focus:border-accent"
+                          >
+                            <option value="">No project</option>
+                            {projects.map((project) => (
+                              <option key={project.id} value={project.id}>{project.name}</option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                      <label className="mt-3 block text-xs uppercase tracking-[0.16em] text-slate-500" htmlFor="library-artifact-tags">
+                        Tags
+                        <input
+                          id="library-artifact-tags"
+                          value={editTags}
+                          onChange={(event) => setEditTags(event.target.value)}
+                          placeholder="research, diagram, client-ready"
+                          className="mt-2 w-full rounded-xl border border-line bg-ink px-3 py-2 text-sm normal-case tracking-normal text-white outline-none placeholder:text-slate-600 focus:border-accent"
+                        />
+                      </label>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <button
+                          type="submit"
+                          disabled={isSavingEdit}
+                          className="rounded-xl bg-accent px-3 py-2 text-xs font-semibold text-ink transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {isSavingEdit ? 'Saving…' : 'Save metadata'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingArtifact(false)}
+                          className="rounded-xl border border-line px-3 py-2 text-xs text-slate-300 transition hover:border-accent"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  ) : null}
                   {selectedArtifactRunProvenance ? (
                     <details className="mt-4 rounded-2xl border border-line bg-black/10 p-4">
                       <summary className="cursor-pointer text-xs font-medium uppercase tracking-[0.16em] text-slate-400 transition hover:text-accent">

@@ -33,6 +33,75 @@ async function seedConversationWithAssistantMessage(
 }
 
 describe('artifact routes', () => {
+  it('saves assistant messages with a user-provided artifact name, tags, and project assignment', async () => {
+    const { agent, database } = await makeTestApp();
+    const user = await registerAndLogin(agent);
+    const { messageId } = await seedConversationWithAssistantMessage(database, user.id, {
+      title: 'Untitled chat',
+      content: 'Reusable project timeline.',
+    });
+    const now = '2026-05-22T19:00:00.000Z';
+    await database.adapter.prepare(
+      `INSERT INTO projects (id, user_id, name, created_at, updated_at)
+       VALUES ('prj-roadmap', @userId, 'Cogentrex Roadmap', @now, @now)`,
+    ).run({ userId: user.id, now });
+
+    const response = await agent.post('/api/artifacts/from-message').send({
+      messageId,
+      filename: 'Q3 agent workflow timeline',
+      tags: ['roadmap', 'diagram', ' roadmap '],
+      projectId: 'prj-roadmap',
+    }).expect(201);
+
+    expect(response.body.artifact).toMatchObject({
+      filename: 'Q3 agent workflow timeline.md',
+      tags: ['roadmap', 'diagram'],
+      projectId: 'prj-roadmap',
+      projectName: 'Cogentrex Roadmap',
+    });
+
+    const listResponse = await agent.get('/api/artifacts').expect(200);
+    expect(listResponse.body.artifacts[0]).toMatchObject({
+      filename: 'Q3 agent workflow timeline.md',
+      tags: ['roadmap', 'diagram'],
+      projectId: 'prj-roadmap',
+      projectName: 'Cogentrex Roadmap',
+    });
+
+    database.close();
+  });
+
+  it('updates artifact metadata after saving to Library', async () => {
+    const { agent, database } = await makeTestApp();
+    const user = await registerAndLogin(agent);
+    const { conversationId } = await seedConversationWithAssistantMessage(database, user.id);
+    const now = '2026-05-22T19:00:00.000Z';
+    await database.adapter.prepare(
+      `INSERT INTO projects (id, user_id, name, created_at, updated_at)
+       VALUES ('prj-library', @userId, 'Library QA', @now, @now)`,
+    ).run({ userId: user.id, now });
+    await database.adapter.prepare(
+      `INSERT INTO artifacts (id, user_id, conversation_id, message_id, type, filename, language, content, size_bytes, created_at)
+       VALUES ('art-editable', @userId, @conversationId, 'msg-1', 'text/markdown', 'Draft.md', 'markdown', '# Draft', 7, '2026-05-22T20:01:00.000Z')`,
+    ).run({ userId: user.id, conversationId });
+
+    const response = await agent.patch('/api/artifacts/art-editable').send({
+      filename: 'Renamed library artifact',
+      tags: ['qa', 'saved-output'],
+      projectId: 'prj-library',
+    }).expect(200);
+
+    expect(response.body.artifact).toMatchObject({
+      id: 'art-editable',
+      filename: 'Renamed library artifact.md',
+      tags: ['qa', 'saved-output'],
+      projectId: 'prj-library',
+      projectName: 'Library QA',
+    });
+
+    database.close();
+  });
+
   it('lists artifacts across the authenticated user library with conversation metadata', async () => {
     const { agent, database } = await makeTestApp();
     const user = await registerAndLogin(agent);

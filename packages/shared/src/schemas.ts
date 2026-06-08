@@ -126,6 +126,15 @@ export const importSkillKitSchema = z.object({
 
 export const createArtifactFromMessageSchema = z.object({
   messageId: z.string().trim().min(1),
+  filename: z.string().trim().min(1).max(120).optional(),
+  tags: z.array(z.string().trim().min(1).max(40)).max(12).optional(),
+  projectId: z.string().trim().min(1).nullable().optional(),
+});
+
+export const updateArtifactMetadataSchema = z.object({
+  filename: z.string().trim().min(1).max(120).optional(),
+  tags: z.array(z.string().trim().min(1).max(40)).max(12).optional(),
+  projectId: z.string().trim().min(1).nullable().optional(),
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
@@ -142,3 +151,4 @@ export type UpdateSkillRouteInput = z.infer<typeof updateSkillRouteSchema>;
 export type CreateSkillInput = z.infer<typeof createSkillSchema>;
 export type ImportSkillKitInput = z.infer<typeof importSkillKitSchema>;
 export type CreateArtifactFromMessageInput = z.infer<typeof createArtifactFromMessageSchema>;
+export type UpdateArtifactMetadataInput = z.infer<typeof updateArtifactMetadataSchema>;

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createArtifactFromMessageSchema } from '@cogentrex/shared';
+import { createArtifactFromMessageSchema, updateArtifactMetadataSchema } from '@cogentrex/shared';
 import { requireAuth } from '../auth/authMiddleware.js';
 import type { AuthService } from '../auth/authService.js';
 import type { ArtifactRepository } from './artifactRepository.js';
@@ -24,7 +24,11 @@ export function artifactRoutes(auth: AuthService, artifacts: ArtifactRepository,
     try {
       const user = currentUser(req);
       const input = createArtifactFromMessageSchema.parse(req.body);
-      const artifact = await artifacts.createFromMessage(user.id, input.messageId);
+      const artifact = await artifacts.createFromMessage(user.id, input.messageId, {
+        filename: input.filename,
+        tags: input.tags,
+        projectId: input.projectId,
+      });
       if (!artifact) {
         res.status(404).json({ error: { message: 'Message not found' } });
         return;
@@ -45,6 +49,21 @@ export function artifactRoutes(auth: AuthService, artifacts: ArtifactRepository,
       const user = currentUser(req);
       const result = await artifacts.listForConversation(user.id, req.params.conversationId);
       res.json({ artifacts: result });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.patch('/:id', async (req, res, next) => {
+    try {
+      const user = currentUser(req);
+      const input = updateArtifactMetadataSchema.parse(req.body);
+      const artifact = await artifacts.updateMetadata(user.id, req.params.id, input);
+      if (!artifact) {
+        res.status(404).json({ error: { message: 'Artifact not found' } });
+        return;
+      }
+      res.json({ artifact });
     } catch (error) {
       next(error);
     }
