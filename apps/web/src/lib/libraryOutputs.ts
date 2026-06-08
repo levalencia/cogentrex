@@ -411,6 +411,33 @@ function readNumericMetric(observability: Record<string, unknown> | null, key: s
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
+function selectedSkillAssistSlugs(observability: Record<string, unknown> | null): string[] {
+  const rawSlugs = observability?.skillAssistSlugs;
+  if (!Array.isArray(rawSlugs)) return [];
+  return Array.from(new Set(rawSlugs
+    .filter((slug): slug is string => typeof slug === 'string' && slug.trim().length > 0)
+    .map((slug) => slug.trim())));
+}
+
+function skillAssistSlugLabel(slug: string): string {
+  return slug
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function selectedSkillAssistLabel(observability: Record<string, unknown> | null): string | null {
+  const slugs = selectedSkillAssistSlugs(observability);
+  return slugs.length ? slugs.map(skillAssistSlugLabel).join(', ') : null;
+}
+
+function skillAssistSelectedMetric(observability: Record<string, unknown> | null): string | null {
+  const count = selectedSkillAssistSlugs(observability).length;
+  if (!count) return null;
+  return `${count} selected ${count === 1 ? 'skill' : 'skills'}`;
+}
+
 function durationLabel(durationMs: number | null | undefined): string {
   if (durationMs == null) return '—';
   const seconds = Math.max(0, Math.round(durationMs / 1000));
@@ -459,7 +486,9 @@ function skillRunMetrics(observability: Record<string, unknown> | null): string[
   if (promptLength != null) metrics.push(`${promptLength} prompt chars`);
 
   const platforms = observability?.platforms;
+  const selectedSkills = skillAssistSelectedMetric(observability);
   if (Array.isArray(platforms) && platforms.length) metrics.push(`${platforms.length} platforms`);
+  if (selectedSkills) metrics.push(selectedSkills);
   if (savedArtifactCount != null) metrics.push(`${savedArtifactCount} saved ${savedArtifactCount === 1 ? 'artifact' : 'artifacts'}`);
 
   return metrics;
@@ -479,8 +508,10 @@ function skillRunCriticalObservabilityEntries(observability: Record<string, unkn
   const promptLength = readNumericMetric(observability, 'promptLength');
   const savedArtifactCount = readNumericMetric(observability, 'savedArtifactCount');
   const platforms = observability.platforms;
+  const selectedSkills = selectedSkillAssistLabel(observability);
 
   if (typeof phase === 'string' && phase.trim()) entries.push({ label: 'Phase', value: phase });
+  if (selectedSkills) entries.push({ label: 'Selected skills', value: selectedSkills });
   if (sourceCount != null) entries.push({ label: 'Sources', value: String(sourceCount) });
   if (newSourceCount != null) entries.push({ label: 'New sources', value: String(newSourceCount) });
   if (planLength != null) entries.push({ label: 'Plan steps', value: String(planLength) });

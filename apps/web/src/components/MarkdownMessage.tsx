@@ -85,10 +85,85 @@ function CitationLink({ href, children, sources }: { href: string | undefined; c
   );
 }
 
+function MermaidPreview({ code }: { code: string }) {
+  const [svg, setSvg] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [showSource, setShowSource] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    const renderMermaid = async () => {
+      try {
+        setError(null);
+        setSvg(null);
+        const mermaid = (await import('mermaid')).default;
+        mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'dark' });
+        const id = `mermaid-${Math.random().toString(36).slice(2)}`;
+        const result = await mermaid.render(id, code);
+        if (!cancelled) setSvg(result.svg);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Unable to render Mermaid diagram.');
+      }
+    };
+
+    void renderMermaid();
+    return () => {
+      cancelled = true;
+    };
+  }, [code]);
+
+  return (
+    <div className="my-4 overflow-hidden rounded-xl border border-slate-700 bg-slate-950/70">
+      <div className="flex items-center justify-between border-b border-slate-700 bg-slate-800/70 px-4 py-2">
+        <div>
+          <span className="text-xs font-semibold uppercase tracking-wide text-accent">Mermaid preview</span>
+          <span className="ml-2 text-[11px] text-slate-500">diagram artifact candidate</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowSource((value) => !value)}
+            className="rounded px-2 py-1 text-xs text-slate-400 hover:bg-slate-700 hover:text-white transition-colors"
+          >
+            {showSource ? 'Hide source' : 'View source'}
+          </button>
+          <button
+            onClick={handleCopy}
+            className="rounded px-2 py-1 text-xs text-slate-400 hover:bg-slate-700 hover:text-white transition-colors"
+          >
+            {copied ? '✓ Copied' : 'Copy'}
+          </button>
+        </div>
+      </div>
+      <div className="overflow-x-auto bg-slate-950 p-4">
+        {error ? (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100">
+            Mermaid could not render this diagram. Use View source to inspect the code.
+            <div className="mt-1 text-xs text-amber-200/80">{error}</div>
+          </div>
+        ) : svg ? (
+          <div className="mermaid-preview min-w-max" dangerouslySetInnerHTML={{ __html: svg }} />
+        ) : (
+          <div className="text-sm text-slate-400">Rendering Mermaid diagram…</div>
+        )}
+      </div>
+      {showSource ? <CodeBlock className="language-text">{code}</CodeBlock> : null}
+    </div>
+  );
+}
+
 function CodeBlock({ children, className }: { children: string; className?: string }) {
   const [copied, setCopied] = useState(false);
   const language = (className?.replace('language-', '') || 'text') as string;
   const code = String(children).replace(/\n$/, '');
+
+  if (language === 'mermaid') return <MermaidPreview code={code} />;
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(code);
