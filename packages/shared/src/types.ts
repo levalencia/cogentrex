@@ -300,6 +300,9 @@ export interface ArtifactItem {
   content: string;
   sizeBytes: number;
   createdAt: string;
+  tags?: string[] | undefined;
+  projectId?: string | null | undefined;
+  projectName?: string | undefined;
   conversationTitle?: string | undefined;
   conversationMode?: AppMode | undefined;
   baseConversationMode?: AppMode | undefined;

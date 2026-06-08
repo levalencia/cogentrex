@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback, memo } from 'react';
+import { useEffect, useState, useRef, useCallback, memo, type FormEvent } from 'react';
 import type { AppMode, ConversationSummary, ProjectSummary, ResearchSource, SkillReadiness } from '@cogentrex/shared';
 import { useAppStore } from '@/store/appStore';
 import { ReasoningPanel } from '@/components/ReasoningPanel';
@@ -51,6 +51,24 @@ function extractImageFilenameFromMarkdown(content: string): string | null {
   return match && match[2] ? match[2] : null;
 }
 
+function getDefaultArtifactName(content: string): string {
+  const heading = content.match(/^#{1,3}\s+(.+)$/m)?.[1]?.trim();
+  const firstLine = content
+    .split('\n')
+    .map((line) => line.replace(/^[#*>\-\s]+/, '').trim())
+    .find(Boolean);
+  const base = heading || firstLine || 'Saved output';
+  return base.replace(/[`*_\[\]()]/g, '').replace(/\s+/g, ' ').slice(0, 80).trim() || 'Saved output';
+}
+
+function parseTagInput(input: string): string[] | undefined {
+  const tags = input
+    .split(',')
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+  return tags.length ? tags : undefined;
+}
+
 // ── MessageItem (memoised) ──────────────────────────
 interface MessageItemProps {
   message: { id: string; conversationId: string; role: 'user' | 'assistant' | 'system' | 'tool'; content: string; metadata?: Record<string, unknown> | null };
@@ -59,8 +77,13 @@ interface MessageItemProps {
 
 const MessageItem = memo(function MessageItem({ message, onEditImage }: MessageItemProps) {
   const saveMessageAsArtifact = useAppStore((state) => state.saveMessageAsArtifact);
+  const projects = useAppStore((state) => state.projects);
   const hasSavedArtifact = useAppStore((state) => state.artifacts.some((artifact) => artifact.messageId === message.id));
   const [saveState, setSaveState] = useState<SaveToLibraryState>('idle');
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [artifactName, setArtifactName] = useState(() => getDefaultArtifactName(message.content));
+  const [artifactTags, setArtifactTags] = useState('');
+  const [artifactProjectId, setArtifactProjectId] = useState('');
 
   if (message.role === 'user') {
     // Detect if this user message was for social generation
@@ -105,12 +128,21 @@ const MessageItem = memo(function MessageItem({ message, onEditImage }: MessageI
 
   const effectiveSaveState = getEffectiveSaveToLibraryState(saveState, hasSavedArtifact);
 
-  const handleSaveArtifact = async () => {
+  const handleSaveArtifact = async (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
     if (!canSaveArtifact || effectiveSaveState !== 'idle') return;
     setSaveState('saving');
     try {
-      await saveMessageAsArtifact(message.id);
+      const tags = parseTagInput(artifactTags);
+      const input: { messageId: string; filename: string; tags?: string[]; projectId: string | null } = {
+        messageId: message.id,
+        filename: artifactName.trim() || getDefaultArtifactName(message.content),
+        projectId: artifactProjectId || null,
+      };
+      if (tags) input.tags = tags;
+      await saveMessageAsArtifact(input);
       setSaveState('saved');
+      setSaveDialogOpen(false);
     } catch {
       setSaveState('idle');
     }
@@ -153,17 +185,76 @@ const MessageItem = memo(function MessageItem({ message, onEditImage }: MessageI
           <ViewDiagnosticsButton conversationId={message.conversationId} messageId={message.id} />
         ) : null}
         {canSaveArtifact ? (
-          <button
-            type="button"
-            onClick={handleSaveArtifact}
-            disabled={saveButtonView.disabled}
-            aria-label={`Save assistant message ${message.id} to Library`}
-            data-testid={getSaveToLibraryButtonTestId(message.id)}
-            data-save-state={effectiveSaveState}
-            className="mt-2 rounded-lg border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-medium text-accent transition hover:bg-accent/20 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {saveButtonView.label}
-          </button>
+          <div className="mt-2 space-y-3">
+            <button
+              type="button"
+              onClick={() => setSaveDialogOpen(true)}
+              disabled={saveButtonView.disabled}
+              aria-label={`Save assistant message ${message.id} to Library`}
+              data-testid={getSaveToLibraryButtonTestId(message.id)}
+              data-save-state={effectiveSaveState}
+              className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-medium text-accent transition hover:bg-accent/20 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {saveButtonView.label}
+            </button>
+            {saveDialogOpen ? (
+              <form onSubmit={handleSaveArtifact} className="space-y-3 rounded-2xl border border-line bg-slate-950/70 p-4 text-sm text-slate-200">
+                <div>
+                  <label className="text-xs font-medium uppercase tracking-[0.16em] text-slate-500" htmlFor={`artifact-name-${message.id}`}>Artifact name</label>
+                  <input
+                    id={`artifact-name-${message.id}`}
+                    value={artifactName}
+                    onChange={(event) => setArtifactName(event.target.value)}
+                    className="mt-1 w-full rounded-xl border border-line bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-accent"
+                    placeholder="Name this artifact"
+                    maxLength={120}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium uppercase tracking-[0.16em] text-slate-500" htmlFor={`artifact-tags-${message.id}`}>Tags</label>
+                  <input
+                    id={`artifact-tags-${message.id}`}
+                    value={artifactTags}
+                    onChange={(event) => setArtifactTags(event.target.value)}
+                    className="mt-1 w-full rounded-xl border border-line bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-accent"
+                    placeholder="roadmap, diagram, research"
+                  />
+                  <p className="mt-1 text-xs text-slate-500">Comma-separated. You can refine these later from Library.</p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium uppercase tracking-[0.16em] text-slate-500" htmlFor={`artifact-project-${message.id}`}>Project</label>
+                  <select
+                    id={`artifact-project-${message.id}`}
+                    value={artifactProjectId}
+                    onChange={(event) => setArtifactProjectId(event.target.value)}
+                    className="mt-1 w-full rounded-xl border border-line bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-accent"
+                  >
+                    <option value="">No project</option>
+                    {projects.map((project) => (
+                      <option key={project.id} value={project.id}>{project.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="submit"
+                    disabled={effectiveSaveState !== 'idle' || !artifactName.trim()}
+                    className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-ink transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {effectiveSaveState === 'saving' ? 'Saving…' : 'Save artifact'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSaveDialogOpen(false)}
+                    className="rounded-lg border border-line px-3 py-1.5 text-xs text-slate-300 transition hover:bg-slate-800"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : null}
+          </div>
         ) : null}
         {hasGeneratedImage ? (
           <button

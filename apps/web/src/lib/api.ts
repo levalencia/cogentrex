@@ -60,8 +60,10 @@ export const api = {
   listMessages: (conversationId: string) => jsonRequest<{ messages: ChatMessage[] }>(`/api/chat/conversations/${conversationId}/messages`),
   listArtifacts: (conversationId: string) => jsonRequest<{ artifacts: ArtifactItem[] }>(`/api/artifacts/conversation/${conversationId}`),
   listLibraryArtifacts: () => jsonRequest<{ artifacts: ArtifactItem[] }>('/api/artifacts'),
-  saveArtifactFromMessage: (messageId: string) =>
-    jsonRequest<{ artifact: ArtifactItem }>('/api/artifacts/from-message', { method: 'POST', body: JSON.stringify({ messageId }) }),
+  saveArtifactFromMessage: (input: { messageId: string; filename?: string; tags?: string[]; projectId?: string | null }) =>
+    jsonRequest<{ artifact: ArtifactItem }>('/api/artifacts/from-message', { method: 'POST', body: JSON.stringify(input) }),
+  updateArtifactMetadata: (id: string, input: { filename?: string; tags?: string[]; projectId?: string | null }) =>
+    jsonRequest<{ artifact: ArtifactItem }>(`/api/artifacts/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
   renameConversation: (conversationId: string, title: string) => jsonRequest<void>(`/api/chat/conversations/${conversationId}`, { method: 'PATCH', body: JSON.stringify({ title }) }),
   setPinned: (conversationId: string, pinned: boolean) => jsonRequest<void>(`/api/chat/conversations/${conversationId}`, { method: 'PATCH', body: JSON.stringify({ isPinned: pinned }) }),
   deleteConversation: (conversationId: string) => jsonRequest<void>(`/api/chat/conversations/${conversationId}`, { method: 'DELETE' }),

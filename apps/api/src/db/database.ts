@@ -23,6 +23,7 @@ export class AppDatabase {
 
     await this.ensureNullableUserPasswordHash();
     await this.ensureSkillRunEventSequence();
+    await this.ensureArtifactMetadataColumns();
 
     try {
       await this.adapter.exec('ALTER TABLE conversations ADD COLUMN is_public INTEGER NOT NULL DEFAULT 0');
@@ -311,6 +312,8 @@ export class AppDatabase {
             language TEXT,
             content TEXT NOT NULL,
             size_bytes INTEGER NOT NULL DEFAULT 0,
+            tags_json TEXT,
+            project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
             created_at TEXT NOT NULL,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
             FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
@@ -404,6 +407,36 @@ export class AppDatabase {
         );
       `);
     } catch { /* best-effort backfill for existing run ledgers */ }
+  }
+
+  private async ensureArtifactMetadataColumns(): Promise<void> {
+    if (this.isPostgres) {
+      try {
+        await this.adapter.exec(`
+          ALTER TABLE artifacts ADD COLUMN IF NOT EXISTS tags_json TEXT;
+          ALTER TABLE artifacts ADD COLUMN IF NOT EXISTS project_id TEXT REFERENCES projects(id) ON DELETE SET NULL;
+        `);
+      } catch { /* artifacts/projects may not exist yet on very old failed startups */ }
+      return;
+    }
+
+    try {
+      const hasTagsJson = await this.adapter.getOne(
+        "SELECT 1 FROM pragma_table_info('artifacts') WHERE name = 'tags_json'",
+      );
+      if (!hasTagsJson) {
+        await this.adapter.exec('ALTER TABLE artifacts ADD COLUMN tags_json TEXT');
+      }
+    } catch { /* best-effort SQLite migration for existing local databases */ }
+
+    try {
+      const hasProjectId = await this.adapter.getOne(
+        "SELECT 1 FROM pragma_table_info('artifacts') WHERE name = 'project_id'",
+      );
+      if (!hasProjectId) {
+        await this.adapter.exec('ALTER TABLE artifacts ADD COLUMN project_id TEXT REFERENCES projects(id) ON DELETE SET NULL');
+      }
+    } catch { /* best-effort SQLite migration for existing local databases */ }
   }
 
   async close(): Promise<void> {

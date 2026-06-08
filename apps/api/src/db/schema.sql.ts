@@ -313,9 +313,12 @@ CREATE TABLE IF NOT EXISTS artifacts (
   language TEXT,
   content TEXT NOT NULL,
   size_bytes INTEGER NOT NULL DEFAULT 0,
+  tags_json TEXT,
+  project_id TEXT,
   created_at TEXT NOT NULL,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+  FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL
 );
 
 CREATE INDEX IF NOT EXISTS artifacts_conversation ON artifacts(conversation_id);

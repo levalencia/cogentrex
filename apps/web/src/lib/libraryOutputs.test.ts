@@ -1694,7 +1694,7 @@ describe('filterSkillRuns', () => {
 });
 
 describe('filterLibraryArtifacts', () => {
-  const artifacts = [
+  const artifacts: ArtifactItem[] = [
     {
       id: 'art-1',
       filename: 'AI research brief.md',
@@ -1721,9 +1721,12 @@ describe('filterLibraryArtifacts', () => {
     },
   ];
 
-  it('searches filename, conversation metadata, and content', () => {
+  it('searches filename, conversation metadata, tags, project, and content', () => {
+    const taggedArtifact: ArtifactItem = { ...artifacts[0]!, tags: ['roadmap'], projectName: 'Cogentrex Roadmap' };
     expect(filterLibraryArtifacts(artifacts, 'market').map((artifact) => artifact.id)).toEqual(['art-1']);
     expect(filterLibraryArtifacts(artifacts, 'social').map((artifact) => artifact.id)).toEqual(['art-2']);
+    expect(filterLibraryArtifacts([taggedArtifact], 'roadmap').map((artifact) => artifact.id)).toEqual(['art-1']);
+    expect(filterLibraryArtifacts([taggedArtifact], 'cogentrex').map((artifact) => artifact.id)).toEqual(['art-1']);
     expect(filterLibraryArtifacts(artifacts, '').map((artifact) => artifact.id)).toEqual(['art-1', 'art-2']);
   });
 

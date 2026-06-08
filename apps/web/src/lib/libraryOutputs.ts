@@ -938,6 +938,8 @@ function searchableText(artifact: ArtifactItem, mode: AppMode | undefined): stri
     modeLabel(mode),
     artifact.skillRunName,
     artifact.skillRunStatus,
+    artifact.projectName,
+    ...(artifact.tags ?? []),
     artifact.content,
   ].filter(Boolean).join(' ').toLowerCase();
 }
