@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { ArtifactItem } from '@cogentrex/shared';
 import { useAppStore } from '@/store/appStore';
 import { Highlight, themes } from 'prism-react-renderer';
+import { MarkdownMessage } from '@/components/MarkdownMessage';
 
 function getLanguage(filename: string): string {
   const ext = filename.split('.').pop()?.toLowerCase() ?? '';
@@ -95,7 +96,9 @@ function ArtifactViewer({ artifact }: { artifact: ArtifactItem }) {
             <button onClick={handleDownload} className="rounded px-2 py-1 text-xs text-slate-400 hover:bg-slate-700 hover:text-white transition-colors">Download</button>
           </div>
         </div>
-        <div className="flex-1 overflow-auto p-4 whitespace-pre-wrap text-sm text-slate-200">{artifact.content}</div>
+        <div className="flex-1 overflow-auto p-4 text-sm text-slate-200">
+          <MarkdownMessage content={artifact.content} />
+        </div>
       </div>
     );
   }

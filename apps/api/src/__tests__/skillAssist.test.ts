@@ -87,7 +87,7 @@ describe('skill assist prompt selection', () => {
     expect(selection.systemPrompt).not.toContain('--- Skill: azure-container-apps');
   });
 
-  it('uses multiple explicit selected skill slugs in the requested order', () => {
+  it('uses multiple explicit selected skill slugs in the requested order and asks for each selected output', () => {
     const selection = selectSkillAssistContext(
       'Plan an MVP and produce a diagram',
       6,
@@ -103,6 +103,8 @@ describe('skill assist prompt selection', () => {
     expect(selection.systemPrompt).toContain('--- Skill: scrum-delivery-planner');
     expect(selection.systemPrompt).toContain('--- Skill: pmp-risk-register');
     expect(selection.systemPrompt).toContain('--- Skill: excalidraw-diagramming');
+    expect(selection.systemPrompt).toContain('When the user manually selects multiple skills, produce a clearly labeled output for each selected skill unless one is impossible or inappropriate.');
+    expect(selection.systemPrompt).toContain('If you omit a selected skill output, explain why in one sentence.');
   });
 
   it('surfaces curated PM and visual/diagram skills for automatic matching', () => {

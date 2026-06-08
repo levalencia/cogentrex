@@ -1353,6 +1353,36 @@ describe('buildSkillRunDetail', () => {
     ]);
   });
 
+  it('surfaces selected Skill Assist skills as run trace evidence', () => {
+    const detail = buildSkillRunDetail({
+      id: 'run-skill-assist',
+      userId: 'user-1',
+      skillId: 'skill-chat',
+      skillSlug: 'chat',
+      skillName: 'Chat',
+      mode: 'CHAT',
+      status: 'completed',
+      conversationId: 'conv-1',
+      jobId: null,
+      providerId: 'provider-1',
+      startedAt: '2026-06-08T05:12:56.819Z',
+      completedAt: '2026-06-08T05:12:56.861Z',
+      durationMs: 7002,
+      errorMessage: null,
+      observability: {
+        skillAssistEnabled: true,
+        skillAssistSlugs: ['mermaid-diagrams', 'excalidraw-diagramming'],
+        estimatedTokens: 440,
+      },
+    });
+
+    expect(detail.metrics).toContain('2 selected skills');
+    expect(detail.criticalObservabilityEntries).toEqual([
+      { label: 'Selected skills', value: 'Mermaid Diagrams, Excalidraw Diagramming' },
+      { label: 'Estimated tokens', value: '440' },
+    ]);
+  });
+
   it('surfaces source links and citation audit details from deep research observability', () => {
     const detail = buildSkillRunDetail({
       id: 'run-sources',

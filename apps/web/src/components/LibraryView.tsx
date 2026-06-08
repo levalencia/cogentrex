@@ -19,6 +19,7 @@ import {
   resolveLibraryArtifactSelection,
 } from '@/lib/libraryOutputs';
 import { api } from '@/lib/api';
+import { MarkdownMessage } from '@/components/MarkdownMessage';
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
@@ -393,9 +394,9 @@ export function LibraryView() {
                       </div>
                     </section>
                   ) : null}
-                  <pre className="mt-4 max-h-[520px] overflow-auto whitespace-pre-wrap rounded-2xl border border-line bg-black/20 p-4 text-sm leading-6 text-slate-200">
-                    {selectedArtifact.content}
-                  </pre>
+                  <div className="mt-4 max-h-[520px] overflow-auto rounded-2xl border border-line bg-black/20 p-4 text-sm leading-6 text-slate-200">
+                    <MarkdownMessage content={selectedArtifact.content} />
+                  </div>
                 </>
               ) : (
                 <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-line p-8 text-center text-sm text-slate-500">
