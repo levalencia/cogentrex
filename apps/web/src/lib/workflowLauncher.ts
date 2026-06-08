@@ -2,6 +2,7 @@ import type { AppMode, CapabilityStatus, PromptTemplate, SkillReadiness } from '
 
 export type LauncherItemStatus = 'available' | 'near_existing';
 export type LauncherItemTone = 'slate' | 'emerald' | 'blue' | 'purple' | 'pink' | 'amber';
+export type LauncherItemKind = 'mode' | 'template';
 export type SkillAssistMode = 'auto' | 'hybrid' | 'manual' | 'off';
 
 export interface LauncherReadinessBadge {
@@ -28,6 +29,7 @@ export interface LauncherItem {
   label: string;
   eyebrow: string;
   description: string;
+  kind: LauncherItemKind;
   mode: AppMode;
   status: LauncherItemStatus;
   tone: LauncherItemTone;
@@ -38,8 +40,14 @@ export interface LauncherItem {
 }
 
 export interface WorkflowSelectionGroups {
-  primaryWorkflows: LauncherItem[];
-  outputAffordances: LauncherItem[];
+  modes: LauncherItem[];
+  taskTemplates: LauncherItem[];
+}
+
+export interface AdminConfigurationModelItem {
+  label: 'Modes' | 'Task templates' | 'Skills' | 'Workflows';
+  description: string;
+  href: string;
 }
 
 export interface SkillAssistPickerOption {
@@ -131,6 +139,7 @@ const launcherItems: LauncherItem[] = [
     label: 'Ask Cogentrex',
     eyebrow: 'General task',
     description: 'Ask a question, draft an output, or work with files and image context.',
+    kind: 'mode',
     mode: 'CHAT',
     status: 'available',
     tone: 'slate',
@@ -143,26 +152,11 @@ const launcherItems: LauncherItem[] = [
     operatorNote: 'This is the default task surface; providers, tools, and skills stay behind Skill Assist.',
   },
   {
-    id: 'algorithmic-art',
-    label: 'Algorithmic Art',
-    eyebrow: 'Creative code',
-    description: 'Generate creative-code sketches, palettes, motion systems, and exportable art specs.',
-    mode: 'CHAT',
-    status: 'available',
-    tone: 'purple',
-    placeholder: 'Describe the generative artwork, palette, motion, medium, and constraints...',
-    capabilitySummary: {
-      required: ['Text model'],
-      optional: ['Code artifact', 'Image prompt handoff', 'Motion notes'],
-      outputs: ['Creative-code sketch', 'Prompt/spec artifact', 'Iteration plan'],
-    },
-    operatorNote: 'Algorithmic Art is a skill-assisted task preset for creative-code guidance; it does not add a separate runtime engine.',
-  },
-  {
     id: 'deep-research',
     label: 'Deep Research',
     eyebrow: 'Evidence loop',
     description: 'Research a question with sources, visible reasoning, and cited synthesis.',
+    kind: 'mode',
     mode: 'DEEP_RESEARCH',
     status: 'available',
     tone: 'emerald',
@@ -179,6 +173,7 @@ const launcherItems: LauncherItem[] = [
     label: 'LinkedIn / Social Writer',
     eyebrow: 'Publishable draft',
     description: 'Create platform-aware posts with optional mini research and image context.',
+    kind: 'mode',
     mode: 'SOCIAL_WRITING',
     status: 'available',
     tone: 'blue',
@@ -195,6 +190,7 @@ const launcherItems: LauncherItem[] = [
     label: 'Image Studio',
     eyebrow: 'Visual output',
     description: 'Generate or edit images with the configured image-capable provider.',
+    kind: 'mode',
     mode: 'IMAGE_GENERATION',
     status: 'available',
     tone: 'purple',
@@ -211,6 +207,7 @@ const launcherItems: LauncherItem[] = [
     label: 'Video Studio',
     eyebrow: 'Motion output',
     description: 'Generate short videos with the configured video-capable provider.',
+    kind: 'mode',
     mode: 'VIDEO_GENERATION',
     status: 'available',
     tone: 'pink',
@@ -223,10 +220,28 @@ const launcherItems: LauncherItem[] = [
     operatorNote: 'Video Studio is provider-backed and should degrade clearly when no video provider is configured.',
   },
   {
+    id: 'algorithmic-art',
+    label: 'Algorithmic Art',
+    eyebrow: 'Template · Creative code',
+    description: 'Prefill Chat with creative-code guidance for sketches, palettes, motion systems, and exportable art specs.',
+    kind: 'template',
+    mode: 'CHAT',
+    status: 'available',
+    tone: 'purple',
+    placeholder: 'Describe the generative artwork, palette, motion, medium, and constraints...',
+    capabilitySummary: {
+      required: ['Chat mode', 'Text model'],
+      optional: ['Algorithmic Art skill', 'Code artifact', 'Image prompt handoff'],
+      outputs: ['Creative-code sketch', 'Prompt/spec artifact', 'Iteration plan'],
+    },
+    operatorNote: 'This is a task template inside Chat, not a separate workspace mode. Admins govern the underlying skill package separately.',
+  },
+  {
     id: 'artifact-brief',
     label: 'Brief / Artifact Writer',
-    eyebrow: 'Structured output',
+    eyebrow: 'Template · Structured output',
     description: 'Turn a task result into a memo, brief, or reusable artifact.',
+    kind: 'template',
     mode: 'CHAT',
     status: 'near_existing',
     tone: 'amber',
@@ -258,7 +273,7 @@ export function getLauncherItems(): LauncherItem[] {
 }
 
 export function getPrimaryLauncherItems(): LauncherItem[] {
-  return getLauncherItems().filter((item) => item.status === 'available');
+  return getLauncherItems().filter((item) => item.kind === 'mode');
 }
 
 export function getLauncherItem(id: string): LauncherItem | undefined {
@@ -271,9 +286,34 @@ export function getDefaultLauncherIdForMode(mode: AppMode): string {
 
 export function buildWorkflowSelectionGroups(items: LauncherItem[]): WorkflowSelectionGroups {
   return {
-    primaryWorkflows: items.filter((item) => item.status === 'available'),
-    outputAffordances: items.filter((item) => item.status === 'near_existing'),
+    modes: items.filter((item) => item.kind === 'mode'),
+    taskTemplates: items.filter((item) => item.kind === 'template'),
   };
+}
+
+export function getAdminConfigurationModel(): AdminConfigurationModelItem[] {
+  return [
+    {
+      label: 'Modes',
+      description: 'Product-owned workspaces such as Chat, Deep Research, Social Writer, Image, and Video. Admins configure the providers and capabilities that make each mode ready.',
+      href: '/settings/admin/providers',
+    },
+    {
+      label: 'Task templates',
+      description: 'Shortcuts that prefill a mode, prompt, and suggested skills. They are not new engines; they launch an existing mode with better defaults.',
+      href: '/settings/admin/skills',
+    },
+    {
+      label: 'Skills',
+      description: 'Governed capability packages that Skill Assist can route into a run when Auto, Hybrid, or Manual is enabled.',
+      href: '/settings/admin/skills',
+    },
+    {
+      label: 'Workflows',
+      description: 'Advanced multi-step recipes with approvals, triggers, and operational trace. For now, the Runs ledger shows what executed.',
+      href: '/runs',
+    },
+  ];
 }
 
 export function getLauncherSkillSlug(itemId: string): string | null {
@@ -498,6 +538,6 @@ function unconfiguredReadiness(): LauncherReadinessBadge {
   return {
     status: 'unconfigured',
     label: 'Not enabled',
-    message: 'This task starter is not enabled yet.',
+    message: 'This mode or template is not enabled yet.',
   };
 }

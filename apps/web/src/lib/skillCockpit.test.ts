@@ -21,22 +21,23 @@ describe('buildSkillCockpitModel', () => {
     expect(model.health).toMatchObject({ totalRuns: 3, activeRuns: 1, failedRuns: 1 });
     expect(model.cards.map((card) => [card.id, card.readiness?.label])).toEqual([
       ['ask-chat', 'Ready'],
-      ['algorithmic-art', 'Not enabled'],
       ['deep-research', 'Needs setup'],
       ['social-writer', 'Limited'],
       ['image-studio', 'Not enabled'],
       ['video-studio', 'Not enabled'],
+      ['algorithmic-art', 'Not enabled'],
       ['artifact-brief', 'Not enabled'],
     ]);
     expect(model.recentRuns.map((run) => run.id)).toEqual(['run-active', 'run-failed', 'run-done']);
     expect(model.recentRuns.map((run) => run.href)).toEqual(['/runs?run=run-active', '/runs?run=run-failed', '/runs?run=run-done']);
     expect(model.operatingModel.map((step) => step.label)).toEqual([
-      '1. Describe the task',
-      '2. Set Skill Assist',
-      '3. Track the run',
-      '4. Reuse the output',
+      '1. Choose the mode',
+      '2. Start from a template when helpful',
+      '3. Set Skill Assist',
+      '4. Track the run',
+      '5. Reuse the output',
     ]);
-    expect(model.operatingModel[1]?.description).toContain('Hybrid combines user picks with suggestions');
+    expect(model.operatingModel[2]?.description).toContain('Hybrid combines user picks with suggestions');
     expect(model.controlLoops.map((loop) => [loop.id, loop.href, loop.isAdminOnly])).toEqual([
       ['launch', '/workflows', false],
       ['observe', '/runs', false],
@@ -45,7 +46,7 @@ describe('buildSkillCockpitModel', () => {
       ['connectors', '/settings/admin/providers', true],
       ['analytics', '/settings/admin/analytics', true],
     ]);
-    expect(model.controlLoops.find((loop) => loop.id === 'launch')?.label).toBe('Start tasks');
+    expect(model.controlLoops.find((loop) => loop.id === 'launch')?.label).toBe('Start from a mode');
   });
 });
 

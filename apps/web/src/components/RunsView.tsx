@@ -201,7 +201,7 @@ export function RunsView() {
               onClick={() => router.push('/')}
               className="rounded-2xl bg-accent px-4 py-2 text-sm font-semibold text-ink transition hover:bg-white"
             >
-              Launch workflow
+              Choose a mode
             </button>
           </div>
         </header>

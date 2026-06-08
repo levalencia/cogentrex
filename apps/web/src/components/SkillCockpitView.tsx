@@ -5,7 +5,7 @@ import type { SkillReadiness, SkillRunSummary } from '@cogentrex/shared';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { buildSkillCockpitModel } from '@/lib/skillCockpit';
-import { buildWorkflowSelectionGroups, getLauncherToneClasses, getReadinessBadgeClasses, type LauncherItem } from '@/lib/workflowLauncher';
+import { buildWorkflowSelectionGroups, getAdminConfigurationModel, getLauncherToneClasses, getReadinessBadgeClasses, type LauncherItem } from '@/lib/workflowLauncher';
 import { useAppStore } from '@/store/appStore';
 
 function formatDate(value: string): string {
@@ -45,7 +45,7 @@ function WorkflowCard({ card, compact = false, onLaunch }: { card: LauncherItem;
           <span className="opacity-70">{card.operatorNote}</span>
         </span>
       ) : null}
-      <span className="mt-3 inline-flex rounded-full border border-current/20 px-3 py-1 text-xs font-medium opacity-90">Start task</span>
+      <span className="mt-3 inline-flex rounded-full border border-current/20 px-3 py-1 text-xs font-medium opacity-90">{card.kind === 'mode' ? 'Open mode' : 'Use template'}</span>
     </button>
   );
 }
@@ -83,6 +83,7 @@ export function SkillCockpitView() {
 
   const cockpit = useMemo(() => buildSkillCockpitModel(readiness, skillRuns), [readiness, skillRuns]);
   const workflowGroups = useMemo(() => buildWorkflowSelectionGroups(cockpit.cards), [cockpit.cards]);
+  const adminConfiguration = useMemo(() => getAdminConfigurationModel(), []);
   const visibleControlLoops = cockpit.controlLoops.filter((loop) => !loop.isAdminOnly || user?.role === 'ADMIN');
 
   function openWorkflow(item: LauncherItem) {
@@ -97,10 +98,10 @@ export function SkillCockpitView() {
       <header className="border-b border-line bg-panel/50 px-6 py-4 backdrop-blur">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-accent">New task</p>
-            <h1 className="mt-2 text-2xl font-semibold text-white">What do you want Cogentrex to do?</h1>
+            <p className="text-xs uppercase tracking-[0.24em] text-accent">Start</p>
+            <h1 className="mt-2 text-2xl font-semibold text-white">Choose a mode or template</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-              Describe the outcome, then use Skill Assist in Auto, Hybrid, Manual, or Off. Admins govern which skill packages can be used behind the scenes.
+              Modes are the workspace: Chat, Deep Research, Social Writer, Image, or Video. Templates are shortcuts that prefill a mode with suggested skills.
             </p>
           </div>
           <button
@@ -118,13 +119,14 @@ export function SkillCockpitView() {
           <section className="space-y-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Task starters</p>
-                <h2 className="mt-1 text-lg font-semibold text-white">Start from the result you want</h2>
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Modes</p>
+                <h2 className="mt-1 text-lg font-semibold text-white">Pick the workspace first</h2>
+                <p className="mt-1 text-sm text-slate-500">A mode decides the UI and runtime path. Skill Assist can still help inside the mode.</p>
               </div>
               {isLoading ? <span className="rounded-full border border-line px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-slate-500">Checking live config</span> : null}
             </div>
             <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-              {workflowGroups.primaryWorkflows.map((card) => (
+              {workflowGroups.modes.map((card) => (
                 <WorkflowCard key={card.id} card={card} onLaunch={openWorkflow} compact />
               ))}
             </div>
@@ -132,10 +134,27 @@ export function SkillCockpitView() {
             <div className="rounded-2xl border border-line bg-panel/60 p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">How it works</p>
-                  <h3 className="mt-1 text-base font-semibold text-white">Task → Skill Assist → Run → Library</h3>
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Templates</p>
+                  <h3 className="mt-1 text-base font-semibold text-white">Start from a reusable prompt pattern</h3>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-                    Skills are implementation packages. The product surface is the task you ask for, the run Cogentrex tracks, and the output you can reuse.
+                    Templates do not create new product surfaces. They launch an existing mode with a prefilled prompt, defaults, and suggested Skill Assist packages.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {workflowGroups.taskTemplates.map((card) => (
+                  <WorkflowCard key={card.id} card={card} onLaunch={openWorkflow} compact />
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-line bg-panel/60 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">How it works</p>
+                  <h3 className="mt-1 text-base font-semibold text-white">Mode → Template → Skill Assist → Run → Library</h3>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+                    Skills are implementation packages. The visible product surface is the mode, optional template, tracked run, and reusable artifact.
                   </p>
                 </div>
               </div>
@@ -152,10 +171,37 @@ export function SkillCockpitView() {
             <div className="rounded-2xl border border-line bg-panel/60 p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Control plane</p>
-                  <h3 className="mt-1 text-base font-semibold text-white">Import, assist, run, and observe</h3>
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Admin model</p>
+                  <h3 className="mt-1 text-base font-semibold text-white">What admins configure</h3>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-                    Users ask for outcomes. Skill Assist can choose skills automatically, combine user-selected skills with suggestions, or run only the selected packages. Tracked executions become auditable runs with reusable outputs.
+                    Modes are product-owned. Templates and skills are governed shortcuts/capabilities. Workflows are the advanced automation layer, not the everyday user metaphor.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                {adminConfiguration.map((item) => (
+                  <a
+                    key={item.label}
+                    href={item.href}
+                    className="rounded-2xl border border-line bg-ink/40 p-3 transition hover:border-accent hover:bg-accent/5"
+                  >
+                    <span className="flex items-center justify-between gap-2 text-sm font-semibold text-white">
+                      {item.label}
+                      <span className="rounded-full border border-amber-400/30 px-2 py-0.5 text-[9px] uppercase tracking-[0.12em] text-amber-200">Admin</span>
+                    </span>
+                    <span className="mt-2 block text-xs leading-5 text-slate-500">{item.description}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-line bg-panel/60 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Control loop</p>
+                  <h3 className="mt-1 text-base font-semibold text-white">Run, observe, reuse</h3>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+                    Users work in modes and templates. Runs keep the audit trail; Library keeps durable outputs.
                   </p>
                 </div>
               </div>
@@ -172,23 +218,6 @@ export function SkillCockpitView() {
                     </span>
                     <span className="mt-2 block text-xs leading-5 text-slate-500">{loop.description}</span>
                   </a>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-line bg-panel/60 p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Output helpers</p>
-                  <h3 className="mt-1 text-base font-semibold text-white">Reusable outputs after a task runs</h3>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-                    Brief and artifact helpers enhance a task result; they are not separate skills for users to configure here.
-                  </p>
-                </div>
-              </div>
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                {workflowGroups.outputAffordances.map((card) => (
-                  <WorkflowCard key={card.id} card={card} onLaunch={openWorkflow} compact />
                 ))}
               </div>
             </div>
@@ -240,7 +269,7 @@ export function SkillCockpitView() {
                     <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">{run.summary}</p>
                   </button>
                 )) : (
-                  <p className="rounded-2xl border border-dashed border-line p-4 text-sm text-slate-500">No runs yet. Launch a workflow to start the audit trail.</p>
+                  <p className="rounded-2xl border border-dashed border-line p-4 text-sm text-slate-500">No runs yet. Open a mode to start the audit trail.</p>
                 )}
               </div>
             </section>

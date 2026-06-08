@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   applyLauncherReadiness,
   buildWorkflowSelectionGroups,
+  getAdminConfigurationModel,
   getLauncherItems,
   getLauncherPlaceholder,
   getLauncherPromptTemplates,
@@ -17,26 +18,33 @@ import {
 } from './workflowLauncher';
 
 describe('workflow launcher helpers', () => {
-  it('keeps the chat-first launcher focused on existing workflows before aspirational skills', () => {
+  it('keeps the launcher focused on modes first, then task templates', () => {
     const items = getLauncherItems();
 
     expect(items.map((item) => item.id)).toEqual([
       'ask-chat',
-      'algorithmic-art',
       'deep-research',
       'social-writer',
       'image-studio',
       'video-studio',
+      'algorithmic-art',
       'artifact-brief',
     ]);
+    expect(items.map((item) => [item.id, item.kind])).toEqual([
+      ['ask-chat', 'mode'],
+      ['deep-research', 'mode'],
+      ['social-writer', 'mode'],
+      ['image-studio', 'mode'],
+      ['video-studio', 'mode'],
+      ['algorithmic-art', 'template'],
+      ['artifact-brief', 'template'],
+    ]);
     expect(items.some((item) => /god mode/i.test(item.label))).toBe(false);
-    expect(items.every((item) => item.status === 'available' || item.status === 'near_existing')).toBe(true);
   });
 
-  it('maps primary launcher items to app modes without inventing new routes', () => {
+  it('maps mode launcher items to app modes without treating templates as top-level modes', () => {
     expect(getPrimaryLauncherItems().map((item) => [item.id, item.mode])).toEqual([
       ['ask-chat', 'CHAT'],
-      ['algorithmic-art', 'CHAT'],
       ['deep-research', 'DEEP_RESEARCH'],
       ['social-writer', 'SOCIAL_WRITING'],
       ['image-studio', 'IMAGE_GENERATION'],
@@ -194,34 +202,43 @@ describe('workflow launcher helpers', () => {
     expect(items.find((item) => item.id === 'video-studio')?.readiness).toEqual({
       status: 'unconfigured',
       label: 'Not enabled',
-      message: 'This task starter is not enabled yet.',
+      message: 'This mode or template is not enabled yet.',
     });
   });
 
-  it('separates workflow capabilities from output affordances for selection UI', () => {
+  it('separates workspace modes from task templates for selection UI', () => {
     const readiness = [
       skillReadiness('deep-research', 'ready'),
       skillReadiness('artifact-writer', 'ready'),
     ];
 
     const groups = buildWorkflowSelectionGroups(applyLauncherReadiness(getLauncherItems(), readiness));
-    const deepResearch = groups.primaryWorkflows.find((item) => item.id === 'deep-research');
+    const deepResearch = groups.modes.find((item) => item.id === 'deep-research');
 
-    expect(groups.primaryWorkflows.map((item) => item.id)).toEqual([
+    expect(groups.modes.map((item) => item.id)).toEqual([
       'ask-chat',
-      'algorithmic-art',
       'deep-research',
       'social-writer',
       'image-studio',
       'video-studio',
     ]);
-    expect(groups.outputAffordances.map((item) => item.id)).toEqual(['artifact-brief']);
+    expect(groups.taskTemplates.map((item) => item.id)).toEqual(['algorithmic-art', 'artifact-brief']);
     expect(deepResearch?.capabilitySummary).toEqual({
       required: ['Text model', 'Web search'],
       optional: ['Source fetch', 'Streaming trace'],
       outputs: ['Cited answer', 'Saved artifact', 'Diagram-ready outline'],
     });
     expect(deepResearch?.operatorNote).toBe('Research uses capabilities and adapters; artifacts are reusable outputs, not separate tasks.');
+  });
+
+  it('explains the admin configuration boundary between modes, templates, skills, and workflows', () => {
+    expect(getAdminConfigurationModel().map((item) => [item.label, item.href])).toEqual([
+      ['Modes', '/settings/admin/providers'],
+      ['Task templates', '/settings/admin/skills'],
+      ['Skills', '/settings/admin/skills'],
+      ['Workflows', '/runs'],
+    ]);
+    expect(getAdminConfigurationModel().find((item) => item.label === 'Task templates')?.description).toContain('prefill a mode, prompt, and suggested skills');
   });
 
   it('summarizes launcher readiness for cockpit-level status pills', () => {

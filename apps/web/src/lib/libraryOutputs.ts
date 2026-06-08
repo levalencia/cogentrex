@@ -134,7 +134,7 @@ export interface SkillRunEventRow {
 }
 
 export interface SkillRunNextAction {
-  id: 'troubleshoot-run' | 'continue-chat' | 'open-output' | 'open-workflow';
+  id: 'troubleshoot-run' | 'continue-chat' | 'open-output' | 'open-mode';
   label: string;
   description: string;
   href: string;
@@ -207,9 +207,9 @@ export function buildSkillRunEmptyState(input: { totalRuns: number; filteredRuns
   if (input.totalRuns === 0) {
     return {
       kind: 'first-run',
-      title: 'No workflow runs yet.',
-      description: 'Run a chat, research, social, image, or skill workflow to populate this auditable ledger.',
-      primaryAction: { label: 'Launch workflow', href: '/workflows' },
+      title: 'No runs yet.',
+      description: 'Open Chat, Deep Research, Social Writer, Image, or Video to populate this auditable ledger.',
+      primaryAction: { label: 'Choose a mode', href: '/workflows' },
       secondaryAction: { label: 'Try Deep Research', href: '/workflows/deep-research' },
       clearFiltersHref: null,
     };
@@ -218,9 +218,9 @@ export function buildSkillRunEmptyState(input: { totalRuns: number; filteredRuns
   return {
     kind: 'filtered-empty',
     title: 'No runs match these filters.',
-    description: 'Clear the current search, status, mode, and provider filters or launch a new workflow to create more run history.',
+    description: 'Clear the current search, status, mode, and provider filters or open a mode to create more run history.',
     primaryAction: { label: 'Clear filters', href: '/runs' },
-    secondaryAction: { label: 'Launch workflow', href: '/workflows' },
+    secondaryAction: { label: 'Choose a mode', href: '/workflows' },
     clearFiltersHref: '/runs',
   };
 }
@@ -845,9 +845,9 @@ export function buildSkillRunNextActions(run: SkillRunSummary): SkillRunNextActi
   }
 
   actions.push({
-    id: 'open-workflow',
-    label: 'Open workflow',
-    description: `Review readiness and launch ${run.skillName} again.`,
+    id: 'open-mode',
+    label: 'Open mode',
+    description: `Review readiness and launch ${run.skillName} again from its mode.`,
     href: `/workflows/${encodeURIComponent(run.skillSlug)}`,
     tone: 'neutral',
   });
@@ -857,10 +857,10 @@ export function buildSkillRunNextActions(run: SkillRunSummary): SkillRunNextActi
 
 function workflowActivityDescription(mode: AppMode): string {
   if (mode === 'DEEP_RESEARCH') return 'Research run with sources, reasoning, and synthesis available in its chat context.';
-  if (mode === 'SOCIAL_WRITING') return 'Social writing workflow with reusable platform draft context.';
-  if (mode === 'IMAGE_GENERATION') return 'Image generation workflow output and prompt context.';
-  if (mode === 'VIDEO_GENERATION') return 'Video generation workflow output and prompt context.';
-  return 'Chat workflow with reusable answer context.';
+  if (mode === 'SOCIAL_WRITING') return 'Social writing run with reusable platform draft context.';
+  if (mode === 'IMAGE_GENERATION') return 'Image generation run output and prompt context.';
+  if (mode === 'VIDEO_GENERATION') return 'Video generation run output and prompt context.';
+  return 'Chat run with reusable answer context.';
 }
 
 function skillRunDescription(run: SkillRunSummary): string {
