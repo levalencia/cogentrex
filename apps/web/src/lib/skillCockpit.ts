@@ -11,7 +11,7 @@ export interface SkillCockpitControlLoop {
 }
 
 export interface SkillCockpitOperatingStep {
-  id: 'choose' | 'assist' | 'run' | 'reuse';
+  id: 'mode' | 'template' | 'assist' | 'run' | 'reuse';
   label: string;
   description: string;
 }
@@ -27,23 +27,28 @@ export interface SkillCockpitModel {
 
 const operatingModel: SkillCockpitOperatingStep[] = [
   {
-    id: 'choose',
-    label: '1. Describe the task',
-    description: 'Users start from the result they want: answer, research, social draft, image, video, or reusable artifact.',
+    id: 'mode',
+    label: '1. Choose the mode',
+    description: 'Users pick the workspace shape first: Chat, Deep Research, Social Writer, Image, or Video.',
+  },
+  {
+    id: 'template',
+    label: '2. Start from a template when helpful',
+    description: 'Templates prefill an existing mode with a prompt, defaults, and suggested skills; they are shortcuts, not separate engines.',
   },
   {
     id: 'assist',
-    label: '2. Set Skill Assist',
+    label: '3. Set Skill Assist',
     description: 'Auto chooses published skill packages; Hybrid combines user picks with suggestions; Manual uses only selected skills; Off keeps the run plain.',
   },
   {
     id: 'run',
-    label: '3. Track the run',
+    label: '4. Track the run',
     description: 'Tracked task executions belong in the Runs ledger with status, events, provider context, failures, and links.',
   },
   {
     id: 'reuse',
-    label: '4. Reuse the output',
+    label: '5. Reuse the output',
     description: 'Durable artifacts and saved answers move to Library with provenance back to the chat or run that produced them.',
   },
 ];
@@ -51,8 +56,8 @@ const operatingModel: SkillCockpitOperatingStep[] = [
 const controlLoops: SkillCockpitControlLoop[] = [
   {
     id: 'launch',
-    label: 'Start tasks',
-    description: 'Start chat, research, social, image, or video tasks from the user cockpit.',
+    label: 'Start from a mode',
+    description: 'Choose Chat, Deep Research, Social Writer, Image, or Video, then optionally apply a task template.',
     href: '/workflows',
     isAdminOnly: false,
   },

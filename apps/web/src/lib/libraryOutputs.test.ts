@@ -135,12 +135,12 @@ describe('buildSkillRunProviderOptions', () => {
 });
 
 describe('run history empty states', () => {
-  it('guides first-time users to launch a workflow when no runs exist', () => {
+  it('guides first-time users to choose a mode when no runs exist', () => {
     expect(buildSkillRunEmptyState({ totalRuns: 0, filteredRuns: 0, filters: { status: 'all', mode: 'all', providerId: 'all', query: '' } })).toEqual({
       kind: 'first-run',
-      title: 'No workflow runs yet.',
-      description: 'Run a chat, research, social, image, or skill workflow to populate this auditable ledger.',
-      primaryAction: { label: 'Launch workflow', href: '/workflows' },
+      title: 'No runs yet.',
+      description: 'Open Chat, Deep Research, Social Writer, Image, or Video to populate this auditable ledger.',
+      primaryAction: { label: 'Choose a mode', href: '/workflows' },
       secondaryAction: { label: 'Try Deep Research', href: '/workflows/deep-research' },
       clearFiltersHref: null,
     });
@@ -150,9 +150,9 @@ describe('run history empty states', () => {
     expect(buildSkillRunEmptyState({ totalRuns: 3, filteredRuns: 0, filters: { status: 'failed', mode: 'DEEP_RESEARCH', providerId: 'prv_foundry', query: 'provider' } })).toEqual({
       kind: 'filtered-empty',
       title: 'No runs match these filters.',
-      description: 'Clear the current search, status, mode, and provider filters or launch a new workflow to create more run history.',
+      description: 'Clear the current search, status, mode, and provider filters or open a mode to create more run history.',
       primaryAction: { label: 'Clear filters', href: '/runs' },
-      secondaryAction: { label: 'Launch workflow', href: '/workflows' },
+      secondaryAction: { label: 'Choose a mode', href: '/workflows' },
       clearFiltersHref: '/runs',
     });
   });
@@ -370,9 +370,9 @@ describe('buildSkillRunNextActions', () => {
         tone: 'success',
       },
       {
-        id: 'open-workflow',
-        label: 'Open workflow',
-        description: 'Review readiness and launch Deep Research again.',
+        id: 'open-mode',
+        label: 'Open mode',
+        description: 'Review readiness and launch Deep Research again from its mode.',
         href: '/workflows/deep-research',
         tone: 'neutral',
       },
@@ -434,9 +434,9 @@ describe('buildSkillRunNextActions', () => {
         tone: 'danger',
       },
       {
-        id: 'open-workflow',
-        label: 'Open workflow',
-        description: 'Review readiness and launch LinkedIn Writer again.',
+        id: 'open-mode',
+        label: 'Open mode',
+        description: 'Review readiness and launch LinkedIn Writer again from its mode.',
         href: '/workflows/linkedin-writer',
         tone: 'neutral',
       },
@@ -954,7 +954,7 @@ describe('buildLibraryArtifactRows', () => {
 });
 
 describe('buildRecentActivityItems', () => {
-  it('combines workflow runs and saved artifacts in newest-first order', () => {
+  it('combines runs and saved artifacts in newest-first order', () => {
     const items = buildRecentActivityItems(
       [
         {
