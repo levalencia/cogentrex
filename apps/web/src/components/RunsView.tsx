@@ -19,6 +19,7 @@ import {
   parseSkillRunHistoryFilters,
   resolveSkillRunSelection,
 } from '@/lib/libraryOutputs';
+import { MarkdownMessage } from './MarkdownMessage';
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
@@ -36,6 +37,11 @@ function runActionClass(tone: 'primary' | 'success' | 'danger' | 'neutral'): str
   if (tone === 'success') return 'border-emerald-400/30 bg-emerald-400/10 text-emerald-100 hover:border-emerald-200';
   if (tone === 'danger') return 'border-rose-400/30 bg-rose-400/10 text-rose-100 hover:border-rose-200';
   return 'border-line bg-ink/50 text-slate-300 hover:border-accent';
+}
+
+function runAssistantMessageId(run: SkillRunSummary | undefined): string | null {
+  const messageId = run?.observability?.messageId;
+  return typeof messageId === 'string' && messageId.trim() ? messageId.trim() : null;
 }
 
 const runStatusOptions = [
@@ -71,6 +77,8 @@ export function RunsView() {
   const [requestedRunMissing, setRequestedRunMissing] = useState(false);
   const attemptedRunDetailIds = useRef(new Set<string>());
   const [selectedRunEvents, setSelectedRunEvents] = useState<SkillRunEvent[]>([]);
+  const [selectedRunAssistantContent, setSelectedRunAssistantContent] = useState<string | null>(null);
+  const [isLoadingRunOutput, setIsLoadingRunOutput] = useState(false);
   const [isLoadingRunEvents, setIsLoadingRunEvents] = useState(false);
   const skillRunStats = buildSkillRunHealthStats(skillRuns);
   const currentRunFilters = useMemo(
@@ -85,7 +93,10 @@ export function RunsView() {
   const skillRunRows = buildSkillRunHistoryRows(filteredSkillRuns, 50);
   const runEmptyState = buildSkillRunEmptyState({ totalRuns: skillRuns.length, filteredRuns: filteredSkillRuns.length, filters: currentRunFilters });
   const selectedRun = selectedRunId ? skillRuns.find((run) => run.id === selectedRunId) : undefined;
-  const selectedRunDetail = selectedRun ? buildSkillRunDetail(selectedRun) : undefined;
+  const selectedRunDetail = selectedRun ? buildSkillRunDetail(selectedRun, {
+    assistantContent: selectedRunAssistantContent,
+    isAssistantContentLoading: isLoadingRunOutput,
+  }) : undefined;
   const selectedRunHref = selectedRun ? buildSkillRunHistoryHref(currentRunFilters, selectedRun.id) : null;
   const selectedRunActions = selectedRun ? buildSkillRunNextActions(selectedRun) : [];
   const selectedRunEventRows = buildSkillRunEventRows(selectedRunEvents);
@@ -155,6 +166,36 @@ export function RunsView() {
     const currentHref = currentQuery ? `/runs?${currentQuery}` : '/runs';
     if (nextHref !== currentHref) router.replace(nextHref, { scroll: false });
   }, [currentRunFilters, requestedRunId, router, searchParams]);
+
+  useEffect(() => {
+    const messageId = runAssistantMessageId(selectedRun);
+    if (!selectedRun?.conversationId || !messageId) {
+      setSelectedRunAssistantContent(null);
+      setIsLoadingRunOutput(false);
+      return;
+    }
+
+    let cancelled = false;
+    setSelectedRunAssistantContent(null);
+    setIsLoadingRunOutput(true);
+    api.listMessages(selectedRun.conversationId)
+      .then((result) => {
+        if (cancelled) return;
+        const targetMessage = result.messages.find((message) => message.id === messageId)
+          ?? [...result.messages].reverse().find((message) => message.role === 'assistant');
+        setSelectedRunAssistantContent(targetMessage?.content ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setSelectedRunAssistantContent(null);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingRunOutput(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedRun?.conversationId, selectedRun?.id, selectedRun?.observability]);
 
   useEffect(() => {
     if (!selectedRunId) {
@@ -438,6 +479,28 @@ export function RunsView() {
                   <p className="mt-3 rounded-2xl border border-rose-400/20 bg-rose-400/10 p-3 text-xs leading-5 text-rose-100">{selectedRunDetail.errorMessage}</p>
                 ) : null}
               </section>
+
+              {(selectedRunDetail.mermaidPreview.markdown || selectedRunDetail.mermaidPreview.unavailableReason) ? (
+                <section className="rounded-3xl border border-violet-400/20 bg-violet-400/5 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs uppercase tracking-[0.18em] text-violet-100/80">Mermaid preview</p>
+                    {selectedRunDetail.mermaidPreview.blockCount ? (
+                      <span className="rounded-full border border-violet-400/20 bg-violet-400/10 px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-violet-100">
+                        {selectedRunDetail.mermaidPreview.blockCount} {selectedRunDetail.mermaidPreview.blockCount === 1 ? 'diagram' : 'diagrams'}
+                      </span>
+                    ) : null}
+                  </div>
+                  {selectedRunDetail.mermaidPreview.markdown ? (
+                    <div className="mt-3 text-sm text-slate-200">
+                      <MarkdownMessage content={selectedRunDetail.mermaidPreview.markdown} />
+                    </div>
+                  ) : selectedRunDetail.mermaidPreview.unavailableReason ? (
+                    <p className="mt-3 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-3 text-xs leading-5 text-amber-100">
+                      {selectedRunDetail.mermaidPreview.unavailableReason}
+                    </p>
+                  ) : null}
+                </section>
+              ) : null}
 
               <section className="rounded-3xl border border-line bg-ink/50 p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Reference links</p>
