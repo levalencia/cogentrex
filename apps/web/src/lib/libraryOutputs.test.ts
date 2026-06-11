@@ -163,6 +163,86 @@ describe('buildSkillRunDetail skill audit', () => {
     ]);
     expect(detail.observabilityEntries.map((entry) => entry.key)).not.toContain('skillAssistAudit');
   });
+
+  it('extracts Mermaid code blocks from the assistant output for run preview rendering', () => {
+    const detail = buildSkillRunDetail({
+      id: 'run-mermaid-preview',
+      userId: 'user-1',
+      skillId: 'skl_chat',
+      skillSlug: 'chat',
+      skillName: 'Chat',
+      mode: 'CHAT',
+      status: 'completed',
+      conversationId: 'conv-1',
+      jobId: null,
+      providerId: 'provider-1',
+      startedAt: '2026-05-22T20:00:00.000Z',
+      completedAt: '2026-05-22T20:01:00.000Z',
+      durationMs: 60000,
+      errorMessage: null,
+      observability: {
+        messageId: 'msg-assistant-1',
+        skillAssistAudit: [
+          {
+            slug: 'mermaid-diagrams',
+            label: 'Mermaid Diagrams',
+            status: 'used',
+            selected: true,
+            injected: true,
+            reason: 'Detected a Mermaid code block in the assistant output.',
+          },
+        ],
+      },
+    }, {
+      assistantContent: 'Here is the diagram:\n\n```mermaid\nflowchart TD\n  A[Task] --> B[Artifact]\n```',
+    });
+
+    expect(detail.mermaidPreview).toEqual({
+      blockCount: 1,
+      markdown: '```mermaid\nflowchart TD\n  A[Task] --> B[Artifact]\n```',
+      isLoadingOutput: false,
+      unavailableReason: null,
+    });
+  });
+
+  it('explains when Mermaid was used but no previewable code block is available', () => {
+    const detail = buildSkillRunDetail({
+      id: 'run-mermaid-missing-output',
+      userId: 'user-1',
+      skillId: 'skl_chat',
+      skillSlug: 'chat',
+      skillName: 'Chat',
+      mode: 'CHAT',
+      status: 'completed',
+      conversationId: 'conv-1',
+      jobId: null,
+      providerId: 'provider-1',
+      startedAt: '2026-05-22T20:00:00.000Z',
+      completedAt: '2026-05-22T20:01:00.000Z',
+      durationMs: 60000,
+      errorMessage: null,
+      observability: {
+        messageId: 'msg-assistant-1',
+        skillAssistAudit: [
+          {
+            slug: 'mermaid-diagrams',
+            label: 'Mermaid Diagrams',
+            status: 'used',
+            selected: true,
+            injected: true,
+            reason: 'Detected a Mermaid code block in the assistant output.',
+          },
+        ],
+      },
+    }, { assistantContent: 'No fenced diagram here.' });
+
+    expect(detail.mermaidPreview).toEqual({
+      blockCount: 0,
+      markdown: null,
+      isLoadingOutput: false,
+      unavailableReason: 'Mermaid was marked as used, but no Mermaid code block was available in the loaded assistant output.',
+    });
+  });
 });
 
 describe('run history URL filters', () => {

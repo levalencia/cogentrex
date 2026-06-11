@@ -1,4 +1,5 @@
 import type { AppMode, ArtifactItem, SkillRunEvent, SkillRunSummary } from '@cogentrex/shared';
+import { extractFencedCodeBlocks } from './diagramOutputs';
 
 interface ConversationLike {
   id?: string;
@@ -100,6 +101,7 @@ export interface SkillRunDetail {
   providerId: string | null;
   errorMessage: string | null;
   metrics: string[];
+  mermaidPreview: SkillRunMermaidPreview;
   skillAuditEntries: SkillRunSkillAuditEntry[];
   savedArtifactLinks: Array<{ id: string; href: string; label: string }>;
   sourceLinks: Array<{ id: number; label: string; title: string; url: string; snippet?: string | undefined; channel?: string | undefined }>;
@@ -116,6 +118,13 @@ export interface SkillRunSkillAuditEntry {
   selectedLabel: string;
   promptLabel: string;
   reason: string;
+}
+
+export interface SkillRunMermaidPreview {
+  blockCount: number;
+  markdown: string | null;
+  isLoadingOutput: boolean;
+  unavailableReason: string | null;
 }
 
 export interface LibraryArtifactRunProvenance {
@@ -451,6 +460,46 @@ function skillAssistSelectedMetric(observability: Record<string, unknown> | null
   return `${count} selected ${count === 1 ? 'skill' : 'skills'}`;
 }
 
+function skillRunMermaidPreview(input: {
+  observability: Record<string, unknown> | null;
+  assistantContent: string | null;
+  isLoadingOutput: boolean;
+}): SkillRunMermaidPreview {
+  const mermaidWasUsed = skillRunSkillAuditEntries(input.observability).some((entry) => entry.slug === 'mermaid-diagrams' && entry.statusLabel === 'Used');
+  const blocks = input.assistantContent
+    ? extractFencedCodeBlocks(input.assistantContent).filter((block) => block.language === 'mermaid' && block.code.trim())
+    : [];
+
+  if (blocks.length) {
+    return {
+      blockCount: blocks.length,
+      markdown: blocks.map((block) => `\`\`\`mermaid\n${block.code}\n\`\`\``).join('\n\n'),
+      isLoadingOutput: false,
+      unavailableReason: null,
+    };
+  }
+
+  if (input.isLoadingOutput) {
+    return {
+      blockCount: 0,
+      markdown: null,
+      isLoadingOutput: true,
+      unavailableReason: 'Loading assistant output for Mermaid preview…',
+    };
+  }
+
+  if (mermaidWasUsed) {
+    return {
+      blockCount: 0,
+      markdown: null,
+      isLoadingOutput: false,
+      unavailableReason: 'Mermaid was marked as used, but no Mermaid code block was available in the loaded assistant output.',
+    };
+  }
+
+  return { blockCount: 0, markdown: null, isLoadingOutput: false, unavailableReason: null };
+}
+
 function skillRunSkillAuditEntries(observability: Record<string, unknown> | null): SkillRunDetail['skillAuditEntries'] {
   const rawAudit = observability?.skillAssistAudit;
   if (!Array.isArray(rawAudit)) return [];
@@ -704,7 +753,10 @@ export function buildSkillRunEventRows(events: SkillRunEvent[]): SkillRunEventRo
     }));
 }
 
-export function buildSkillRunDetail(run: SkillRunSummary): SkillRunDetail {
+export function buildSkillRunDetail(
+  run: SkillRunSummary,
+  options: { assistantContent: string | null; isAssistantContentLoading?: boolean } = { assistantContent: null },
+): SkillRunDetail {
   return {
     id: run.id,
     skillName: run.skillName,
@@ -722,6 +774,11 @@ export function buildSkillRunDetail(run: SkillRunSummary): SkillRunDetail {
     providerId: run.providerId,
     errorMessage: run.errorMessage,
     metrics: skillRunMetrics(run.observability),
+    mermaidPreview: skillRunMermaidPreview({
+      observability: run.observability,
+      assistantContent: options.assistantContent,
+      isLoadingOutput: options.isAssistantContentLoading === true,
+    }),
     skillAuditEntries: skillRunSkillAuditEntries(run.observability),
     savedArtifactLinks: skillRunSavedArtifactLinks(run.observability),
     sourceLinks: skillRunSourceLinks(run.observability),
