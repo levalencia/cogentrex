@@ -7,7 +7,7 @@ describe('getCockpitNavItems', () => {
 
     expect(items.map((item) => item.label)).toEqual(['Chat', 'Start', 'Runs', 'Library']);
     expect(items.find((item) => item.label === 'Start')).toMatchObject({ href: '/workflows', description: 'Choose a mode or template', isActive: false });
-    expect(items.find((item) => item.label === 'Chat')).toMatchObject({ href: '/chats', isActive: false });
+    expect(items.find((item) => item.label === 'Chat')).toMatchObject({ href: '/chats', description: 'Chat with Cogentrex', isActive: false });
     expect(items.find((item) => item.label === 'Runs')).toMatchObject({ href: '/runs', isActive: true });
     expect(items.some((item) => item.label.includes('Admin'))).toBe(false);
   });

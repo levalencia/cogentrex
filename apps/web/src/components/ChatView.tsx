@@ -304,20 +304,16 @@ function MessageList({ onEditImage }: { onEditImage: (content: string) => void }
     <div ref={scrollRef} className="flex-1 overflow-y-auto">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-6 md:px-8">
         {!messages.length ? (
-          <section className="my-auto py-16">
-            <p className="text-sm uppercase tracking-[0.3em] text-accent">Skill-assisted task runner</p>
-            <h1 className="mt-5 max-w-3xl text-5xl font-semibold tracking-tight text-white md:text-7xl">What do you want Cogentrex to do?</h1>
-            <p className="mt-5 max-w-2xl text-lg text-slate-300">
-              Describe the task, then let Skill Assist choose the right skills or pick them manually for this run.
+          <section className="my-auto max-w-3xl py-20">
+            <p className="text-sm uppercase tracking-[0.3em] text-accent">Chat</p>
+            <h1 className="mt-5 text-5xl font-semibold tracking-tight text-white md:text-7xl">Ask Cogentrex anything.</h1>
+            <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-300">
+              Start with a plain question, draft, file, or idea. Skill Assist can stay automatic, be guided manually, or turn off when you want a normal chat.
             </p>
-            <div className="mt-8 grid gap-3 md:grid-cols-2">
-              {getLauncherItems().slice(0, 4).map((workflow) => (
-                <div key={workflow.id} className="rounded-2xl border border-line bg-panel/70 p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{workflow.eyebrow}</p>
-                  <h2 className="mt-2 text-base font-semibold text-white">{workflow.label}</h2>
-                  <p className="mt-1 text-sm leading-6 text-slate-400">{workflow.description}</p>
-                </div>
-              ))}
+            <div className="mt-8 flex flex-wrap gap-2 text-sm text-slate-400">
+              <span className="rounded-full border border-line bg-panel/70 px-3 py-1.5">Research a question</span>
+              <span className="rounded-full border border-line bg-panel/70 px-3 py-1.5">Draft an artifact</span>
+              <span className="rounded-full border border-line bg-panel/70 px-3 py-1.5">Analyze files or images</span>
             </div>
           </section>
         ) : null}

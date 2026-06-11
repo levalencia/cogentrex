@@ -26,7 +26,7 @@ export function getCockpitNavItems(role: PublicUser['role'] | undefined, pathnam
       id: 'chat',
       label: 'Chat',
       href: '/chats',
-      description: 'Provider-routed workspace',
+      description: 'Chat with Cogentrex',
     },
     {
       id: 'workflows',
