@@ -1182,7 +1182,7 @@ function CockpitHeader({
   handleUnshare: () => void;
 }) {
   const contextLabel = activeProject ? `Project: ${activeProject.name}` : 'All conversations';
-  const sessionLabel = activeConversation ? activeConversation.title : 'New session';
+  const sessionLabel = activeConversation ? activeConversation.title : 'New chat';
 
   return (
     <div className="border-b border-line bg-panel/70 px-4 py-3">
