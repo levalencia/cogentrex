@@ -88,7 +88,7 @@ export function Sidebar() {
 
       {/* New Chat */}
       <div className="space-y-3 p-3">
-        <button onClick={handleNewChat} className="w-full rounded-2xl bg-accent px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-white">New task</button>
+        <button onClick={handleNewChat} className="w-full rounded-2xl bg-accent px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-white">New chat</button>
         <nav className="space-y-1" aria-label="Cogentrex cockpit">
           {cockpitNavItems.map((item) => (
             <button
@@ -141,14 +141,16 @@ export function Sidebar() {
       </div>
 
       {/* Delete All */}
-      <div className="px-3 pb-2">
-        <button
-          onClick={() => void deleteAllConversations()}
-          className="w-full rounded-xl border border-red-500/30 px-3 py-2 text-xs text-red-300 hover:bg-red-500/10"
-        >
-          🗑️ Delete all chats
-        </button>
-      </div>
+      {conversations.length > 0 ? (
+        <div className="px-3 pb-2">
+          <button
+            onClick={() => void deleteAllConversations()}
+            className="w-full rounded-xl border border-red-500/30 px-3 py-2 text-xs text-red-300 hover:bg-red-500/10"
+          >
+            🗑️ Delete all chats
+          </button>
+        </div>
+      ) : null}
 
       {/* History List */}
       <div className="flex-1 overflow-y-auto px-3 pb-4">
