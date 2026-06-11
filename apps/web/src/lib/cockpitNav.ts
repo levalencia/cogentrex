@@ -10,28 +10,29 @@ export interface CockpitNavItem {
 
 function isActivePath(pathname: string | null | undefined, href: string): boolean {
   const current = pathname ?? '/';
+  if (href === '/chats' && current === '/') return true;
   if (href === '/') return current === '/';
   return current === href || current.startsWith(`${href}/`);
 }
 
 function isWorkflowRoute(pathname: string | null | undefined): boolean {
   const current = pathname ?? '/';
-  return current === '/' || current === '/workflows' || current.startsWith('/workflows/') || current === '/skills' || current.startsWith('/skills/');
+  return current === '/workflows' || current.startsWith('/workflows/') || current === '/skills' || current.startsWith('/skills/');
 }
 
 export function getCockpitNavItems(role: PublicUser['role'] | undefined, pathname: string | null | undefined): CockpitNavItem[] {
   const items: Array<Omit<CockpitNavItem, 'isActive'>> = [
     {
-      id: 'workflows',
-      label: 'Start',
-      href: '/workflows',
-      description: 'Choose a mode or template',
-    },
-    {
       id: 'chat',
       label: 'Chat',
       href: '/chats',
       description: 'Provider-routed workspace',
+    },
+    {
+      id: 'workflows',
+      label: 'Start',
+      href: '/workflows',
+      description: 'Choose a mode or template',
     },
     {
       id: 'runs',

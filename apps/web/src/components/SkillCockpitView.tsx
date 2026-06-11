@@ -1,33 +1,22 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import type { SkillReadiness, SkillRunSummary } from '@cogentrex/shared';
+import type { SkillReadiness } from '@cogentrex/shared';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { buildSkillCockpitModel } from '@/lib/skillCockpit';
-import { buildWorkflowSelectionGroups, getAdminConfigurationModel, getLauncherToneClasses, getReadinessBadgeClasses, type LauncherItem } from '@/lib/workflowLauncher';
+import { buildWorkflowSelectionGroups, getLauncherToneClasses, getReadinessBadgeClasses, type LauncherItem } from '@/lib/workflowLauncher';
 import { useAppStore } from '@/store/appStore';
 
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
-}
-
-function runStatusClass(tone: string): string {
-  if (tone === 'success') return 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200';
-  if (tone === 'warning') return 'border-amber-400/30 bg-amber-400/10 text-amber-200';
-  if (tone === 'danger') return 'border-rose-400/30 bg-rose-400/10 text-rose-200';
-  return 'border-slate-500/30 bg-slate-500/10 text-slate-300';
-}
-
-function WorkflowCard({ card, compact = false, onLaunch }: { card: LauncherItem; compact?: boolean; onLaunch: (item: LauncherItem) => void }) {
+function StartCard({ card, onLaunch }: { card: LauncherItem; onLaunch: (item: LauncherItem) => void }) {
   return (
     <button
       type="button"
       onClick={() => onLaunch(card)}
-      className={`rounded-2xl border p-3 text-left transition ${getLauncherToneClasses(card.tone, false)} hover:-translate-y-0.5`}
+      className={`rounded-2xl border p-4 text-left transition ${getLauncherToneClasses(card.tone, false)} hover:-translate-y-0.5`}
     >
       <span className="text-[10px] uppercase tracking-[0.18em] opacity-70">{card.eyebrow}</span>
-      <span className="mt-1 flex items-start justify-between gap-3 text-base font-semibold">
+      <span className="mt-2 flex items-start justify-between gap-3 text-base font-semibold">
         {card.label}
         {card.readiness ? (
           <span className={`shrink-0 rounded-full border px-2 py-1 text-[9px] uppercase tracking-[0.12em] ${getReadinessBadgeClasses(card.readiness.status)}`}>
@@ -35,17 +24,9 @@ function WorkflowCard({ card, compact = false, onLaunch }: { card: LauncherItem;
           </span>
         ) : null}
       </span>
-      <span className="mt-1 block text-sm leading-5 opacity-75">{card.description}</span>
-      {card.readiness && card.readiness.status !== 'ready' ? <span className="mt-2 block text-xs leading-4 opacity-70">{card.readiness.message}</span> : null}
-      {!compact ? (
-        <span className="mt-4 grid gap-2 rounded-2xl border border-current/10 bg-black/10 p-3 text-xs leading-5 opacity-80">
-          <span><strong>Needs:</strong> {card.capabilitySummary.required.join(', ')}</span>
-          <span><strong>Optional:</strong> {card.capabilitySummary.optional.join(', ') || 'none'}</span>
-          <span><strong>Outputs:</strong> {card.capabilitySummary.outputs.join(', ')}</span>
-          <span className="opacity-70">{card.operatorNote}</span>
-        </span>
-      ) : null}
-      <span className="mt-3 inline-flex rounded-full border border-current/20 px-3 py-1 text-xs font-medium opacity-90">{card.kind === 'mode' ? 'Open mode' : 'Use template'}</span>
+      <span className="mt-2 block text-sm leading-5 opacity-75">{card.description}</span>
+      {card.readiness && card.readiness.status !== 'ready' ? <span className="mt-3 block text-xs leading-4 opacity-70">{card.readiness.message}</span> : null}
+      <span className="mt-4 inline-flex rounded-full border border-current/20 px-3 py-1 text-xs font-medium opacity-90">{card.kind === 'mode' ? 'Open mode' : 'Use template'}</span>
     </button>
   );
 }
@@ -53,25 +34,20 @@ function WorkflowCard({ card, compact = false, onLaunch }: { card: LauncherItem;
 export function SkillCockpitView() {
   const router = useRouter();
   const clearChat = useAppStore((state) => state.clearChat);
-  const user = useAppStore((state) => state.user);
   const setMode = useAppStore((state) => state.setMode);
   const setSelectedWorkflowLauncher = useAppStore((state) => state.setSelectedWorkflowLauncher);
   const [readiness, setReadiness] = useState<SkillReadiness[] | null>(null);
-  const [skillRuns, setSkillRuns] = useState<SkillRunSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     setIsLoading(true);
-    Promise.all([
-      api.getSkillReadiness().catch(() => ({ skills: [] })),
-      api.listSkillRuns().catch(() => ({ runs: [] })),
-    ])
-      .then(([readinessResult, runsResult]) => {
-        if (!cancelled) {
-          setReadiness(readinessResult.skills);
-          setSkillRuns(runsResult.runs);
-        }
+    api.getSkillReadiness()
+      .then((result) => {
+        if (!cancelled) setReadiness(result.skills);
+      })
+      .catch(() => {
+        if (!cancelled) setReadiness([]);
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false);
@@ -81,14 +57,19 @@ export function SkillCockpitView() {
     };
   }, []);
 
-  const cockpit = useMemo(() => buildSkillCockpitModel(readiness, skillRuns), [readiness, skillRuns]);
+  const cockpit = useMemo(() => buildSkillCockpitModel(readiness, []), [readiness]);
   const workflowGroups = useMemo(() => buildWorkflowSelectionGroups(cockpit.cards), [cockpit.cards]);
-  const adminConfiguration = useMemo(() => getAdminConfigurationModel(), []);
-  const visibleControlLoops = cockpit.controlLoops.filter((loop) => !loop.isAdminOnly || user?.role === 'ADMIN');
 
-  function openWorkflow(item: LauncherItem) {
+  function openLauncher(item: LauncherItem) {
     setMode(item.mode);
     setSelectedWorkflowLauncher(item.id);
+    clearChat();
+    router.push('/chats');
+  }
+
+  function openChat() {
+    setMode('CHAT');
+    setSelectedWorkflowLauncher(undefined);
     clearChat();
     router.push('/chats');
   }
@@ -99,181 +80,79 @@ export function SkillCockpitView() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.24em] text-accent">Start</p>
-            <h1 className="mt-2 text-2xl font-semibold text-white">Choose a mode or template</h1>
+            <h1 className="mt-2 text-2xl font-semibold text-white">Start with Chat or a template</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-              Modes are the workspace: Chat, Deep Research, Social Writer, Image, or Video. Templates are shortcuts that prefill a mode with suggested skills.
+              Chat is the default workspace. Templates are optional shortcuts that open a mode with a prefilled prompt and suggested Skill Assist settings.
             </p>
           </div>
           <button
             type="button"
-            onClick={() => router.push('/runs')}
-            className="rounded-2xl border border-line px-4 py-2 text-sm text-slate-300 transition hover:border-accent hover:text-accent"
+            onClick={openChat}
+            className="rounded-2xl bg-accent px-4 py-2 text-sm font-semibold text-ink transition hover:bg-sky-300"
           >
-            View all runs
+            Open Chat
           </button>
         </div>
       </header>
 
-      <section className="flex-1 overflow-y-auto px-6 py-5">
-        <div className="grid gap-5 xl:grid-cols-[1fr_20rem]">
-          <section className="space-y-4">
-            <div className="flex items-center justify-between gap-3">
+      <section className="flex-1 overflow-y-auto px-6 py-6">
+        <div className="mx-auto max-w-5xl space-y-6">
+          <section className="rounded-3xl border border-accent/20 bg-accent/10 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Modes</p>
-                <h2 className="mt-1 text-lg font-semibold text-white">Pick the workspace first</h2>
-                <p className="mt-1 text-sm text-slate-500">A mode decides the UI and runtime path. Skill Assist can still help inside the mode.</p>
+                <p className="text-xs uppercase tracking-[0.2em] text-accent">Default path</p>
+                <h2 className="mt-2 text-xl font-semibold text-white">Most work should start in Chat</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
+                  Ask Cogentrex directly, then let Skill Assist, Runs, and Library support the work without forcing users through an internal dashboard first.
+                </p>
               </div>
-              {isLoading ? <span className="rounded-full border border-line px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-slate-500">Checking live config</span> : null}
-            </div>
-            <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-              {workflowGroups.modes.map((card) => (
-                <WorkflowCard key={card.id} card={card} onLaunch={openWorkflow} compact />
-              ))}
-            </div>
-
-            <div className="rounded-2xl border border-line bg-panel/60 p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Templates</p>
-                  <h3 className="mt-1 text-base font-semibold text-white">Start from a reusable prompt pattern</h3>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-                    Templates do not create new product surfaces. They launch an existing mode with a prefilled prompt, defaults, and suggested Skill Assist packages.
-                  </p>
-                </div>
-              </div>
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                {workflowGroups.taskTemplates.map((card) => (
-                  <WorkflowCard key={card.id} card={card} onLaunch={openWorkflow} compact />
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-line bg-panel/60 p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">How it works</p>
-                  <h3 className="mt-1 text-base font-semibold text-white">Mode → Template → Skill Assist → Run → Library</h3>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-                    Skills are implementation packages. The visible product surface is the mode, optional template, tracked run, and reusable artifact.
-                  </p>
-                </div>
-              </div>
-              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                {cockpit.operatingModel.map((step) => (
-                  <div key={step.id} className="rounded-2xl border border-line bg-ink/40 p-3">
-                    <p className="text-sm font-semibold text-white">{step.label}</p>
-                    <p className="mt-2 text-xs leading-5 text-slate-500">{step.description}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-line bg-panel/60 p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Admin model</p>
-                  <h3 className="mt-1 text-base font-semibold text-white">What admins configure</h3>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-                    Modes are product-owned. Templates and skills are governed shortcuts/capabilities. Workflows are the advanced automation layer, not the everyday user metaphor.
-                  </p>
-                </div>
-              </div>
-              <div className="mt-4 grid gap-3 md:grid-cols-3">
-                {adminConfiguration.map((item) => (
-                  <a
-                    key={item.label}
-                    href={item.href}
-                    className="rounded-2xl border border-line bg-ink/40 p-3 transition hover:border-accent hover:bg-accent/5"
-                  >
-                    <span className="flex items-center justify-between gap-2 text-sm font-semibold text-white">
-                      {item.label}
-                      <span className="rounded-full border border-amber-400/30 px-2 py-0.5 text-[9px] uppercase tracking-[0.12em] text-amber-200">Admin</span>
-                    </span>
-                    <span className="mt-2 block text-xs leading-5 text-slate-500">{item.description}</span>
-                  </a>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-line bg-panel/60 p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Control loop</p>
-                  <h3 className="mt-1 text-base font-semibold text-white">Run, observe, reuse</h3>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-                    Users work in modes and templates. Runs keep the audit trail; Library keeps durable outputs.
-                  </p>
-                </div>
-              </div>
-              <div className="mt-4 grid gap-3 md:grid-cols-3">
-                {visibleControlLoops.map((loop) => (
-                  <a
-                    key={loop.id}
-                    href={loop.href}
-                    className="rounded-2xl border border-line bg-ink/40 p-3 transition hover:border-accent hover:bg-accent/5"
-                  >
-                    <span className="flex items-center justify-between gap-2 text-sm font-semibold text-white">
-                      {loop.label}
-                      {loop.isAdminOnly ? <span className="rounded-full border border-amber-400/30 px-2 py-0.5 text-[9px] uppercase tracking-[0.12em] text-amber-200">Admin</span> : null}
-                    </span>
-                    <span className="mt-2 block text-xs leading-5 text-slate-500">{loop.description}</span>
-                  </a>
-                ))}
-              </div>
+              <button
+                type="button"
+                onClick={openChat}
+                className="rounded-2xl border border-accent/40 px-4 py-2 text-sm font-semibold text-accent transition hover:bg-accent/10"
+              >
+                Ask Cogentrex
+              </button>
             </div>
           </section>
 
-          <aside className="space-y-4">
-            <section className="rounded-2xl border border-line bg-panel/70 p-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Run health</p>
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <div className="rounded-2xl border border-line bg-ink/50 p-3">
-                  <p className="text-2xl font-semibold text-white">{cockpit.health.totalRuns}</p>
-                  <p className="text-xs text-slate-500">Total</p>
-                </div>
-                <div className="rounded-2xl border border-line bg-ink/50 p-3">
-                  <p className="text-2xl font-semibold text-accent">{cockpit.health.activeRuns}</p>
-                  <p className="text-xs text-slate-500">Active</p>
-                </div>
-                <div className="rounded-2xl border border-line bg-ink/50 p-3">
-                  <p className="text-2xl font-semibold text-emerald-300">{cockpit.health.completedRuns}</p>
-                  <p className="text-xs text-slate-500">Completed</p>
-                </div>
-                <div className="rounded-2xl border border-line bg-ink/50 p-3">
-                  <p className="text-2xl font-semibold text-rose-300">{cockpit.health.failedRuns}</p>
-                  <p className="text-xs text-slate-500">Failed</p>
-                </div>
+          <section className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Modes</p>
+                <h2 className="mt-1 text-lg font-semibold text-white">Choose a workspace only when it helps</h2>
+                <p className="mt-1 text-sm text-slate-500">Modes change the UI/runtime path: research, social writing, images, or video.</p>
               </div>
-            </section>
+              {isLoading ? <span className="rounded-full border border-line px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-slate-500">Checking live config</span> : null}
+            </div>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {workflowGroups.modes.filter((card) => card.id !== 'ask-chat').map((card) => (
+                <StartCard key={card.id} card={card} onLaunch={openLauncher} />
+              ))}
+            </div>
+          </section>
 
-            <section className="rounded-3xl border border-line bg-panel/70 p-5">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Recent runs</p>
-                <button type="button" onClick={() => router.push('/runs')} className="text-xs text-accent hover:text-white">Ledger</button>
-              </div>
-              <div className="mt-4 space-y-3">
-                {cockpit.recentRuns.length ? cockpit.recentRuns.map((run) => (
-                  <button
-                    key={run.id}
-                    type="button"
-                    onClick={() => router.push(run.href)}
-                    className="w-full rounded-2xl border border-line bg-ink/50 p-3 text-left transition hover:border-accent"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-white">{run.skillName}</p>
-                        <p className="mt-1 text-xs text-slate-500">{run.modeLabel} · {formatDate(run.timestamp)}</p>
-                      </div>
-                      <span className={`shrink-0 rounded-full border px-2 py-1 text-[9px] uppercase tracking-[0.12em] ${runStatusClass(run.statusTone)}`}>{run.statusLabel}</span>
-                    </div>
-                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">{run.summary}</p>
-                  </button>
-                )) : (
-                  <p className="rounded-2xl border border-dashed border-line p-4 text-sm text-slate-500">No runs yet. Open a mode to start the audit trail.</p>
-                )}
-              </div>
-            </section>
-          </aside>
+          <section className="space-y-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Templates</p>
+              <h2 className="mt-1 text-lg font-semibold text-white">Reusable shortcuts</h2>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+                Templates do not create a new product surface. They open Chat or a mode with useful defaults.
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {workflowGroups.taskTemplates.map((card) => (
+                <StartCard key={card.id} card={card} onLaunch={openLauncher} />
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-line bg-panel/60 p-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Skill Assist</p>
+            <p className="mt-2 text-sm leading-6 text-slate-400">
+              Skill Assist stays inside the composer: Auto lets Cogentrex choose relevant skills, Hybrid combines your picks with suggestions, Manual uses only selected skills, and Off keeps the run plain.
+            </p>
+          </section>
         </div>
       </section>
     </main>

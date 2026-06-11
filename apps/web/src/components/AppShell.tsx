@@ -9,6 +9,7 @@ import { RunsView } from './RunsView';
 import { Sidebar } from './Sidebar';
 import { SkillCockpitView } from './SkillCockpitView';
 import { SkillDetailView } from './SkillDetailView';
+import { getAppShellSurface } from '@/lib/appRoutes';
 import { useAppStore } from '@/store/appStore';
 
 export function AppShell() {
@@ -20,10 +21,7 @@ export function AppShell() {
   const params = useParams();
   const pathname = usePathname();
   const conversationId = params?.id as string | undefined;
-  const isLibraryRoute = pathname?.startsWith('/library') ?? false;
-  const isRunsRoute = pathname?.startsWith('/runs') ?? false;
-  const isWorkflowDetailRoute = (pathname?.startsWith('/workflows/') ?? false) || (pathname?.startsWith('/skills/') ?? false);
-  const isWorkflowsRoute = pathname === '/' || pathname === '/workflows' || pathname === '/skills';
+  const surface = getAppShellSurface(pathname, conversationId);
 
   useEffect(() => {
     void bootstrap();
@@ -55,7 +53,7 @@ export function AppShell() {
   return (
     <div className="flex h-screen overflow-hidden bg-ink text-slate-100">
       <Sidebar />
-      {isRunsRoute ? <RunsView /> : isLibraryRoute ? <LibraryView /> : isWorkflowDetailRoute ? <SkillDetailView /> : isWorkflowsRoute ? <SkillCockpitView /> : <ChatView />}
+      {surface === 'runs' ? <RunsView /> : surface === 'library' ? <LibraryView /> : surface === 'skillDetail' ? <SkillDetailView /> : surface === 'start' ? <SkillCockpitView /> : <ChatView />}
     </div>
   );
 }
