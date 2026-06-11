@@ -1,6 +1,6 @@
 import type { SkillDetail } from '@cogentrex/shared';
 import { describe, expect, it } from 'vitest';
-import { selectSkillAssistContext, withSkillAssistSystemMessage } from '../skills/skillAssist.js';
+import { buildSkillAssistRunAudit, selectSkillAssistContext, withSkillAssistSystemMessage } from '../skills/skillAssist.js';
 
 const baseMessages = [
   { role: 'user' as const, content: 'How should we deploy this Next app to Azure Container Apps?' },
@@ -144,5 +144,57 @@ describe('skill assist prompt selection', () => {
     expect(selection.contexts.map((context) => context.slug)).toContain('product-scope-guardrails');
     expect(selection.contexts.map((context) => context.slug)).toContain('typescript-fullstack-quality');
     expect(selection.systemPrompt).not.toContain('--- Skill: visible-ops-playbook');
+  });
+});
+
+describe('skill assist run audit', () => {
+  it('marks selected diagram skills as used or skipped based on detected output', () => {
+    const audit = buildSkillAssistRunAudit({
+      selectedSlugs: ['excalidraw-diagramming', 'mermaid-diagrams'],
+      injectedSlugs: ['excalidraw-diagramming', 'mermaid-diagrams'],
+      assistantContent: [
+        'Here is the renderable diagram:',
+        '```mermaid',
+        'flowchart TD',
+        '  A[User] --> B[Cogentrex]',
+        '```',
+      ].join('\n'),
+    });
+
+    expect(audit).toEqual([
+      {
+        slug: 'excalidraw-diagramming',
+        label: 'Excalidraw Diagramming',
+        status: 'skipped',
+        selected: true,
+        injected: true,
+        reason: 'No compatible Excalidraw JSON artifact was detected in the assistant output.',
+      },
+      {
+        slug: 'mermaid-diagrams',
+        label: 'Mermaid Diagrams',
+        status: 'used',
+        selected: true,
+        injected: true,
+        reason: 'Detected a Mermaid code block in the assistant output.',
+      },
+    ]);
+  });
+
+  it('keeps unavailable selected skills visible as skipped audit entries', () => {
+    expect(buildSkillAssistRunAudit({
+      selectedSlugs: ['unknown-skill'],
+      injectedSlugs: [],
+      assistantContent: 'Plain answer',
+    })).toEqual([
+      {
+        slug: 'unknown-skill',
+        label: 'unknown-skill',
+        status: 'skipped',
+        selected: true,
+        injected: false,
+        reason: 'Selected by the user, but no matching Skill Assist context was available for the model prompt.',
+      },
+    ]);
   });
 });

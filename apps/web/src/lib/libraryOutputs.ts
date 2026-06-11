@@ -100,11 +100,22 @@ export interface SkillRunDetail {
   providerId: string | null;
   errorMessage: string | null;
   metrics: string[];
+  skillAuditEntries: SkillRunSkillAuditEntry[];
   savedArtifactLinks: Array<{ id: string; href: string; label: string }>;
   sourceLinks: Array<{ id: number; label: string; title: string; url: string; snippet?: string | undefined; channel?: string | undefined }>;
   citationAuditEntries: Array<{ label: string; value: string }>;
   criticalObservabilityEntries: Array<{ label: string; value: string }>;
   observabilityEntries: Array<{ key: string; value: string }>;
+}
+
+export interface SkillRunSkillAuditEntry {
+  slug: string;
+  label: string;
+  statusLabel: string;
+  statusTone: 'success' | 'warning' | 'neutral';
+  selectedLabel: string;
+  promptLabel: string;
+  reason: string;
 }
 
 export interface LibraryArtifactRunProvenance {
@@ -412,7 +423,9 @@ function readNumericMetric(observability: Record<string, unknown> | null, key: s
 }
 
 function selectedSkillAssistSlugs(observability: Record<string, unknown> | null): string[] {
-  const rawSlugs = observability?.skillAssistSlugs;
+  const rawSlugs = Array.isArray(observability?.skillAssistSelectedSlugs)
+    ? observability?.skillAssistSelectedSlugs
+    : observability?.skillAssistSlugs;
   if (!Array.isArray(rawSlugs)) return [];
   return Array.from(new Set(rawSlugs
     .filter((slug): slug is string => typeof slug === 'string' && slug.trim().length > 0)
@@ -436,6 +449,29 @@ function skillAssistSelectedMetric(observability: Record<string, unknown> | null
   const count = selectedSkillAssistSlugs(observability).length;
   if (!count) return null;
   return `${count} selected ${count === 1 ? 'skill' : 'skills'}`;
+}
+
+function skillRunSkillAuditEntries(observability: Record<string, unknown> | null): SkillRunDetail['skillAuditEntries'] {
+  const rawAudit = observability?.skillAssistAudit;
+  if (!Array.isArray(rawAudit)) return [];
+
+  return rawAudit.flatMap((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
+    const value = item as Record<string, unknown>;
+    if (typeof value.slug !== 'string' || !value.slug.trim()) return [];
+    const status = value.status === 'used' ? 'used' : 'skipped';
+    const selected = value.selected === true;
+    const injected = value.injected === true;
+    return [{
+      slug: value.slug,
+      label: typeof value.label === 'string' && value.label.trim() ? value.label : skillAssistSlugLabel(value.slug),
+      statusLabel: status === 'used' ? 'Used' : 'Skipped',
+      statusTone: status === 'used' ? 'success' as const : 'warning' as const,
+      selectedLabel: selected ? 'Selected by user' : 'Auto-selected',
+      promptLabel: injected ? 'Injected into prompt' : 'Not injected',
+      reason: typeof value.reason === 'string' && value.reason.trim() ? value.reason : 'No audit reason was captured.',
+    }];
+  });
 }
 
 function durationLabel(durationMs: number | null | undefined): string {
@@ -540,7 +576,7 @@ function formatObservabilityValue(value: unknown): string {
 function skillRunObservabilityEntries(observability: Record<string, unknown> | null): SkillRunDetail['observabilityEntries'] {
   if (!observability) return [];
   return Object.entries(observability)
-    .filter(([key]) => !['citationAudit', 'savedArtifacts', 'sources'].includes(key))
+    .filter(([key]) => !['citationAudit', 'savedArtifacts', 'skillAssistAudit', 'sources'].includes(key))
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([key, value]) => ({ key, value: formatObservabilityValue(value) }));
 }
@@ -686,6 +722,7 @@ export function buildSkillRunDetail(run: SkillRunSummary): SkillRunDetail {
     providerId: run.providerId,
     errorMessage: run.errorMessage,
     metrics: skillRunMetrics(run.observability),
+    skillAuditEntries: skillRunSkillAuditEntries(run.observability),
     savedArtifactLinks: skillRunSavedArtifactLinks(run.observability),
     sourceLinks: skillRunSourceLinks(run.observability),
     citationAuditEntries: skillRunCitationAuditEntries(run.observability),

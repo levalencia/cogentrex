@@ -98,6 +98,73 @@ describe('buildSkillRunHref', () => {
   });
 });
 
+describe('buildSkillRunDetail skill audit', () => {
+  it('shows selected, used, and skipped Skill Assist entries from run observability', () => {
+    const detail = buildSkillRunDetail({
+      id: 'run-skill-audit',
+      userId: 'user-1',
+      skillId: 'skl_chat',
+      skillSlug: 'chat',
+      skillName: 'Chat',
+      mode: 'CHAT',
+      status: 'completed',
+      conversationId: 'conv-1',
+      jobId: null,
+      providerId: 'provider-1',
+      startedAt: '2026-05-22T20:00:00.000Z',
+      completedAt: '2026-05-22T20:01:00.000Z',
+      durationMs: 60000,
+      errorMessage: null,
+      observability: {
+        skillAssistSelectedSlugs: ['excalidraw-diagramming', 'mermaid-diagrams'],
+        skillAssistInjectedSlugs: ['excalidraw-diagramming', 'mermaid-diagrams'],
+        skillAssistAudit: [
+          {
+            slug: 'excalidraw-diagramming',
+            label: 'Excalidraw Diagramming',
+            status: 'skipped',
+            selected: true,
+            injected: true,
+            reason: 'No compatible Excalidraw JSON artifact was detected in the assistant output.',
+          },
+          {
+            slug: 'mermaid-diagrams',
+            label: 'Mermaid Diagrams',
+            status: 'used',
+            selected: true,
+            injected: true,
+            reason: 'Detected a Mermaid code block in the assistant output.',
+          },
+        ],
+      },
+    });
+
+    expect(detail.metrics).toContain('2 selected skills');
+    expect(detail.criticalObservabilityEntries).toContainEqual({ label: 'Selected skills', value: 'Excalidraw Diagramming, Mermaid Diagrams' });
+    expect(detail.skillAuditEntries).toEqual([
+      {
+        slug: 'excalidraw-diagramming',
+        label: 'Excalidraw Diagramming',
+        statusLabel: 'Skipped',
+        statusTone: 'warning',
+        selectedLabel: 'Selected by user',
+        promptLabel: 'Injected into prompt',
+        reason: 'No compatible Excalidraw JSON artifact was detected in the assistant output.',
+      },
+      {
+        slug: 'mermaid-diagrams',
+        label: 'Mermaid Diagrams',
+        statusLabel: 'Used',
+        statusTone: 'success',
+        selectedLabel: 'Selected by user',
+        promptLabel: 'Injected into prompt',
+        reason: 'Detected a Mermaid code block in the assistant output.',
+      },
+    ]);
+    expect(detail.observabilityEntries.map((entry) => entry.key)).not.toContain('skillAssistAudit');
+  });
+});
+
 describe('run history URL filters', () => {
   it('parses supported status, mode, provider, and query filters from search params', () => {
     const parsed = parseSkillRunHistoryFilters(new URLSearchParams('status=running&mode=DEEP_RESEARCH&provider=prv_foundry&q=firecrawl'));

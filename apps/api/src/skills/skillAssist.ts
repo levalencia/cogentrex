@@ -14,6 +14,15 @@ export interface SkillAssistSelection {
   systemPrompt: string;
 }
 
+export interface SkillAssistAuditItem {
+  slug: string;
+  label: string;
+  status: 'used' | 'skipped';
+  selected: boolean;
+  injected: boolean;
+  reason: string;
+}
+
 interface SkillAssistConfig {
   keywords: string[];
   instructions: string[];
@@ -159,6 +168,92 @@ const SKILL_ASSIST_CATALOG: SkillAssistContext[] = [
     ].join('\n'),
   },
 ];
+
+const SKILL_ASSIST_LABELS = new Map(SKILL_ASSIST_CATALOG.map((context) => [context.slug, context.name]));
+
+function uniqueSlugs(slugs: string[] | undefined): string[] {
+  const unique: string[] = [];
+  for (const slug of slugs ?? []) {
+    const normalized = slug.trim();
+    if (normalized && !unique.includes(normalized)) unique.push(normalized);
+  }
+  return unique;
+}
+
+function hasMermaidOutput(content: string): boolean {
+  return /```\s*mermaid[\s\S]*?```/i.test(content);
+}
+
+function hasExcalidrawOutput(content: string): boolean {
+  const fencedBlocks = Array.from(content.matchAll(/```\s*(json|excalidraw)?\s*\n([\s\S]*?)```/gi));
+  return fencedBlocks.some((match) => {
+    const language = match[1]?.toLowerCase() ?? '';
+    if (language && language !== 'json' && language !== 'excalidraw') return false;
+    const body = match[2]?.trim() ?? '';
+    return /"type"\s*:\s*"excalidraw"/i.test(body) || /"elements"\s*:\s*\[/i.test(body);
+  });
+}
+
+function skillOutputStatus(slug: string, assistantContent: string): { used: boolean; reason: string } | null {
+  if (slug === 'mermaid-diagrams') {
+    return hasMermaidOutput(assistantContent)
+      ? { used: true, reason: 'Detected a Mermaid code block in the assistant output.' }
+      : { used: false, reason: 'No Mermaid code block was detected in the assistant output.' };
+  }
+  if (slug === 'excalidraw-diagramming') {
+    return hasExcalidrawOutput(assistantContent)
+      ? { used: true, reason: 'Detected an Excalidraw JSON artifact in the assistant output.' }
+      : { used: false, reason: 'No compatible Excalidraw JSON artifact was detected in the assistant output.' };
+  }
+  return null;
+}
+
+export function buildSkillAssistRunAudit(input: {
+  selectedSlugs?: string[];
+  injectedSlugs?: string[];
+  assistantContent: string;
+}): SkillAssistAuditItem[] {
+  const selectedSlugs = uniqueSlugs(input.selectedSlugs);
+  const injectedSlugs = uniqueSlugs(input.injectedSlugs);
+  const allSlugs = uniqueSlugs([...selectedSlugs, ...injectedSlugs]);
+
+  return allSlugs.map((slug) => {
+    const selected = selectedSlugs.includes(slug);
+    const injected = injectedSlugs.includes(slug);
+    const outputStatus = injected ? skillOutputStatus(slug, input.assistantContent) : null;
+
+    if (!injected) {
+      return {
+        slug,
+        label: SKILL_ASSIST_LABELS.get(slug) ?? slug,
+        status: 'skipped',
+        selected,
+        injected,
+        reason: 'Selected by the user, but no matching Skill Assist context was available for the model prompt.',
+      };
+    }
+
+    if (outputStatus) {
+      return {
+        slug,
+        label: SKILL_ASSIST_LABELS.get(slug) ?? slug,
+        status: outputStatus.used ? 'used' : 'skipped',
+        selected,
+        injected,
+        reason: outputStatus.reason,
+      };
+    }
+
+    return {
+      slug,
+      label: SKILL_ASSIST_LABELS.get(slug) ?? slug,
+      status: 'used',
+      selected,
+      injected,
+      reason: 'Skill guidance was injected into the model prompt.',
+    };
+  });
+}
 
 function scoreContext(context: SkillAssistContext, query: string): number {
   const normalized = query.toLowerCase();
