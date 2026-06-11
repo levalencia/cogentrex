@@ -13,7 +13,7 @@ import { hashForLog } from '../observability/logger.js';
 import type { ArtifactService } from '../artifacts/artifactService.js';
 import type { SkillRunRepository } from '../skills/skillRunRepository.js';
 import type { SkillService } from '../skills/skillService.js';
-import { withSkillAssistSystemMessage } from '../skills/skillAssist.js';
+import { buildSkillAssistRunAudit, withSkillAssistSystemMessage } from '../skills/skillAssist.js';
 import { randomBytes } from 'node:crypto';
 
 export type StreamSink = (event: StreamEvent) => void;
@@ -230,6 +230,15 @@ export class ChatService {
     });
 
     if (this.skillRuns) {
+      const skillAssistSelectedSlugs = selectedSkillSlugs ?? [];
+      const skillAssistInjectedSlugs = assisted?.skillSlugs ?? [];
+      const skillAssistAudit = input.useSkills
+        ? buildSkillAssistRunAudit({
+            selectedSlugs: skillAssistSelectedSlugs,
+            injectedSlugs: skillAssistInjectedSlugs,
+            assistantContent: content,
+          })
+        : [];
       const observability = {
         messageId: assistantMessageId,
         estimatedTokens,
@@ -237,7 +246,10 @@ export class ChatService {
         ttftMs: ttftMs ?? null,
         tps: tps ?? null,
         skillAssistEnabled: Boolean(input.useSkills),
-        skillAssistSlugs: assisted?.skillSlugs ?? [],
+        skillAssistSlugs: skillAssistInjectedSlugs,
+        skillAssistSelectedSlugs,
+        skillAssistInjectedSlugs,
+        skillAssistAudit,
       };
       const run = await this.skillRuns.safeCreate({
         userId: input.userId,

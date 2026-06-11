@@ -500,6 +500,37 @@ export function RunsView() {
                 </div>
               </section>
 
+              {selectedRunDetail.skillAuditEntries.length ? (
+                <section className="rounded-3xl border border-accent/20 bg-accent/5 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs uppercase tracking-[0.18em] text-accent">Skill audit</p>
+                    <span className="rounded-full border border-accent/20 bg-accent/10 px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-accent">
+                      selected vs used
+                    </span>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {selectedRunDetail.skillAuditEntries.map((entry) => (
+                      <div key={entry.slug} className="rounded-2xl border border-line bg-black/10 p-3">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold text-white">{entry.label}</p>
+                            <p className="mt-1 font-mono text-[10px] text-slate-600">{entry.slug}</p>
+                          </div>
+                          <span className={`rounded-full border px-2 py-1 text-[10px] uppercase tracking-[0.14em] ${runStatusClass(entry.statusTone)}`}>
+                            {entry.statusLabel}
+                          </span>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.14em] text-slate-400">
+                          <span className="rounded-full border border-line bg-ink/60 px-2 py-1">{entry.selectedLabel}</span>
+                          <span className="rounded-full border border-line bg-ink/60 px-2 py-1">{entry.promptLabel}</span>
+                        </div>
+                        <p className="mt-3 text-xs leading-5 text-slate-400">{entry.reason}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+
               {selectedRunDetail.criticalObservabilityEntries.length ? (
                 <section className="rounded-3xl border border-accent/20 bg-accent/5 p-4">
                   <p className="text-xs uppercase tracking-[0.18em] text-accent">Key observability</p>
