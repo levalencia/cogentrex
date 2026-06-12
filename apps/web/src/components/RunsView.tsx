@@ -480,6 +480,28 @@ export function RunsView() {
                 ) : null}
               </section>
 
+              {(selectedRunDetail.excalidrawPreview.markdown || selectedRunDetail.excalidrawPreview.unavailableReason) ? (
+                <section className="rounded-3xl border border-amber-300/20 bg-amber-300/5 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs uppercase tracking-[0.18em] text-amber-100/80">Excalidraw preview</p>
+                    {selectedRunDetail.excalidrawPreview.blockCount ? (
+                      <span className="rounded-full border border-amber-300/20 bg-amber-300/10 px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-amber-100">
+                        {selectedRunDetail.excalidrawPreview.blockCount} {selectedRunDetail.excalidrawPreview.blockCount === 1 ? 'diagram' : 'diagrams'}
+                      </span>
+                    ) : null}
+                  </div>
+                  {selectedRunDetail.excalidrawPreview.markdown ? (
+                    <div className="mt-3 text-sm text-slate-200">
+                      <MarkdownMessage content={selectedRunDetail.excalidrawPreview.markdown} />
+                    </div>
+                  ) : selectedRunDetail.excalidrawPreview.unavailableReason ? (
+                    <p className="mt-3 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-3 text-xs leading-5 text-amber-100">
+                      {selectedRunDetail.excalidrawPreview.unavailableReason}
+                    </p>
+                  ) : null}
+                </section>
+              ) : null}
+
               {(selectedRunDetail.mermaidPreview.markdown || selectedRunDetail.mermaidPreview.unavailableReason) ? (
                 <section className="rounded-3xl border border-violet-400/20 bg-violet-400/5 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">

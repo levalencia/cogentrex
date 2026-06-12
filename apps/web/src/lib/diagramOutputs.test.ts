@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractFencedCodeBlocks, summarizeDiagramOutputs } from './diagramOutputs';
+import { extractExcalidrawArtifacts, extractFencedCodeBlocks, parseExcalidrawArtifact, summarizeDiagramOutputs } from './diagramOutputs';
 
 describe('diagram output detection', () => {
   it('detects Mermaid fenced code blocks for previewable chat output', () => {
@@ -26,13 +26,22 @@ describe('diagram output detection', () => {
     });
   });
 
-  it('detects Excalidraw JSON separately from Mermaid output', () => {
+  it('detects and parses Excalidraw JSON separately from Mermaid output', () => {
+    const excalidrawJson = JSON.stringify({
+      type: 'excalidraw',
+      elements: [
+        { id: 'box-1', type: 'rectangle', x: 10, y: 20, width: 120, height: 60, strokeColor: '#1e293b', backgroundColor: '#dbeafe' },
+        { id: 'label-1', type: 'text', x: 24, y: 38, width: 80, height: 24, text: 'Adapter' },
+      ],
+    });
     const content = [
       '```json',
-      '{"type":"excalidraw","elements":[]}',
+      excalidrawJson,
       '```',
     ].join('\n');
 
+    expect(parseExcalidrawArtifact(excalidrawJson)?.elements).toHaveLength(2);
+    expect(extractExcalidrawArtifacts(content)).toHaveLength(1);
     expect(summarizeDiagramOutputs(content)).toEqual({
       mermaidBlockCount: 0,
       hasMermaid: false,

@@ -1,5 +1,5 @@
 import type { AppMode, ArtifactItem, SkillRunEvent, SkillRunSummary } from '@cogentrex/shared';
-import { extractFencedCodeBlocks } from './diagramOutputs';
+import { extractExcalidrawArtifacts, extractFencedCodeBlocks } from './diagramOutputs';
 
 interface ConversationLike {
   id?: string;
@@ -102,6 +102,7 @@ export interface SkillRunDetail {
   errorMessage: string | null;
   metrics: string[];
   mermaidPreview: SkillRunMermaidPreview;
+  excalidrawPreview: SkillRunExcalidrawPreview;
   skillAuditEntries: SkillRunSkillAuditEntry[];
   savedArtifactLinks: Array<{ id: string; href: string; label: string }>;
   sourceLinks: Array<{ id: number; label: string; title: string; url: string; snippet?: string | undefined; channel?: string | undefined }>;
@@ -121,6 +122,13 @@ export interface SkillRunSkillAuditEntry {
 }
 
 export interface SkillRunMermaidPreview {
+  blockCount: number;
+  markdown: string | null;
+  isLoadingOutput: boolean;
+  unavailableReason: string | null;
+}
+
+export interface SkillRunExcalidrawPreview {
   blockCount: number;
   markdown: string | null;
   isLoadingOutput: boolean;
@@ -500,6 +508,44 @@ function skillRunMermaidPreview(input: {
   return { blockCount: 0, markdown: null, isLoadingOutput: false, unavailableReason: null };
 }
 
+function skillRunExcalidrawPreview(input: {
+  observability: Record<string, unknown> | null;
+  assistantContent: string | null;
+  isLoadingOutput: boolean;
+}): SkillRunExcalidrawPreview {
+  const excalidrawWasUsed = skillRunSkillAuditEntries(input.observability).some((entry) => entry.slug === 'excalidraw-diagramming' && entry.statusLabel === 'Used');
+  const artifacts = input.assistantContent ? extractExcalidrawArtifacts(input.assistantContent) : [];
+
+  if (artifacts.length) {
+    return {
+      blockCount: artifacts.length,
+      markdown: artifacts.map((artifact) => `\`\`\`${artifact.language || 'json'}\n${artifact.source}\n\`\`\``).join('\n\n'),
+      isLoadingOutput: false,
+      unavailableReason: null,
+    };
+  }
+
+  if (input.isLoadingOutput) {
+    return {
+      blockCount: 0,
+      markdown: null,
+      isLoadingOutput: true,
+      unavailableReason: 'Loading assistant output for Excalidraw preview…',
+    };
+  }
+
+  if (excalidrawWasUsed) {
+    return {
+      blockCount: 0,
+      markdown: null,
+      isLoadingOutput: false,
+      unavailableReason: 'Excalidraw was marked as used, but no compatible Excalidraw JSON artifact was available in the loaded assistant output.',
+    };
+  }
+
+  return { blockCount: 0, markdown: null, isLoadingOutput: false, unavailableReason: null };
+}
+
 function skillRunSkillAuditEntries(observability: Record<string, unknown> | null): SkillRunDetail['skillAuditEntries'] {
   const rawAudit = observability?.skillAssistAudit;
   if (!Array.isArray(rawAudit)) return [];
@@ -775,6 +821,11 @@ export function buildSkillRunDetail(
     errorMessage: run.errorMessage,
     metrics: skillRunMetrics(run.observability),
     mermaidPreview: skillRunMermaidPreview({
+      observability: run.observability,
+      assistantContent: options.assistantContent,
+      isLoadingOutput: options.isAssistantContentLoading === true,
+    }),
+    excalidrawPreview: skillRunExcalidrawPreview({
       observability: run.observability,
       assistantContent: options.assistantContent,
       isLoadingOutput: options.isAssistantContentLoading === true,
