@@ -310,7 +310,7 @@ function MermaidPreview({ code }: { code: string }) {
               </div>
             </div>
             <div
-              className={`flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-slate-950 p-8 ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
+              className={`min-h-0 flex-1 overflow-hidden bg-slate-950 p-8 ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
@@ -318,7 +318,7 @@ function MermaidPreview({ code }: { code: string }) {
             >
               <div
                 className="mermaid-preview min-w-max select-none rounded-xl bg-slate-900/50 p-6 shadow-xl [&_svg]:!h-auto [&_svg]:!max-w-none [&_svg]:!overflow-visible [&_svg]:!w-auto"
-                style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: 'center center' }}
+                style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: 'top left' }}
                 dangerouslySetInnerHTML={{ __html: svg }}
               />
             </div>
@@ -573,7 +573,7 @@ function ExcalidrawPreview({ code, artifact }: { code: string; artifact: Excalid
               />
             </div>
             <div
-              className={`flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-[#f8f5ee] p-8 ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
+              className={`min-h-0 flex-1 overflow-hidden bg-[#f8f5ee] p-8 ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
@@ -581,7 +581,7 @@ function ExcalidrawPreview({ code, artifact }: { code: string; artifact: Excalid
             >
               <div
                 className="select-none rounded-xl bg-[#fdfaf3] p-4 shadow-xl"
-                style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: 'center center' }}
+                style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: 'top left' }}
               >
                 <svg
                   viewBox={bounds.viewBox}
