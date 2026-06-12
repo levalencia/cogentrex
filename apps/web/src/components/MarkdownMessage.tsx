@@ -92,6 +92,7 @@ const DIAGRAM_MIN_ZOOM = 0.5;
 const DIAGRAM_MAX_ZOOM = 20;
 const DIAGRAM_ZOOM_STEP = 0.5;
 const DIAGRAM_PAN_STEP = 160;
+const DIAGRAM_FIT_ZOOM = 1;
 const DIAGRAM_READABLE_ZOOM = 3;
 
 type DiagramPan = { x: number; y: number };
@@ -145,7 +146,7 @@ function MermaidPreview({ code }: { code: string }) {
   const [showSource, setShowSource] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [zoom, setZoom] = useState(DIAGRAM_READABLE_ZOOM);
+  const [zoom, setZoom] = useState(DIAGRAM_FIT_ZOOM);
   const [pan, setPan] = useState<DiagramPan>({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const dragStartRef = useRef<{ x: number; y: number; panX: number; panY: number; pointerId: number } | null>(null);
@@ -156,13 +157,12 @@ function MermaidPreview({ code }: { code: string }) {
   };
 
   const fitView = () => {
-    setZoom(1);
+    setZoom(DIAGRAM_FIT_ZOOM);
     setPan({ x: 0, y: 0 });
   };
 
   const openExpanded = () => {
-    setZoom(DIAGRAM_READABLE_ZOOM);
-    setPan({ x: 0, y: 0 });
+    fitView();
     setIsExpanded(true);
   };
 
@@ -296,7 +296,7 @@ function MermaidPreview({ code }: { code: string }) {
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700 bg-slate-900 px-4 py-3">
               <div>
                 <p className="text-sm font-semibold text-slate-100">Mermaid diagram</p>
-                <p className="text-xs text-slate-500">Opens at 300%; zoom up to 2000%, pan with arrows or drag.</p>
+                <p className="text-xs text-slate-500">Opens at 100%; use Readable for 300%, zoom up to 2000%, pan with arrows or drag.</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <DiagramViewerControls
@@ -433,7 +433,7 @@ function ExcalidrawPreview({ code, artifact }: { code: string; artifact: Excalid
   const [showSource, setShowSource] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [zoom, setZoom] = useState(DIAGRAM_READABLE_ZOOM);
+  const [zoom, setZoom] = useState(DIAGRAM_FIT_ZOOM);
   const [pan, setPan] = useState<DiagramPan>({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const dragStartRef = useRef<{ x: number; y: number; panX: number; panY: number; pointerId: number } | null>(null);
@@ -447,12 +447,12 @@ function ExcalidrawPreview({ code, artifact }: { code: string; artifact: Excalid
   };
 
   const fitView = () => {
-    setZoom(1);
+    setZoom(DIAGRAM_FIT_ZOOM);
     setPan({ x: 0, y: 0 });
   };
 
   const openExpanded = () => {
-    resetView();
+    fitView();
     setIsExpanded(true);
   };
 
@@ -561,7 +561,7 @@ function ExcalidrawPreview({ code, artifact }: { code: string; artifact: Excalid
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700 bg-slate-900 px-4 py-3">
               <div>
                 <p className="text-sm font-semibold text-slate-100">Excalidraw diagram</p>
-                <p className="text-xs text-slate-500">Same zoom/pan controls as Mermaid; drag the canvas to inspect details.</p>
+                <p className="text-xs text-slate-500">Opens at 100%; use Readable for 300%, then pan or drag to inspect details.</p>
               </div>
               <DiagramViewerControls
                 zoom={zoom}
