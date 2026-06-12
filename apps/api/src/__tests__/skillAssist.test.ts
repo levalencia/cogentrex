@@ -103,6 +103,8 @@ describe('skill assist prompt selection', () => {
     expect(selection.systemPrompt).toContain('--- Skill: scrum-delivery-planner');
     expect(selection.systemPrompt).toContain('--- Skill: pmp-risk-register');
     expect(selection.systemPrompt).toContain('--- Skill: excalidraw-diagramming');
+    expect(selection.systemPrompt).toContain('When the user selects Excalidraw or asks for a chart/diagram/whiteboard, return a renderable fenced code block labeled `excalidraw` containing JSON');
+    expect(selection.systemPrompt).toContain('Do not use ASCII art for the primary diagram unless the user explicitly asks for ASCII.');
     expect(selection.systemPrompt).toContain('When the user manually selects multiple skills, produce a clearly labeled output for each selected skill unless one is impossible or inappropriate.');
     expect(selection.systemPrompt).toContain('If you omit a selected skill output, explain why in one sentence.');
   });

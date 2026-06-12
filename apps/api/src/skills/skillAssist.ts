@@ -141,7 +141,10 @@ const SKILL_ASSIST_CATALOG: SkillAssistContext[] = [
     content: [
       'Structure diagrams around the user decision: actors, systems, data/control flow, failure points, and labels.',
       'Prefer a small readable diagram over a dense map. Group related elements and name arrows with actions or data.',
-      'If outputting JSON is not requested, provide a precise diagram blueprint that can be rendered later.',
+      'When the user selects Excalidraw or asks for a chart/diagram/whiteboard, return a renderable fenced code block labeled `excalidraw` containing JSON with { "type": "excalidraw", "elements": [...] }.',
+      'Use standard Excalidraw element fields: id, type, x, y, width, height, strokeColor, backgroundColor, text, fontSize, points, startArrowhead, and endArrowhead.',
+      'Do not use ASCII art for the primary diagram unless the user explicitly asks for ASCII.',
+      'After the JSON block, include only a short note explaining the diagram boundaries.',
     ].join('\n'),
   },
   {
