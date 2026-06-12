@@ -3,7 +3,7 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Highlight, themes } from 'prism-react-renderer';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useId } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import type { ResearchSource } from '@cogentrex/shared';
 import { parseExcalidrawArtifact } from '@/lib/diagramOutputs';
@@ -88,30 +88,86 @@ function CitationLink({ href, children, sources }: { href: string | undefined; c
   );
 }
 
+const DIAGRAM_MIN_ZOOM = 0.5;
+const DIAGRAM_MAX_ZOOM = 20;
+const DIAGRAM_ZOOM_STEP = 0.5;
+const DIAGRAM_PAN_STEP = 160;
+const DIAGRAM_READABLE_ZOOM = 3;
+
+type DiagramPan = { x: number; y: number };
+
+function clampZoom(value: number) {
+  return Math.min(DIAGRAM_MAX_ZOOM, Math.max(DIAGRAM_MIN_ZOOM, Number(value.toFixed(2))));
+}
+
+function DiagramViewerControls({
+  zoom,
+  onZoomBy,
+  onReset,
+  onFit,
+  onPanBy,
+  onClose,
+}: {
+  zoom: number;
+  onZoomBy: (delta: number) => void;
+  onReset: () => void;
+  onFit: () => void;
+  onPanBy: (x: number, y: number) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <button onClick={() => onZoomBy(-DIAGRAM_ZOOM_STEP)} className="rounded-lg border border-slate-700 px-3 py-1 text-sm text-slate-200 hover:bg-slate-800" aria-label="Zoom out">−</button>
+      <span className="min-w-16 text-center text-xs text-slate-400">{Math.round(zoom * 100)}%</span>
+      <button onClick={() => onZoomBy(DIAGRAM_ZOOM_STEP)} className="rounded-lg border border-slate-700 px-3 py-1 text-sm text-slate-200 hover:bg-slate-800" aria-label="Zoom in">+</button>
+      <button onClick={() => onZoomBy(2)} className="rounded-lg border border-slate-700 px-3 py-1 text-xs text-slate-300 hover:bg-slate-800" aria-label="Zoom in more">+200%</button>
+      <button onClick={onFit} className="rounded-lg border border-slate-700 px-3 py-1 text-xs text-slate-300 hover:bg-slate-800">Fit</button>
+      <button onClick={onReset} className="rounded-lg border border-slate-700 px-3 py-1 text-xs text-slate-300 hover:bg-slate-800">Readable</button>
+      <div className="grid grid-cols-3 gap-1" aria-label="Pan controls">
+        <span />
+        <button onClick={() => onPanBy(0, -DIAGRAM_PAN_STEP)} className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800" aria-label="Pan up">↑</button>
+        <span />
+        <button onClick={() => onPanBy(-DIAGRAM_PAN_STEP, 0)} className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800" aria-label="Pan left">←</button>
+        <button onClick={onReset} className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800" aria-label="Center diagram">•</button>
+        <button onClick={() => onPanBy(DIAGRAM_PAN_STEP, 0)} className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800" aria-label="Pan right">→</button>
+        <span />
+        <button onClick={() => onPanBy(0, DIAGRAM_PAN_STEP)} className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800" aria-label="Pan down">↓</button>
+        <span />
+      </div>
+      <button onClick={onClose} className="rounded-lg border border-slate-700 px-3 py-1 text-xs text-slate-300 hover:bg-slate-800">Close</button>
+    </div>
+  );
+}
+
 function MermaidPreview({ code }: { code: string }) {
   const [svg, setSvg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showSource, setShowSource] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(DIAGRAM_READABLE_ZOOM);
+  const [pan, setPan] = useState<DiagramPan>({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const dragStartRef = useRef<{ x: number; y: number; panX: number; panY: number; pointerId: number } | null>(null);
 
   const resetView = () => {
+    setZoom(DIAGRAM_READABLE_ZOOM);
+    setPan({ x: 0, y: 0 });
+  };
+
+  const fitView = () => {
     setZoom(1);
     setPan({ x: 0, y: 0 });
   };
 
   const openExpanded = () => {
-    setZoom(1.25);
+    setZoom(DIAGRAM_READABLE_ZOOM);
     setPan({ x: 0, y: 0 });
     setIsExpanded(true);
   };
 
   const zoomBy = (delta: number) => {
-    setZoom((value) => Math.min(3, Math.max(0.5, Number((value + delta).toFixed(2)))));
+    setZoom((value) => clampZoom(value + delta));
   };
 
   const panBy = (x: number, y: number) => {
@@ -170,8 +226,8 @@ function MermaidPreview({ code }: { code: string }) {
     if (!isExpanded) return undefined;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setIsExpanded(false);
-      if ((event.metaKey || event.ctrlKey) && event.key === '=') zoomBy(0.25);
-      if ((event.metaKey || event.ctrlKey) && event.key === '-') zoomBy(-0.25);
+      if ((event.metaKey || event.ctrlKey) && event.key === '=') zoomBy(DIAGRAM_ZOOM_STEP);
+      if ((event.metaKey || event.ctrlKey) && event.key === '-') zoomBy(-DIAGRAM_ZOOM_STEP);
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -240,25 +296,17 @@ function MermaidPreview({ code }: { code: string }) {
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700 bg-slate-900 px-4 py-3">
               <div>
                 <p className="text-sm font-semibold text-slate-100">Mermaid diagram</p>
-                <p className="text-xs text-slate-500">Zoom with controls; pan with arrows or drag the canvas.</p>
+                <p className="text-xs text-slate-500">Opens at 300%; zoom up to 2000%, pan with arrows or drag.</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <button onClick={() => zoomBy(-0.25)} className="rounded-lg border border-slate-700 px-3 py-1 text-sm text-slate-200 hover:bg-slate-800" aria-label="Zoom out">−</button>
-                <span className="min-w-14 text-center text-xs text-slate-400">{Math.round(zoom * 100)}%</span>
-                <button onClick={() => zoomBy(0.25)} className="rounded-lg border border-slate-700 px-3 py-1 text-sm text-slate-200 hover:bg-slate-800" aria-label="Zoom in">+</button>
-                <button onClick={resetView} className="rounded-lg border border-slate-700 px-3 py-1 text-xs text-slate-300 hover:bg-slate-800">Reset</button>
-                <div className="grid grid-cols-3 gap-1" aria-label="Pan controls">
-                  <span />
-                  <button onClick={() => panBy(0, -80)} className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800" aria-label="Pan up">↑</button>
-                  <span />
-                  <button onClick={() => panBy(-80, 0)} className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800" aria-label="Pan left">←</button>
-                  <button onClick={resetView} className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800" aria-label="Center diagram">•</button>
-                  <button onClick={() => panBy(80, 0)} className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800" aria-label="Pan right">→</button>
-                  <span />
-                  <button onClick={() => panBy(0, 80)} className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800" aria-label="Pan down">↓</button>
-                  <span />
-                </div>
-                <button onClick={() => setIsExpanded(false)} className="rounded-lg border border-slate-700 px-3 py-1 text-xs text-slate-300 hover:bg-slate-800">Close</button>
+                <DiagramViewerControls
+                  zoom={zoom}
+                  onZoomBy={zoomBy}
+                  onReset={resetView}
+                  onFit={fitView}
+                  onPanBy={panBy}
+                  onClose={() => setIsExpanded(false)}
+                />
               </div>
             </div>
             <div
@@ -269,7 +317,7 @@ function MermaidPreview({ code }: { code: string }) {
               onPointerCancel={handlePointerUp}
             >
               <div
-                className="mermaid-preview min-w-max select-none rounded-xl bg-slate-900/50 p-6 shadow-xl"
+                className="mermaid-preview min-w-max select-none rounded-xl bg-slate-900/50 p-6 shadow-xl [&_svg]:!h-auto [&_svg]:!max-w-none [&_svg]:!overflow-visible [&_svg]:!w-auto"
                 style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: 'center center' }}
                 dangerouslySetInnerHTML={{ __html: svg }}
               />
@@ -311,8 +359,12 @@ function excalidrawBounds(elements: ExcalidrawElement[]) {
   const maxX = Math.max(...bounds.map((bound) => bound.maxX));
   const maxY = Math.max(...bounds.map((bound) => bound.maxY));
   const padding = 48;
+  const width = Math.max(maxX - minX + padding * 2, 240);
+  const height = Math.max(maxY - minY + padding * 2, 160);
   return {
-    viewBox: `${minX - padding} ${minY - padding} ${Math.max(maxX - minX + padding * 2, 240)} ${Math.max(maxY - minY + padding * 2, 160)}`,
+    viewBox: `${minX - padding} ${minY - padding} ${width} ${height}`,
+    width,
+    height,
   };
 }
 
@@ -380,14 +432,73 @@ function ExcalidrawElementSvg({ element, markerId }: { element: ExcalidrawElemen
 function ExcalidrawPreview({ code, artifact }: { code: string; artifact: ExcalidrawArtifact }) {
   const [showSource, setShowSource] = useState(false);
   const [copied, setCopied] = useState(false);
-  const markerId = useRef(`excalidraw-arrow-${Math.random().toString(36).slice(2)}`).current;
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [zoom, setZoom] = useState(DIAGRAM_READABLE_ZOOM);
+  const [pan, setPan] = useState<DiagramPan>({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const dragStartRef = useRef<{ x: number; y: number; panX: number; panY: number; pointerId: number } | null>(null);
+  const reactId = useId();
+  const markerId = `excalidraw-arrow-${reactId.replace(/:/g, '')}`;
   const bounds = excalidrawBounds(artifact.elements);
+
+  const resetView = () => {
+    setZoom(DIAGRAM_READABLE_ZOOM);
+    setPan({ x: 0, y: 0 });
+  };
+
+  const fitView = () => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  };
+
+  const openExpanded = () => {
+    resetView();
+    setIsExpanded(true);
+  };
+
+  const zoomBy = (delta: number) => {
+    setZoom((value) => clampZoom(value + delta));
+  };
+
+  const panBy = (x: number, y: number) => {
+    setPan((value) => ({ x: value.x + x, y: value.y + y }));
+  };
+
+  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    dragStartRef.current = { x: event.clientX, y: event.clientY, panX: pan.x, panY: pan.y, pointerId: event.pointerId };
+    setIsPanning(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const dragStart = dragStartRef.current;
+    if (!dragStart) return;
+    setPan({ x: dragStart.panX + event.clientX - dragStart.x, y: dragStart.panY + event.clientY - dragStart.y });
+  };
+
+  const handlePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const dragStart = dragStartRef.current;
+    if (dragStart) event.currentTarget.releasePointerCapture(dragStart.pointerId);
+    dragStartRef.current = null;
+    setIsPanning(false);
+  };
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(code);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  useEffect(() => {
+    if (!isExpanded) return undefined;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsExpanded(false);
+      if ((event.metaKey || event.ctrlKey) && event.key === '=') zoomBy(DIAGRAM_ZOOM_STEP);
+      if ((event.metaKey || event.ctrlKey) && event.key === '-') zoomBy(-DIAGRAM_ZOOM_STEP);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isExpanded]);
 
   return (
     <div className="my-4 overflow-hidden rounded-xl border border-slate-700 bg-slate-950/70">
@@ -397,6 +508,12 @@ function ExcalidrawPreview({ code, artifact }: { code: string; artifact: Excalid
           <span className="ml-2 text-[11px] text-slate-500">JSON artifact candidate</span>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={openExpanded}
+            className="rounded px-2 py-1 text-xs text-slate-400 transition-colors hover:bg-slate-700 hover:text-white"
+          >
+            Expand
+          </button>
           <button
             onClick={() => setShowSource((value) => !value)}
             className="rounded px-2 py-1 text-xs text-slate-400 transition-colors hover:bg-slate-700 hover:text-white"
@@ -412,18 +529,81 @@ function ExcalidrawPreview({ code, artifact }: { code: string; artifact: Excalid
         </div>
       </div>
       <div className="overflow-x-auto bg-[#f8f5ee] p-4">
-        <svg viewBox={bounds.viewBox} className="min-h-64 w-full min-w-[520px] rounded-lg bg-[#fdfaf3] shadow-inner" role="img" aria-label="Rendered Excalidraw diagram">
-          <defs>
-            <marker id={markerId} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="#1e293b" />
-            </marker>
-          </defs>
-          {artifact.elements.map((element, index) => (
-            <ExcalidrawElementSvg key={element.id ?? index} element={element} markerId={markerId} />
-          ))}
-        </svg>
+        <button
+          type="button"
+          onClick={openExpanded}
+          className="group block min-w-max rounded-lg border border-transparent text-left transition-colors hover:border-accent/30 hover:bg-accent/5 focus:outline-none focus:ring-2 focus:ring-accent/50"
+          aria-label="Open Excalidraw diagram in larger viewer"
+        >
+          <svg viewBox={bounds.viewBox} className="min-h-64 w-full min-w-[520px] rounded-lg bg-[#fdfaf3] shadow-inner" role="img" aria-label="Rendered Excalidraw diagram">
+            <defs>
+              <marker id={markerId} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#1e293b" />
+              </marker>
+            </defs>
+            {artifact.elements.map((element, index) => (
+              <ExcalidrawElementSvg key={element.id ?? index} element={element} markerId={markerId} />
+            ))}
+          </svg>
+          <span className="mt-2 block text-center text-[11px] text-slate-600 transition-colors group-hover:text-slate-900">Click to expand, zoom, and pan</span>
+        </button>
       </div>
       {showSource ? <CodeBlock className="language-text">{code}</CodeBlock> : null}
+      {isExpanded ? (
+        <div className="fixed inset-0 z-[100] bg-slate-950/90 p-4 backdrop-blur-sm" onClick={() => setIsExpanded(false)}>
+          <div
+            className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 shadow-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Expanded Excalidraw diagram viewer"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700 bg-slate-900 px-4 py-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-100">Excalidraw diagram</p>
+                <p className="text-xs text-slate-500">Same zoom/pan controls as Mermaid; drag the canvas to inspect details.</p>
+              </div>
+              <DiagramViewerControls
+                zoom={zoom}
+                onZoomBy={zoomBy}
+                onReset={resetView}
+                onFit={fitView}
+                onPanBy={panBy}
+                onClose={() => setIsExpanded(false)}
+              />
+            </div>
+            <div
+              className={`flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-[#f8f5ee] p-8 ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerUp}
+            >
+              <div
+                className="select-none rounded-xl bg-[#fdfaf3] p-4 shadow-xl"
+                style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: 'center center' }}
+              >
+                <svg
+                  viewBox={bounds.viewBox}
+                  className="block max-w-none rounded-lg bg-[#fdfaf3]"
+                  style={{ width: `${bounds.width}px`, height: `${bounds.height}px` }}
+                  role="img"
+                  aria-label="Expanded rendered Excalidraw diagram"
+                >
+                  <defs>
+                    <marker id={`${markerId}-expanded`} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1e293b" />
+                    </marker>
+                  </defs>
+                  {artifact.elements.map((element, index) => (
+                    <ExcalidrawElementSvg key={element.id ?? index} element={element} markerId={`${markerId}-expanded`} />
+                  ))}
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
