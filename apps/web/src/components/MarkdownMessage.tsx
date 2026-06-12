@@ -5,6 +5,8 @@ import remarkGfm from 'remark-gfm';
 import { Highlight, themes } from 'prism-react-renderer';
 import { useState, useRef, useEffect } from 'react';
 import type { ResearchSource } from '@cogentrex/shared';
+import { parseExcalidrawArtifact } from '@/lib/diagramOutputs';
+import type { ExcalidrawArtifact, ExcalidrawElement } from '@/lib/diagramOutputs';
 
 interface MarkdownMessageProps {
   content: string;
@@ -158,12 +160,161 @@ function MermaidPreview({ code }: { code: string }) {
   );
 }
 
+function elementBounds(element: ExcalidrawElement): { minX: number; minY: number; maxX: number; maxY: number } {
+  const x = element.x ?? 0;
+  const y = element.y ?? 0;
+  const width = element.width ?? 0;
+  const height = element.height ?? 0;
+  const points = element.points?.length ? element.points : null;
+  if (points) {
+    const absolutePoints = points.map((point) => ({ x: x + point[0], y: y + point[1] }));
+    return {
+      minX: Math.min(...absolutePoints.map((point) => point.x), x),
+      minY: Math.min(...absolutePoints.map((point) => point.y), y),
+      maxX: Math.max(...absolutePoints.map((point) => point.x), x + width),
+      maxY: Math.max(...absolutePoints.map((point) => point.y), y + height),
+    };
+  }
+  return {
+    minX: Math.min(x, x + width),
+    minY: Math.min(y, y + height),
+    maxX: Math.max(x, x + width),
+    maxY: Math.max(y, y + height),
+  };
+}
+
+function excalidrawBounds(elements: ExcalidrawElement[]) {
+  const bounds = elements.map(elementBounds);
+  const minX = Math.min(...bounds.map((bound) => bound.minX));
+  const minY = Math.min(...bounds.map((bound) => bound.minY));
+  const maxX = Math.max(...bounds.map((bound) => bound.maxX));
+  const maxY = Math.max(...bounds.map((bound) => bound.maxY));
+  const padding = 48;
+  return {
+    viewBox: `${minX - padding} ${minY - padding} ${Math.max(maxX - minX + padding * 2, 240)} ${Math.max(maxY - minY + padding * 2, 160)}`,
+  };
+}
+
+function excalidrawFill(element: ExcalidrawElement): string {
+  const background = element.backgroundColor?.trim();
+  if (!background || background === 'transparent') return 'none';
+  return background;
+}
+
+function excalidrawStroke(element: ExcalidrawElement): string {
+  return element.strokeColor?.trim() || '#f8fafc';
+}
+
+function ExcalidrawElementSvg({ element, markerId }: { element: ExcalidrawElement; markerId: string }) {
+  const x = element.x ?? 0;
+  const y = element.y ?? 0;
+  const width = Math.abs(element.width ?? 0);
+  const height = Math.abs(element.height ?? 0);
+  const stroke = excalidrawStroke(element);
+  const fill = excalidrawFill(element);
+  const strokeWidth = element.strokeWidth ?? 2;
+  const opacity = element.opacity == null ? 1 : Math.max(0, Math.min(1, element.opacity / 100));
+  const rotation = element.angle ? `rotate(${element.angle * (180 / Math.PI)} ${x + width / 2} ${y + height / 2})` : undefined;
+
+  if (element.type === 'text') {
+    return (
+      <text
+        x={x}
+        y={y + (element.fontSize ?? 20)}
+        fill={stroke}
+        fontSize={element.fontSize ?? 20}
+        fontFamily="Virgil, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        opacity={opacity}
+        transform={rotation}
+      >
+        {element.text ?? ''}
+      </text>
+    );
+  }
+
+  if (element.type === 'arrow' || element.type === 'line') {
+    const points: Array<[number, number]> = element.points?.length ? element.points : [[0, 0], [element.width ?? 0, element.height ?? 0]];
+    const path = points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${x + point[0]} ${y + point[1]}`).join(' ');
+    const markerEnd = element.type === 'arrow' && element.endArrowhead !== null ? `url(#${markerId})` : undefined;
+    return <path d={path} fill="none" stroke={stroke} strokeWidth={strokeWidth} opacity={opacity} markerEnd={markerEnd} strokeLinecap="round" strokeLinejoin="round" />;
+  }
+
+  if (element.type === 'ellipse') {
+    return <ellipse cx={x + width / 2} cy={y + height / 2} rx={width / 2} ry={height / 2} fill={fill} stroke={stroke} strokeWidth={strokeWidth} opacity={opacity} transform={rotation} />;
+  }
+
+  if (element.type === 'diamond') {
+    const points = [
+      `${x + width / 2},${y}`,
+      `${x + width},${y + height / 2}`,
+      `${x + width / 2},${y + height}`,
+      `${x},${y + height / 2}`,
+    ].join(' ');
+    return <polygon points={points} fill={fill} stroke={stroke} strokeWidth={strokeWidth} opacity={opacity} transform={rotation} />;
+  }
+
+  return <rect x={x} y={y} width={width} height={height} rx={12} fill={fill} stroke={stroke} strokeWidth={strokeWidth} opacity={opacity} transform={rotation} />;
+}
+
+function ExcalidrawPreview({ code, artifact }: { code: string; artifact: ExcalidrawArtifact }) {
+  const [showSource, setShowSource] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const markerId = useRef(`excalidraw-arrow-${Math.random().toString(36).slice(2)}`).current;
+  const bounds = excalidrawBounds(artifact.elements);
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="my-4 overflow-hidden rounded-xl border border-slate-700 bg-slate-950/70">
+      <div className="flex items-center justify-between border-b border-slate-700 bg-slate-800/70 px-4 py-2">
+        <div>
+          <span className="text-xs font-semibold uppercase tracking-wide text-accent">Excalidraw preview</span>
+          <span className="ml-2 text-[11px] text-slate-500">JSON artifact candidate</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowSource((value) => !value)}
+            className="rounded px-2 py-1 text-xs text-slate-400 transition-colors hover:bg-slate-700 hover:text-white"
+          >
+            {showSource ? 'Hide source' : 'View source'}
+          </button>
+          <button
+            onClick={handleCopy}
+            className="rounded px-2 py-1 text-xs text-slate-400 transition-colors hover:bg-slate-700 hover:text-white"
+          >
+            {copied ? '✓ Copied' : 'Copy'}
+          </button>
+        </div>
+      </div>
+      <div className="overflow-x-auto bg-[#f8f5ee] p-4">
+        <svg viewBox={bounds.viewBox} className="min-h-64 w-full min-w-[520px] rounded-lg bg-[#fdfaf3] shadow-inner" role="img" aria-label="Rendered Excalidraw diagram">
+          <defs>
+            <marker id={markerId} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#1e293b" />
+            </marker>
+          </defs>
+          {artifact.elements.map((element, index) => (
+            <ExcalidrawElementSvg key={element.id ?? index} element={element} markerId={markerId} />
+          ))}
+        </svg>
+      </div>
+      {showSource ? <CodeBlock className="language-text">{code}</CodeBlock> : null}
+    </div>
+  );
+}
+
 function CodeBlock({ children, className }: { children: string; className?: string }) {
   const [copied, setCopied] = useState(false);
   const language = (className?.replace('language-', '') || 'text') as string;
   const code = String(children).replace(/\n$/, '');
+  const excalidrawArtifact = ['json', 'excalidraw'].includes(language) ? parseExcalidrawArtifact(code, language) : null;
 
   if (language === 'mermaid') return <MermaidPreview code={code} />;
+  if (excalidrawArtifact) return <ExcalidrawPreview code={code} artifact={excalidrawArtifact} />;
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(code);

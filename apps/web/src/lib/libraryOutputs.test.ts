@@ -243,6 +243,92 @@ describe('buildSkillRunDetail skill audit', () => {
       unavailableReason: 'Mermaid was marked as used, but no Mermaid code block was available in the loaded assistant output.',
     });
   });
+  it('extracts Excalidraw JSON artifacts from the assistant output for run preview rendering', () => {
+    const excalidrawJson = JSON.stringify({
+      type: 'excalidraw',
+      elements: [
+        { id: 'actor', type: 'rectangle', x: 0, y: 0, width: 140, height: 64, strokeColor: '#1e293b', backgroundColor: '#dbeafe' },
+        { id: 'actor-label', type: 'text', x: 20, y: 18, width: 80, height: 24, text: 'User' },
+      ],
+    });
+    const detail = buildSkillRunDetail({
+      id: 'run-excalidraw-preview',
+      userId: 'user-1',
+      skillId: 'skl_chat',
+      skillSlug: 'chat',
+      skillName: 'Chat',
+      mode: 'CHAT',
+      status: 'completed',
+      conversationId: 'conv-1',
+      jobId: null,
+      providerId: 'provider-1',
+      startedAt: '2026-05-22T20:00:00.000Z',
+      completedAt: '2026-05-22T20:01:00.000Z',
+      durationMs: 60000,
+      errorMessage: null,
+      observability: {
+        messageId: 'msg-assistant-1',
+        skillAssistAudit: [
+          {
+            slug: 'excalidraw-diagramming',
+            label: 'Excalidraw Diagramming',
+            status: 'used',
+            selected: true,
+            injected: true,
+            reason: 'Detected an Excalidraw JSON artifact in the assistant output.',
+          },
+        ],
+      },
+    }, {
+      assistantContent: `Here is the diagram:\n\n\`\`\`json\n${excalidrawJson}\n\`\`\``,
+    });
+
+    expect(detail.excalidrawPreview).toEqual({
+      blockCount: 1,
+      markdown: `\`\`\`json\n${excalidrawJson}\n\`\`\``,
+      isLoadingOutput: false,
+      unavailableReason: null,
+    });
+  });
+
+  it('explains when Excalidraw was used but no previewable JSON artifact is available', () => {
+    const detail = buildSkillRunDetail({
+      id: 'run-excalidraw-missing-output',
+      userId: 'user-1',
+      skillId: 'skl_chat',
+      skillSlug: 'chat',
+      skillName: 'Chat',
+      mode: 'CHAT',
+      status: 'completed',
+      conversationId: 'conv-1',
+      jobId: null,
+      providerId: 'provider-1',
+      startedAt: '2026-05-22T20:00:00.000Z',
+      completedAt: '2026-05-22T20:01:00.000Z',
+      durationMs: 60000,
+      errorMessage: null,
+      observability: {
+        messageId: 'msg-assistant-1',
+        skillAssistAudit: [
+          {
+            slug: 'excalidraw-diagramming',
+            label: 'Excalidraw Diagramming',
+            status: 'used',
+            selected: true,
+            injected: true,
+            reason: 'Detected an Excalidraw JSON artifact in the assistant output.',
+          },
+        ],
+      },
+    }, { assistantContent: 'No fenced Excalidraw JSON here.' });
+
+    expect(detail.excalidrawPreview).toEqual({
+      blockCount: 0,
+      markdown: null,
+      isLoadingOutput: false,
+      unavailableReason: 'Excalidraw was marked as used, but no compatible Excalidraw JSON artifact was available in the loaded assistant output.',
+    });
+  });
 });
 
 describe('run history URL filters', () => {
