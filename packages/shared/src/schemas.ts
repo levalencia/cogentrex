@@ -46,6 +46,7 @@ export const updateProviderSchema = createProviderSchema.partial().extend({
 });
 
 const skillAssistSlugSchema = z.string().trim().min(1).max(120).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+export const skillAssistModeSchema = z.enum(['auto', 'hybrid', 'manual', 'off']);
 
 export const sendMessageSchema = z.object({
   conversationId: z.string().optional(),
@@ -53,6 +54,7 @@ export const sendMessageSchema = z.object({
   content: z.string().trim().min(1).max(20000),
   mode: z.enum(['CHAT', 'DEEP_RESEARCH']).default('CHAT'),
   useSkills: z.boolean().default(false),
+  skillAssistMode: skillAssistModeSchema.default('auto'),
   selectedSkillSlug: skillAssistSlugSchema.optional(),
   selectedSkillSlugs: z.array(skillAssistSlugSchema).max(6).optional(),
 });

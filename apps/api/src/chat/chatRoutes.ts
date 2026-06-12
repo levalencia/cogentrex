@@ -154,8 +154,8 @@ export function chatRoutes(auth: AuthService, chat: ChatService, research: Resea
   router.post('/plan', async (req, res, next) => {
     try {
       const user = currentUser(req);
-      const { content, providerId, conversationId, useSkills, selectedSkillSlugs, selectedSkillSlug } = req.body as { content: string; providerId?: string; conversationId?: string; useSkills?: boolean; selectedSkillSlugs?: string[]; selectedSkillSlug?: string };
-      const result = await research.plan(providerId, user.id, content, conversationId, useSkills ?? false, selectedSkillSlugs ?? (selectedSkillSlug ? [selectedSkillSlug] : undefined));
+      const { content, providerId, conversationId, useSkills, skillAssistMode, selectedSkillSlugs, selectedSkillSlug } = req.body as { content: string; providerId?: string; conversationId?: string; useSkills?: boolean; skillAssistMode?: 'auto' | 'hybrid' | 'manual' | 'off'; selectedSkillSlugs?: string[]; selectedSkillSlug?: string };
+      const result = await research.plan(providerId, user.id, content, conversationId, useSkills ?? false, selectedSkillSlugs ?? (selectedSkillSlug ? [selectedSkillSlug] : undefined), skillAssistMode ?? 'auto');
       res.json(result);
     } catch (error) {
       next(error);
@@ -215,6 +215,7 @@ export function chatRoutes(auth: AuthService, chat: ChatService, research: Resea
           ...(input.conversationId ? { conversationId: input.conversationId } : {}),
           ...(input.providerId ? { providerId: input.providerId } : {}),
           useSkills: input.useSkills,
+          skillAssistMode: input.skillAssistMode,
           ...(input.selectedSkillSlugs ? { selectedSkillSlugs: input.selectedSkillSlugs } : {}),
           ...(input.selectedSkillSlug ? { selectedSkillSlug: input.selectedSkillSlug } : {}),
           emit,
@@ -226,6 +227,7 @@ export function chatRoutes(auth: AuthService, chat: ChatService, research: Resea
           ...(input.conversationId ? { conversationId: input.conversationId } : {}),
           ...(input.providerId ? { providerId: input.providerId } : {}),
           useSkills: input.useSkills,
+          skillAssistMode: input.skillAssistMode,
           ...(input.selectedSkillSlugs ? { selectedSkillSlugs: input.selectedSkillSlugs } : {}),
           ...(input.selectedSkillSlug ? { selectedSkillSlug: input.selectedSkillSlug } : {}),
           emit,

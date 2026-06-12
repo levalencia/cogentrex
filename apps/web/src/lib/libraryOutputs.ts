@@ -468,6 +468,12 @@ function skillAssistSelectedMetric(observability: Record<string, unknown> | null
   return `${count} selected ${count === 1 ? 'skill' : 'skills'}`;
 }
 
+function skillAssistModeLabel(observability: Record<string, unknown> | null): string | null {
+  const mode = observability?.skillAssistMode;
+  if (mode !== 'auto' && mode !== 'hybrid' && mode !== 'manual' && mode !== 'off') return null;
+  return mode.charAt(0).toUpperCase() + mode.slice(1);
+}
+
 function skillRunMermaidPreview(input: {
   observability: Record<string, unknown> | null;
   assistantContent: string | null;
@@ -616,8 +622,10 @@ function skillRunMetrics(observability: Record<string, unknown> | null): string[
   if (postCount != null) metrics.push(`${postCount} posts`);
   if (promptLength != null) metrics.push(`${promptLength} prompt chars`);
 
+  const skillAssistMode = skillAssistModeLabel(observability);
   const platforms = observability?.platforms;
   const selectedSkills = skillAssistSelectedMetric(observability);
+  if (skillAssistMode) metrics.push(`Skill Assist ${skillAssistMode}`);
   if (Array.isArray(platforms) && platforms.length) metrics.push(`${platforms.length} platforms`);
   if (selectedSkills) metrics.push(selectedSkills);
   if (savedArtifactCount != null) metrics.push(`${savedArtifactCount} saved ${savedArtifactCount === 1 ? 'artifact' : 'artifacts'}`);
@@ -639,9 +647,11 @@ function skillRunCriticalObservabilityEntries(observability: Record<string, unkn
   const promptLength = readNumericMetric(observability, 'promptLength');
   const savedArtifactCount = readNumericMetric(observability, 'savedArtifactCount');
   const platforms = observability.platforms;
+  const skillAssistMode = skillAssistModeLabel(observability);
   const selectedSkills = selectedSkillAssistLabel(observability);
 
   if (typeof phase === 'string' && phase.trim()) entries.push({ label: 'Phase', value: phase });
+  if (skillAssistMode) entries.push({ label: 'Skill Assist mode', value: skillAssistMode });
   if (selectedSkills) entries.push({ label: 'Selected skills', value: selectedSkills });
   if (sourceCount != null) entries.push({ label: 'Sources', value: String(sourceCount) });
   if (newSourceCount != null) entries.push({ label: 'New sources', value: String(newSourceCount) });

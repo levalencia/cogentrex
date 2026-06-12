@@ -1604,13 +1604,16 @@ describe('buildSkillRunDetail', () => {
       errorMessage: null,
       observability: {
         skillAssistEnabled: true,
+        skillAssistMode: 'manual',
         skillAssistSlugs: ['mermaid-diagrams', 'excalidraw-diagramming'],
         estimatedTokens: 440,
       },
     });
 
+    expect(detail.metrics).toContain('Skill Assist Manual');
     expect(detail.metrics).toContain('2 selected skills');
     expect(detail.criticalObservabilityEntries).toEqual([
+      { label: 'Skill Assist mode', value: 'Manual' },
       { label: 'Selected skills', value: 'Mermaid Diagrams, Excalidraw Diagramming' },
       { label: 'Estimated tokens', value: '440' },
     ]);

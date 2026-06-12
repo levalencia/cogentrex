@@ -166,6 +166,14 @@ describe('chat streaming API', () => {
       status: 'PUBLISHED',
       visibility: 'USER_VISIBLE',
       category: 'Travel Ops',
+      outputContract: {
+        type: 'object',
+        required: ['summary', 'nextActions'],
+        properties: {
+          summary: { type: 'string' },
+          nextActions: { type: 'array', items: { type: 'string' } },
+        },
+      },
     }).expect(200);
     await agent.put('/api/admin/skills/flight-search/route').send({
       mode: 'CHAT',
@@ -185,16 +193,21 @@ describe('chat streaming API', () => {
     expect(llm.calls).toHaveLength(1);
     expect(llm.calls[0]?.[0]).toMatchObject({ role: 'system' });
     expect(llm.calls[0]?.[0]?.content).toContain('Cogentrex in Skill Assist mode');
+    expect(llm.calls[0]?.[0]?.content).toContain('Task composer contract:');
+    expect(llm.calls[0]?.[0]?.content).toContain('- Skill Assist mode: auto');
     expect(llm.calls[0]?.[0]?.content).toContain('--- Skill: flight-search');
+    expect(llm.calls[0]?.[0]?.content).toContain('Output contract:');
     expect(llm.calls[0]?.[0]?.content).toContain('Use the registry-backed travel workflow playbook');
 
     await agent
       .post('/api/chat/stream')
-      .send({ content: 'Do it', mode: 'CHAT', useSkills: true, selectedSkillSlugs: ['flight-search', 'scrum-delivery-planner'] })
+      .send({ content: 'Do it', mode: 'CHAT', useSkills: true, skillAssistMode: 'manual', selectedSkillSlugs: ['flight-search', 'scrum-delivery-planner'] })
       .expect(200);
 
     expect(llm.calls).toHaveLength(2);
     expect(llm.calls[1]?.[0]).toMatchObject({ role: 'system' });
+    expect(llm.calls[1]?.[0]?.content).toContain('- Skill Assist mode: manual');
+    expect(llm.calls[1]?.[0]?.content).toContain('- User-selected skill slugs: flight-search, scrum-delivery-planner');
     expect(llm.calls[1]?.[0]?.content).toContain('--- Skill: flight-search');
     expect(llm.calls[1]?.[0]?.content).toContain('Use the registry-backed travel workflow playbook');
     expect(llm.calls[1]?.[0]?.content).toContain('--- Skill: scrum-delivery-planner');
@@ -206,6 +219,7 @@ describe('chat streaming API', () => {
       status: 'completed',
       observability: expect.objectContaining({
         skillAssistEnabled: true,
+        skillAssistMode: 'manual',
         skillAssistSlugs: expect.arrayContaining(['flight-search', 'scrum-delivery-planner']),
       }),
     }));
