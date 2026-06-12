@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Highlight, themes } from 'prism-react-renderer';
 import { useState, useRef, useEffect } from 'react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
 import type { ResearchSource } from '@cogentrex/shared';
 import { parseExcalidrawArtifact } from '@/lib/diagramOutputs';
 import type { ExcalidrawArtifact, ExcalidrawElement } from '@/lib/diagramOutputs';
@@ -92,6 +93,49 @@ function MermaidPreview({ code }: { code: string }) {
   const [error, setError] = useState<string | null>(null);
   const [showSource, setShowSource] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const dragStartRef = useRef<{ x: number; y: number; panX: number; panY: number; pointerId: number } | null>(null);
+
+  const resetView = () => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  };
+
+  const openExpanded = () => {
+    setZoom(1.25);
+    setPan({ x: 0, y: 0 });
+    setIsExpanded(true);
+  };
+
+  const zoomBy = (delta: number) => {
+    setZoom((value) => Math.min(3, Math.max(0.5, Number((value + delta).toFixed(2)))));
+  };
+
+  const panBy = (x: number, y: number) => {
+    setPan((value) => ({ x: value.x + x, y: value.y + y }));
+  };
+
+  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    dragStartRef.current = { x: event.clientX, y: event.clientY, panX: pan.x, panY: pan.y, pointerId: event.pointerId };
+    setIsPanning(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const dragStart = dragStartRef.current;
+    if (!dragStart) return;
+    setPan({ x: dragStart.panX + event.clientX - dragStart.x, y: dragStart.panY + event.clientY - dragStart.y });
+  };
+
+  const handlePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const dragStart = dragStartRef.current;
+    if (dragStart) event.currentTarget.releasePointerCapture(dragStart.pointerId);
+    dragStartRef.current = null;
+    setIsPanning(false);
+  };
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(code);
@@ -105,6 +149,7 @@ function MermaidPreview({ code }: { code: string }) {
       try {
         setError(null);
         setSvg(null);
+        setIsExpanded(false);
         const mermaid = (await import('mermaid')).default;
         mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'dark' });
         const id = `mermaid-${Math.random().toString(36).slice(2)}`;
@@ -121,6 +166,17 @@ function MermaidPreview({ code }: { code: string }) {
     };
   }, [code]);
 
+  useEffect(() => {
+    if (!isExpanded) return undefined;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsExpanded(false);
+      if ((event.metaKey || event.ctrlKey) && event.key === '=') zoomBy(0.25);
+      if ((event.metaKey || event.ctrlKey) && event.key === '-') zoomBy(-0.25);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isExpanded]);
+
   return (
     <div className="my-4 overflow-hidden rounded-xl border border-slate-700 bg-slate-950/70">
       <div className="flex items-center justify-between border-b border-slate-700 bg-slate-800/70 px-4 py-2">
@@ -129,15 +185,23 @@ function MermaidPreview({ code }: { code: string }) {
           <span className="ml-2 text-[11px] text-slate-500">diagram artifact candidate</span>
         </div>
         <div className="flex items-center gap-2">
+          {svg ? (
+            <button
+              onClick={openExpanded}
+              className="rounded px-2 py-1 text-xs text-slate-400 transition-colors hover:bg-slate-700 hover:text-white"
+            >
+              Expand
+            </button>
+          ) : null}
           <button
             onClick={() => setShowSource((value) => !value)}
-            className="rounded px-2 py-1 text-xs text-slate-400 hover:bg-slate-700 hover:text-white transition-colors"
+            className="rounded px-2 py-1 text-xs text-slate-400 transition-colors hover:bg-slate-700 hover:text-white"
           >
             {showSource ? 'Hide source' : 'View source'}
           </button>
           <button
             onClick={handleCopy}
-            className="rounded px-2 py-1 text-xs text-slate-400 hover:bg-slate-700 hover:text-white transition-colors"
+            className="rounded px-2 py-1 text-xs text-slate-400 transition-colors hover:bg-slate-700 hover:text-white"
           >
             {copied ? '✓ Copied' : 'Copy'}
           </button>
@@ -150,12 +214,69 @@ function MermaidPreview({ code }: { code: string }) {
             <div className="mt-1 text-xs text-amber-200/80">{error}</div>
           </div>
         ) : svg ? (
-          <div className="mermaid-preview min-w-max" dangerouslySetInnerHTML={{ __html: svg }} />
+          <button
+            type="button"
+            onClick={openExpanded}
+            className="group block min-w-max rounded-lg border border-transparent p-2 text-left transition-colors hover:border-accent/30 hover:bg-accent/5 focus:outline-none focus:ring-2 focus:ring-accent/50"
+            aria-label="Open Mermaid diagram in larger viewer"
+          >
+            <span className="mermaid-preview block" dangerouslySetInnerHTML={{ __html: svg }} />
+            <span className="mt-2 block text-center text-[11px] text-slate-500 transition-colors group-hover:text-accent">Click to expand, zoom, and pan</span>
+          </button>
         ) : (
           <div className="text-sm text-slate-400">Rendering Mermaid diagram…</div>
         )}
       </div>
       {showSource ? <CodeBlock className="language-text">{code}</CodeBlock> : null}
+      {isExpanded && svg ? (
+        <div className="fixed inset-0 z-[100] bg-slate-950/90 p-4 backdrop-blur-sm" onClick={() => setIsExpanded(false)}>
+          <div
+            className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 shadow-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Expanded Mermaid diagram viewer"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700 bg-slate-900 px-4 py-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-100">Mermaid diagram</p>
+                <p className="text-xs text-slate-500">Zoom with controls; pan with arrows or drag the canvas.</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button onClick={() => zoomBy(-0.25)} className="rounded-lg border border-slate-700 px-3 py-1 text-sm text-slate-200 hover:bg-slate-800" aria-label="Zoom out">−</button>
+                <span className="min-w-14 text-center text-xs text-slate-400">{Math.round(zoom * 100)}%</span>
+                <button onClick={() => zoomBy(0.25)} className="rounded-lg border border-slate-700 px-3 py-1 text-sm text-slate-200 hover:bg-slate-800" aria-label="Zoom in">+</button>
+                <button onClick={resetView} className="rounded-lg border border-slate-700 px-3 py-1 text-xs text-slate-300 hover:bg-slate-800">Reset</button>
+                <div className="grid grid-cols-3 gap-1" aria-label="Pan controls">
+                  <span />
+                  <button onClick={() => panBy(0, -80)} className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800" aria-label="Pan up">↑</button>
+                  <span />
+                  <button onClick={() => panBy(-80, 0)} className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800" aria-label="Pan left">←</button>
+                  <button onClick={resetView} className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800" aria-label="Center diagram">•</button>
+                  <button onClick={() => panBy(80, 0)} className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800" aria-label="Pan right">→</button>
+                  <span />
+                  <button onClick={() => panBy(0, 80)} className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800" aria-label="Pan down">↓</button>
+                  <span />
+                </div>
+                <button onClick={() => setIsExpanded(false)} className="rounded-lg border border-slate-700 px-3 py-1 text-xs text-slate-300 hover:bg-slate-800">Close</button>
+              </div>
+            </div>
+            <div
+              className={`flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-slate-950 p-8 ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerUp}
+            >
+              <div
+                className="mermaid-preview min-w-max select-none rounded-xl bg-slate-900/50 p-6 shadow-xl"
+                style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: 'center center' }}
+                dangerouslySetInnerHTML={{ __html: svg }}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
