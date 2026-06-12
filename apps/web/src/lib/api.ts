@@ -1,4 +1,4 @@
-import type { AdminAnalyticsSummary, ArtifactItem, ChatMessage, ConversationSummary, MediaArtifact, ProjectSummary, ProviderConfigView, PublicUser, RequestMetric, StreamEvent, ImageGenerationOptions, GeneratedPost, SocialPlatformConfig, WorkflowReadiness, SkillDetail, SkillReadiness, SkillSummary, SkillFileSummary, CreateSkillInput, ImportSkillKitInput, UpdateSkillInput, UpdateSkillRouteInput, WorkflowRunDetailResponse, WorkflowRunEventsResponse, WorkflowRunListResponse } from '@cogentrex/shared';
+import type { AdminAnalyticsSummary, ArtifactItem, ChatMessage, ConversationSummary, MediaArtifact, ProjectSummary, ProviderConfigView, PublicUser, RequestMetric, StreamEvent, ImageGenerationOptions, GeneratedPost, SocialPlatformConfig, WorkflowReadiness, SkillDetail, SkillReadiness, SkillSummary, SkillFileSummary, CreateSkillInput, ImportSkillKitInput, UpdateSkillInput, UpdateSkillRouteInput, WorkflowRunDetailResponse, WorkflowRunEventsResponse, WorkflowRunListResponse, SkillAssistMode } from '@cogentrex/shared';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001';
 
@@ -70,8 +70,8 @@ export const api = {
   deleteAllConversations: () => jsonRequest<void>('/api/chat/conversations', { method: 'DELETE' }),
   setConversationProject: (conversationId: string, projectId: string | null) =>
     jsonRequest<void>(`/api/chat/conversations/${conversationId}/project`, { method: 'PATCH', body: JSON.stringify({ projectId }) }),
-  planResearch: (content: string, providerId?: string, conversationId?: string, useSkills?: boolean, selectedSkillSlugs?: string[]) =>
-    jsonRequest<{ plan: string[]; jobId: string; conversationId: string; priorSourceCount: number }>('/api/chat/plan', { method: 'POST', body: JSON.stringify({ content, providerId, conversationId, useSkills, selectedSkillSlugs }) }),
+  planResearch: (content: string, providerId?: string, conversationId?: string, useSkills?: boolean, selectedSkillSlugs?: string[], skillAssistMode?: SkillAssistMode) =>
+    jsonRequest<{ plan: string[]; jobId: string; conversationId: string; priorSourceCount: number }>('/api/chat/plan', { method: 'POST', body: JSON.stringify({ content, providerId, conversationId, useSkills, selectedSkillSlugs, skillAssistMode }) }),
   startResearch: (jobId: string, plan: string[]) =>
     jsonRequest<{ started: boolean }>('/api/chat/research', { method: 'POST', body: JSON.stringify({ jobId, plan }) }),
   // Admin
@@ -155,6 +155,7 @@ export async function streamMessage(input: {
   providerId?: string;
   conversationId?: string;
   useSkills?: boolean;
+  skillAssistMode?: SkillAssistMode;
   selectedSkillSlug?: string;
   selectedSkillSlugs?: string[];
   onEvent: (event: StreamEvent) => void;

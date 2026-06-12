@@ -27,6 +27,9 @@ describe('shared schemas', () => {
   it('accepts Skill Assist flag on chat stream requests', () => {
     expect(sendMessageSchema.parse({ content: 'Help me plan this', mode: 'CHAT', useSkills: true }).useSkills).toBe(true);
     expect(sendMessageSchema.parse({ content: 'Help me plan this', mode: 'CHAT' }).useSkills).toBe(false);
+    expect(sendMessageSchema.parse({ content: 'Help me plan this', mode: 'CHAT' }).skillAssistMode).toBe('auto');
+    expect(sendMessageSchema.parse({ content: 'Help me plan this', mode: 'CHAT', skillAssistMode: 'manual' }).skillAssistMode).toBe('manual');
+    expect(() => sendMessageSchema.parse({ content: 'Help me plan this', mode: 'CHAT', skillAssistMode: 'forced' })).toThrow();
   });
 
   it('accepts multiple selected Skill Assist slugs for chat and deep research requests', () => {

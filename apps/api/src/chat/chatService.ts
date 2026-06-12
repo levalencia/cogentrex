@@ -1,4 +1,4 @@
-import type { StreamEvent } from '@cogentrex/shared';
+import type { SkillAssistMode, StreamEvent } from '@cogentrex/shared';
 import { notFound } from '../http/errors.js';
 import { createId } from '../utils/id.js';
 import { nowIso } from '../utils/time.js';
@@ -79,6 +79,7 @@ export class ChatService {
     conversationId?: string;
     providerId?: string;
     useSkills?: boolean;
+    skillAssistMode?: SkillAssistMode;
     selectedSkillSlug?: string;
     selectedSkillSlugs?: string[];
     emit: StreamSink;
@@ -124,14 +125,17 @@ export class ChatService {
         })
       : undefined;
     const selectedSkillSlugs = input.selectedSkillSlugs?.length ? input.selectedSkillSlugs : (input.selectedSkillSlug ? [input.selectedSkillSlug] : undefined);
-    const assisted = input.useSkills ? withSkillAssistSystemMessage(baseModelMessages, input.content, registrySkills, selectedSkillSlugs) : null;
+    const skillAssistEnabled = Boolean(input.useSkills && input.skillAssistMode !== 'off');
+    const skillAssistMode = skillAssistEnabled ? input.skillAssistMode ?? 'auto' : 'off';
+    const assisted = skillAssistEnabled ? withSkillAssistSystemMessage(baseModelMessages, input.content, registrySkills, selectedSkillSlugs, skillAssistMode) : null;
     const modelMessages = assisted?.messages ?? baseModelMessages;
     this.logger.debug({
       conversationId: conversation.id,
       providerId: provider.id,
       model: provider.model,
       historyMessages: history.length,
-      skillAssistEnabled: Boolean(input.useSkills),
+      skillAssistEnabled,
+      skillAssistMode,
       skillAssistSlugs: assisted?.skillSlugs,
     }, 'chat_model_stream_opening');
     let content = '';
@@ -232,7 +236,7 @@ export class ChatService {
     if (this.skillRuns) {
       const skillAssistSelectedSlugs = selectedSkillSlugs ?? [];
       const skillAssistInjectedSlugs = assisted?.skillSlugs ?? [];
-      const skillAssistAudit = input.useSkills
+      const skillAssistAudit = skillAssistEnabled
         ? buildSkillAssistRunAudit({
             selectedSlugs: skillAssistSelectedSlugs,
             injectedSlugs: skillAssistInjectedSlugs,
@@ -245,7 +249,8 @@ export class ChatService {
         durationMs,
         ttftMs: ttftMs ?? null,
         tps: tps ?? null,
-        skillAssistEnabled: Boolean(input.useSkills),
+        skillAssistEnabled,
+        skillAssistMode,
         skillAssistSlugs: skillAssistInjectedSlugs,
         skillAssistSelectedSlugs,
         skillAssistInjectedSlugs,

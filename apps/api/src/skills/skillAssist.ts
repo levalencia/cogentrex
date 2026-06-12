@@ -1,4 +1,4 @@
-import type { SkillDetail } from '@cogentrex/shared';
+import type { SkillAssistMode, SkillDetail } from '@cogentrex/shared';
 import type { ModelMessage } from '../chat/languageModel.js';
 
 export interface SkillAssistContext {
@@ -307,9 +307,22 @@ function registryContent(skill: SkillDetail, assistConfig: SkillAssistConfig): s
     skill.toolRequirements.length > 0
       ? `Tool requirements: ${skill.toolRequirements.map((tool) => `${tool.name}${tool.required ? ' (required)' : ' (optional)'}`).join(', ')}`
       : null,
+    schemaSummary('Input schema', skill.inputSchema),
+    schemaSummary('Output contract', skill.outputContract),
     ...assistConfig.instructions,
   ];
   return lines.filter((line): line is string => Boolean(line)).join('\n');
+}
+
+function schemaSummary(label: string, value: Record<string, unknown> | null): string | null {
+  if (!value || Object.keys(value).length === 0) return null;
+  try {
+    const serialized = JSON.stringify(value);
+    const compact = serialized.length > 1200 ? `${serialized.slice(0, 1200)}…` : serialized;
+    return `${label}: ${compact}`;
+  } catch {
+    return `${label}: configured`;
+  }
 }
 
 function hasSkillAssistConfig(config: SkillAssistConfig): boolean {
@@ -330,18 +343,28 @@ function buildRegistryContexts(skills: SkillDetail[]): SkillAssistContext[] {
   });
 }
 
-function buildSkillAssistSelection(contexts: SkillAssistContext[]): SkillAssistSelection {
+function buildSkillAssistSelection(contexts: SkillAssistContext[], mode: SkillAssistMode, selectedSlugs: string[]): SkillAssistSelection {
   const skillBlocks = contexts.map((context) => [
     `--- Skill: ${context.slug}`,
     `Name: ${context.name}`,
     `Description: ${context.description}`,
     context.content,
   ].join('\n'));
+  const injectedSlugs = contexts.map((context) => context.slug);
 
   return {
     contexts,
     systemPrompt: [
       'You are Cogentrex in Skill Assist mode.',
+      [
+        'Task composer contract:',
+        `- Skill Assist mode: ${mode}`,
+        `- User-selected skill slugs: ${selectedSlugs.length ? selectedSlugs.join(', ') : 'none'}`,
+        `- Injected skill slugs: ${injectedSlugs.length ? injectedSlugs.join(', ') : 'none'}`,
+        '- Satisfy the user task first; use skills as operating constraints, not as product names.',
+        '- Respect any Input schema or Output contract fields listed in the skill blocks as the preferred output shape.',
+        '- In Manual or Hybrid mode, visibly satisfy each selected skill that was injected, or include one concise reason when a selected skill is not appropriate for the task.',
+      ].join('\n'),
       'Use the selected operating skills below as guidance for this response.',
       'When the user manually selects multiple skills, produce a clearly labeled output for each selected skill unless one is impossible or inappropriate.',
       'If you omit a selected skill output, explain why in one sentence.',
@@ -356,7 +379,7 @@ function normalizePreferredSkillSlugs(preferredSkillSlug?: string | string[]): s
   return slugs.filter((slug, index, list) => slug.trim().length > 0 && list.indexOf(slug) === index);
 }
 
-export function selectSkillAssistContext(query: string, maxSkills = 3, registrySkills?: SkillDetail[], preferredSkillSlug?: string | string[]): SkillAssistSelection {
+export function selectSkillAssistContext(query: string, maxSkills = 3, registrySkills?: SkillDetail[], preferredSkillSlug?: string | string[], mode: SkillAssistMode = 'auto'): SkillAssistSelection {
   const registryCatalog = registrySkills && registrySkills.length > 0 ? buildRegistryContexts(registrySkills) : [];
   const catalog = registryCatalog.length > 0 ? [...registryCatalog, ...SKILL_ASSIST_CATALOG] : SKILL_ASSIST_CATALOG;
   const preferredSlugs = normalizePreferredSkillSlugs(preferredSkillSlug);
@@ -366,7 +389,7 @@ export function selectSkillAssistContext(query: string, maxSkills = 3, registryS
       .filter((context): context is SkillAssistContext => Boolean(context))
       .filter((context, index, list) => list.findIndex((candidate) => candidate.slug === context.slug) === index)
       .slice(0, maxSkills);
-    if (contexts.length > 0) return buildSkillAssistSelection(contexts);
+    if (contexts.length > 0) return buildSkillAssistSelection(contexts, mode, preferredSlugs);
   }
 
   const ranked = catalog
@@ -379,11 +402,11 @@ export function selectSkillAssistContext(query: string, maxSkills = 3, registryS
     .filter((context, index, list) => list.findIndex((candidate) => candidate.slug === context.slug) === index)
     .slice(0, maxSkills);
 
-  return buildSkillAssistSelection(contexts);
+  return buildSkillAssistSelection(contexts, mode, preferredSlugs);
 }
 
-export function withSkillAssistSystemMessage(messages: ModelMessage[], query: string, registrySkills?: SkillDetail[], preferredSkillSlug?: string | string[]): { messages: ModelMessage[]; skillSlugs: string[] } {
-  const selection = selectSkillAssistContext(query, 6, registrySkills, preferredSkillSlug);
+export function withSkillAssistSystemMessage(messages: ModelMessage[], query: string, registrySkills?: SkillDetail[], preferredSkillSlug?: string | string[], mode: SkillAssistMode = 'auto'): { messages: ModelMessage[]; skillSlugs: string[] } {
+  const selection = selectSkillAssistContext(query, 6, registrySkills, preferredSkillSlug, mode);
   return {
     messages: [{ role: 'system', content: selection.systemPrompt }, ...messages],
     skillSlugs: selection.contexts.map((context) => context.slug),

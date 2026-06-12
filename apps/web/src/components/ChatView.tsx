@@ -587,7 +587,7 @@ function ResearchWorkspacePreview({
   );
 }
 
-function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, options?: { useSkills?: boolean; selectedSkillSlug?: string; selectedSkillSlugs?: string[] }) => void; onGenerateSocial: (input: { topic: string; platforms: string[]; imageUrls?: string[]; useResearch?: boolean }) => void }) {
+function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, options?: { useSkills?: boolean; skillAssistMode?: SkillAssistMode; selectedSkillSlug?: string; selectedSkillSlugs?: string[] }) => void; onGenerateSocial: (input: { topic: string; platforms: string[]; imageUrls?: string[]; useResearch?: boolean }) => void }) {
   const mode = useAppStore((state) => state.mode);
   const providers = useAppStore((state) => state.providers);
   const isStreaming = useAppStore((state) => state.isStreaming);
@@ -811,6 +811,7 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
     setUploadedFiles([]);
     onSend(fullContent, {
       useSkills: effectiveUseSkills,
+      skillAssistMode,
       ...(effectiveSkillSlugs.length ? { selectedSkillSlugs: effectiveSkillSlugs } : {}),
     });
   }, [input, uploadedFiles, chatImages, isStreaming, onSend, mode, skillAssistMode, selectedLauncherId, selectedSkillSlugs]);
@@ -1300,7 +1301,7 @@ export function ChatView() {
     if (filename) enterEditMode([filename]);
   }, [enterEditMode]);
 
-  const handleSend = useCallback((content: string, options?: { useSkills?: boolean; selectedSkillSlug?: string; selectedSkillSlugs?: string[] }) => {
+  const handleSend = useCallback((content: string, options?: { useSkills?: boolean; skillAssistMode?: SkillAssistMode; selectedSkillSlug?: string; selectedSkillSlugs?: string[] }) => {
     useAppStore.getState().send(content, options);
   }, []);
 

@@ -1,4 +1,4 @@
-import type { SkillDetail } from '@cogentrex/shared';
+import type { SkillAssistMode, SkillDetail } from '@cogentrex/shared';
 import type { ProviderRuntimeConfig } from '../providers/providerService.js';
 import type { LanguageModelClient } from '../chat/languageModel.js';
 import { withSkillAssistSystemMessage } from '../skills/skillAssist.js';
@@ -20,10 +20,10 @@ export function parsePlanItem(raw: string): PlanItem {
 export class ResearchPlanner {
   constructor(private readonly llm: LanguageModelClient) {}
 
-  async plan(provider: ProviderRuntimeConfig, question: string, seedContext?: string, useSkills = false, registrySkills?: SkillDetail[], selectedSkillSlugs?: string[]): Promise<PlanItem[]> {
+  async plan(provider: ProviderRuntimeConfig, question: string, seedContext?: string, useSkills = false, registrySkills?: SkillDetail[], selectedSkillSlugs?: string[], skillAssistMode: SkillAssistMode = 'auto'): Promise<PlanItem[]> {
     try {
       const planningMessages = createPlanningMessages(question, seedContext);
-      const messages = useSkills ? withSkillAssistSystemMessage(planningMessages, question, registrySkills, selectedSkillSlugs).messages : planningMessages;
+      const messages = useSkills ? withSkillAssistSystemMessage(planningMessages, question, registrySkills, selectedSkillSlugs, skillAssistMode).messages : planningMessages;
       const text = await this.llm.complete(provider, messages);
       const parsed = JSON.parse(text) as { queries?: unknown };
       if (Array.isArray(parsed.queries)) {
@@ -43,10 +43,10 @@ export class ResearchPlanner {
     ];
   }
 
-  async planFollowUp(provider: ProviderRuntimeConfig, question: string, priorSourceCount: number, priorTopics: string, seedContext?: string, useSkills = false, registrySkills?: SkillDetail[], selectedSkillSlugs?: string[]): Promise<PlanItem[]> {
+  async planFollowUp(provider: ProviderRuntimeConfig, question: string, priorSourceCount: number, priorTopics: string, seedContext?: string, useSkills = false, registrySkills?: SkillDetail[], selectedSkillSlugs?: string[], skillAssistMode: SkillAssistMode = 'auto'): Promise<PlanItem[]> {
     try {
       const planningMessages = createFollowUpPlanningMessages(question, priorSourceCount, priorTopics, seedContext);
-      const messages = useSkills ? withSkillAssistSystemMessage(planningMessages, question, registrySkills, selectedSkillSlugs).messages : planningMessages;
+      const messages = useSkills ? withSkillAssistSystemMessage(planningMessages, question, registrySkills, selectedSkillSlugs, skillAssistMode).messages : planningMessages;
       const text = await this.llm.complete(provider, messages);
       const parsed = JSON.parse(text) as { queries?: unknown };
       if (Array.isArray(parsed.queries)) {

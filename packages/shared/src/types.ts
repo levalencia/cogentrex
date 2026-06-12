@@ -8,6 +8,7 @@ export interface PublicUser {
 }
 
 export type AppMode = 'CHAT' | 'DEEP_RESEARCH' | 'SOCIAL_WRITING' | 'IMAGE_GENERATION' | 'VIDEO_GENERATION';
+export type SkillAssistMode = 'auto' | 'hybrid' | 'manual' | 'off';
 
 export type SkillStatus = 'DRAFT' | 'STAGED' | 'PUBLISHED' | 'DISABLED';
 export type SkillVisibility = 'ADMIN_ONLY' | 'USER_VISIBLE';

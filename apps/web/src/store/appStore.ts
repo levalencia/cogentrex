@@ -1,7 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
-import type { AppMode, ChatMessage, ConversationSummary, GeneratedPost, ImageGenerationOptions, ProjectSummary, ProviderConfigView, PublicUser, ResearchSource, StreamEvent, ArtifactItem, SearchIteration } from '@cogentrex/shared';
+import type { AppMode, ChatMessage, ConversationSummary, GeneratedPost, ImageGenerationOptions, ProjectSummary, ProviderConfigView, PublicUser, ResearchSource, StreamEvent, ArtifactItem, SearchIteration, SkillAssistMode } from '@cogentrex/shared';
 import { api, streamMessage, streamResearch } from '@/lib/api';
 import { ApiError } from '@/lib/api';
 
@@ -60,7 +60,7 @@ interface AppState {
   saveMessageAsArtifact: (input: { messageId: string; filename?: string; tags?: string[]; projectId?: string | null }) => Promise<void>;
   updateArtifactMetadata: (id: string, input: { filename?: string; tags?: string[]; projectId?: string | null }) => Promise<ArtifactItem>;
   createProvider: (input: { name: string; baseUrl: string; apiKey: string; model: string; kind: ProviderConfigView['kind']; isDefault: boolean; defaultForMode?: 'CHAT' | 'DEEP_RESEARCH'; supportsStreaming?: boolean; supportsVision?: boolean; supportsTools?: boolean; supportsSearch?: boolean; supportsImage?: boolean; supportsVideo?: boolean }) => Promise<void>;
-  send: (content: string, options?: { useSkills?: boolean; selectedSkillSlug?: string; selectedSkillSlugs?: string[] }) => Promise<void>;
+  send: (content: string, options?: { useSkills?: boolean; skillAssistMode?: SkillAssistMode; selectedSkillSlug?: string; selectedSkillSlugs?: string[] }) => Promise<void>;
   generateSocialPosts: (input: { topic: string; platforms: string[]; imageUrls?: string[] | undefined; useResearch?: boolean | undefined; researchSources?: number | undefined }) => Promise<void>;
   startResearch: (plan: string[]) => Promise<void>;
   cancelPlan: () => void;
@@ -238,10 +238,11 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     if (state.mode === 'DEEP_RESEARCH') {
       const useSkills = options.useSkills ?? false;
+      const skillAssistMode = options.skillAssistMode ?? 'auto';
       const selectedSkillSlugs = options.selectedSkillSlugs?.length ? options.selectedSkillSlugs : (options.selectedSkillSlug ? [options.selectedSkillSlug] : undefined);
       set({ pendingPlan: { jobId: '', conversationId: state.activeConversationId ?? '', plan: [], question: content, useSkills, isLoading: true, loadingMessage: 'Reading linked sources...' } });
       try {
-        const { plan, jobId, conversationId, priorSourceCount } = await api.planResearch(content, state.activeProviderId, state.activeConversationId, useSkills, selectedSkillSlugs);
+        const { plan, jobId, conversationId, priorSourceCount } = await api.planResearch(content, state.activeProviderId, state.activeConversationId, useSkills, selectedSkillSlugs, skillAssistMode);
         set({ pendingPlan: { jobId, conversationId, plan, question: content, useSkills, isLoading: false, priorSourceCount } });
       } catch (error) {
         set({ error: error instanceof Error ? error.message : 'Planning failed', pendingPlan: null });
@@ -462,6 +463,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         ...(state.activeProviderId ? { providerId: state.activeProviderId } : {}),
         ...(state.activeConversationId ? { conversationId: state.activeConversationId } : {}),
         ...(options.useSkills ? { useSkills: true } : {}),
+        ...(options.skillAssistMode ? { skillAssistMode: options.skillAssistMode } : {}),
         ...(options.selectedSkillSlug ? { selectedSkillSlug: options.selectedSkillSlug } : {}),
         ...(options.selectedSkillSlugs?.length ? { selectedSkillSlugs: options.selectedSkillSlugs } : {}),
         onEvent: handleEvent,
