@@ -2,7 +2,7 @@ import type { SkillReadiness } from '@cogentrex/shared';
 import { describe, expect, it } from 'vitest';
 import {
   applyLauncherReadiness,
-  buildWorkflowSelectionGroups,
+  buildTaskSelectionGroups,
   getAdminConfigurationModel,
   getLauncherItems,
   getLauncherPlaceholder,
@@ -15,9 +15,9 @@ import {
   mergeSkillAssistSlugs,
   previewSkillAssistResolution,
   summarizeLauncherReadiness,
-} from './workflowLauncher';
+} from './taskLauncher';
 
-describe('workflow launcher helpers', () => {
+describe('task launcher helpers', () => {
   it('keeps the launcher focused on modes first, then task templates', () => {
     const items = getLauncherItems();
 
@@ -212,7 +212,7 @@ describe('workflow launcher helpers', () => {
       skillReadiness('artifact-writer', 'ready'),
     ];
 
-    const groups = buildWorkflowSelectionGroups(applyLauncherReadiness(getLauncherItems(), readiness));
+    const groups = buildTaskSelectionGroups(applyLauncherReadiness(getLauncherItems(), readiness));
     const deepResearch = groups.modes.find((item) => item.id === 'deep-research');
 
     expect(groups.modes.map((item) => item.id)).toEqual([
@@ -231,12 +231,11 @@ describe('workflow launcher helpers', () => {
     expect(deepResearch?.operatorNote).toBe('Research uses capabilities and adapters; artifacts are reusable outputs, not separate tasks.');
   });
 
-  it('explains the admin configuration boundary between modes, templates, skills, and workflows', () => {
+  it('explains the admin configuration boundary between modes, templates, and skills', () => {
     expect(getAdminConfigurationModel().map((item) => [item.label, item.href])).toEqual([
       ['Modes', '/settings/admin/providers'],
       ['Task templates', '/settings/admin/skills'],
       ['Skills', '/settings/admin/skills'],
-      ['Workflows', '/runs'],
     ]);
     expect(getAdminConfigurationModel().find((item) => item.label === 'Task templates')?.description).toContain('prefill a mode, prompt, and suggested skills');
   });

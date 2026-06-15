@@ -232,7 +232,7 @@ export function RunsView() {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-xs uppercase tracking-[0.3em] text-accent">Run ledger</p>
-              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">Workflow runs as auditable work units.</h1>
+              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">Runs as the audit trail behind Chat.</h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
                 Track status, duration, provider context, errors, and compact observability signals for every skill execution.
               </p>
@@ -242,7 +242,7 @@ export function RunsView() {
               onClick={() => router.push('/')}
               className="rounded-2xl bg-accent px-4 py-2 text-sm font-semibold text-ink transition hover:bg-white"
             >
-              Choose a mode
+              Open chat
             </button>
           </div>
         </header>
@@ -275,7 +275,7 @@ export function RunsView() {
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-accent">Run history</p>
-                <h2 className="mt-2 text-lg font-semibold text-white">Search and inspect workflow execution history</h2>
+                <h2 className="mt-2 text-lg font-semibold text-white">Search and inspect execution history</h2>
                 <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
                   Use this page for operational debugging. Library remains focused on saved artifacts and reusable outputs.
                 </p>

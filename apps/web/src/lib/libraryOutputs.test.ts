@@ -368,13 +368,13 @@ describe('buildSkillRunProviderOptions', () => {
 });
 
 describe('run history empty states', () => {
-  it('guides first-time users to choose a mode when no runs exist', () => {
+  it('guides first-time users back to Chat when no runs exist', () => {
     expect(buildSkillRunEmptyState({ totalRuns: 0, filteredRuns: 0, filters: { status: 'all', mode: 'all', providerId: 'all', query: '' } })).toEqual({
       kind: 'first-run',
       title: 'No runs yet.',
-      description: 'Open Chat, Deep Research, Social Writer, Image, or Video to populate this auditable ledger.',
-      primaryAction: { label: 'Choose a mode', href: '/workflows' },
-      secondaryAction: { label: 'Try Deep Research', href: '/workflows/deep-research' },
+      description: 'Open Chat and ask Cogentrex to create a useful output. Runs will appear here as the audit trail.',
+      primaryAction: { label: 'Open chat', href: '/chats' },
+      secondaryAction: { label: 'Ask Cogentrex', href: '/chats' },
       clearFiltersHref: null,
     });
   });
@@ -383,9 +383,9 @@ describe('run history empty states', () => {
     expect(buildSkillRunEmptyState({ totalRuns: 3, filteredRuns: 0, filters: { status: 'failed', mode: 'DEEP_RESEARCH', providerId: 'prv_foundry', query: 'provider' } })).toEqual({
       kind: 'filtered-empty',
       title: 'No runs match these filters.',
-      description: 'Clear the current search, status, mode, and provider filters or open a mode to create more run history.',
+      description: 'Clear the current search, status, mode, and provider filters or open Chat to create more run history.',
       primaryAction: { label: 'Clear filters', href: '/runs' },
-      secondaryAction: { label: 'Choose a mode', href: '/workflows' },
+      secondaryAction: { label: 'Open chat', href: '/chats' },
       clearFiltersHref: '/runs',
     });
   });
@@ -565,7 +565,7 @@ describe('buildLibraryArtifactRunProvenance', () => {
 });
 
 describe('buildSkillRunNextActions', () => {
-  it('turns a run into operator next actions for continuing, inspecting outputs, and relaunching', () => {
+  it('turns a run into operator next actions for continuing and inspecting outputs', () => {
     const actions = buildSkillRunNextActions({
       id: 'run-deep',
       userId: 'user-1',
@@ -601,13 +601,6 @@ describe('buildSkillRunNextActions', () => {
         description: 'Inspect 2 library artifacts produced by this run.',
         href: '/library?artifact=art-1',
         tone: 'success',
-      },
-      {
-        id: 'open-mode',
-        label: 'Open mode',
-        description: 'Review readiness and launch Deep Research again from its mode.',
-        href: '/workflows/deep-research',
-        tone: 'neutral',
       },
     ]);
   });
@@ -667,10 +660,10 @@ describe('buildSkillRunNextActions', () => {
         tone: 'danger',
       },
       {
-        id: 'open-mode',
-        label: 'Open mode',
-        description: 'Review readiness and launch LinkedIn Writer again from its mode.',
-        href: '/workflows/linkedin-writer',
+        id: 'open-chat',
+        label: 'Open chat',
+        description: 'Start a new chat to run LinkedIn Writer again with Skill Assist when needed.',
+        href: '/chats',
         tone: 'neutral',
       },
     ]);

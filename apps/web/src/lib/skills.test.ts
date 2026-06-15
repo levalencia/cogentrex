@@ -303,7 +303,7 @@ describe('admin skill helpers', () => {
 
     expect(buildAdminSkillMetrics(rows, analytics()).map((metric) => ({ label: metric.label, value: metric.value, hint: metric.hint }))).toEqual([
       { label: 'Total skills', value: '3', hint: '2 published · 1 disabled' },
-      { label: 'User visible', value: '2', hint: 'Visible in workflow picker' },
+      { label: 'User visible', value: '2', hint: 'Visible in Skill Assist picker' },
       { label: 'Ready routes', value: '1', hint: '1 need route/setup' },
       { label: 'Run health', value: '75%', hint: '12 runs · 3 failed' },
     ]);

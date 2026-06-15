@@ -7,8 +7,6 @@ import { ChatView } from './ChatView';
 import { LibraryView } from './LibraryView';
 import { RunsView } from './RunsView';
 import { Sidebar } from './Sidebar';
-import { SkillCockpitView } from './SkillCockpitView';
-import { SkillDetailView } from './SkillDetailView';
 import { getAppShellSurface } from '@/lib/appRoutes';
 import { useAppStore } from '@/store/appStore';
 
@@ -53,7 +51,7 @@ export function AppShell() {
   return (
     <div className="flex h-screen overflow-hidden bg-ink text-slate-100">
       <Sidebar />
-      {surface === 'runs' ? <RunsView /> : surface === 'library' ? <LibraryView /> : surface === 'skillDetail' ? <SkillDetailView /> : surface === 'start' ? <SkillCockpitView /> : <ChatView />}
+      {surface === 'runs' ? <RunsView /> : surface === 'library' ? <LibraryView /> : <ChatView />}
     </div>
   );
 }

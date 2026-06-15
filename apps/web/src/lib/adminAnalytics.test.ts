@@ -24,7 +24,7 @@ describe('buildAdminAnalyticsViewModel', () => {
 
     expect(view.hasRuns).toBe(false);
     expect(view.healthLabel).toBe('No telemetry yet');
-    expect(view.primaryInsight).toContain('Launch a workflow');
+    expect(view.primaryInsight).toContain('Open Chat');
     expect(view.primaryCta).toEqual({ label: 'Open chat workspace', href: '/chats' });
     expect(view.secondaryCta).toEqual({ label: 'Review run history', href: '/runs' });
   });
@@ -122,6 +122,6 @@ describe('buildAdminAnalyticsViewModel', () => {
 
     expect(view.healthLabel).toBe('Healthy');
     expect(view.healthTone).toBe('success');
-    expect(view.primaryInsight).toBe('95% success across 20 tracked runs. Keep monitoring active workflows.');
+    expect(view.primaryInsight).toBe('95% success across 20 tracked runs. Keep monitoring active runs.');
   });
 });
