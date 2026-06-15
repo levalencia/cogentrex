@@ -563,24 +563,15 @@ function ResearchWorkspacePreview({
   });
 
   return (
-    <section className="rounded-2xl border border-accent/20 bg-accent/5 p-3">
-      <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.22em] text-accent">Deep research workspace</p>
-          <p className="mt-1 text-xs text-slate-400">Plan → search → evidence → cited synthesis, visible before the answer lands.</p>
-        </div>
-        <span className="rounded-full border border-accent/25 bg-ink/50 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-accent">Research mode</span>
-      </div>
-      <div className="grid gap-2 md:grid-cols-4">
+    <section className="flex flex-wrap items-center gap-2 rounded-2xl border border-accent/20 bg-accent/5 px-3 py-2 text-xs" aria-label="Deep Research status">
+      <span className="font-semibold uppercase tracking-[0.18em] text-accent">Deep Research</span>
+      <span className="text-slate-500">Plan → search → evidence → synthesis</span>
+      <div className="flex flex-wrap items-center gap-1.5">
         {cards.map((card) => (
-          <div key={card.id} className={`rounded-2xl border p-3 ${researchStatusClasses(card.status)}`}>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold text-white">{card.label}</span>
-              <span className="text-[10px] uppercase tracking-[0.14em] opacity-80">{card.status}</span>
-            </div>
-            <p className="mt-2 text-sm font-semibold">{card.metric}</p>
-            <p className="mt-1 text-[11px] leading-5 text-slate-400">{card.description}</p>
-          </div>
+          <span key={card.id} className={`rounded-full border px-2 py-1 ${researchStatusClasses(card.status)}`} title={card.description}>
+            <span className="font-semibold text-white">{card.label}</span>
+            <span className="ml-1 opacity-80">{card.metric}</span>
+          </span>
         ))}
       </div>
     </section>
@@ -623,6 +614,7 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
   const [researchSources, setResearchSources] = useState(5);
   const [skillAssistMode, setSkillAssistMode] = useState<SkillAssistMode>('auto');
   const [selectedSkillSlugs, setSelectedSkillSlugs] = useState<string[]>([]);
+  const [showComposerOptions, setShowComposerOptions] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageUploadRef = useRef<HTMLInputElement>(null);
@@ -867,8 +859,19 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
     onGenerateSocial(payload);
   }, [input, isStreaming, selectedPlatforms, socialImages, useResearch, researchSources, onGenerateSocial]);
 
+  const launcherItems = skillReadiness ? applyLauncherReadiness(getLauncherItems(), skillReadiness) : getLauncherItems();
+  const selectedLauncherItem = launcherItems.find((item) => item.id === selectedLauncherId) ?? launcherItems.find((item) => item.mode === mode);
   const skillAssistOptions = getSkillAssistPickerOptions(mode);
   const selectedLauncherSkillSlug = getLauncherSkillSlug(selectedLauncherId);
+  const skillAssistPreview = (mode === 'CHAT' || mode === 'DEEP_RESEARCH') && skillAssistOptions.length
+    ? previewSkillAssistResolution({
+        mode: skillAssistMode,
+        appMode: mode,
+        prompt: input,
+        selectedSkillSlugs,
+        launcherSkillSlug: selectedLauncherSkillSlug,
+      })
+    : null;
   const manualSkillAssistRequiresSelection = (mode === 'CHAT' || mode === 'DEEP_RESEARCH')
     && skillAssistMode === 'manual'
     && mergeSkillAssistSlugs(selectedLauncherSkillSlug, selectedSkillSlugs).length === 0;
@@ -879,14 +882,14 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
   }, []);
 
   return (
-    <div className="shrink-0 border-t border-line bg-ink/90 p-4 backdrop-blur">
+    <div className="shrink-0 border-t border-line bg-ink/90 p-3 backdrop-blur">
       <div
         ref={containerRef}
         onPaste={handlePaste}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`relative mx-auto flex w-full max-w-6xl flex-col gap-3 rounded-3xl border border-line bg-panel p-3 shadow-2xl shadow-black/30 transition-colors ${isDragOver ? 'border-accent bg-accent/5' : ''}`}
+        className={`relative mx-auto flex w-full max-w-6xl flex-col gap-2 rounded-3xl border border-line bg-panel p-2.5 shadow-2xl shadow-black/30 transition-colors ${isDragOver ? 'border-accent bg-accent/5' : ''}`}
       >
         {/* Drag overlay */}
         {isDragOver ? (
@@ -1010,7 +1013,7 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
           </div>
         ) : null}
 
-        {/* Social writing platform selector */}
+        {/* Compact research status */}
         {mode === 'DEEP_RESEARCH' ? (
           <ResearchWorkspacePreview
             hasPendingPlan={!!pendingPlan}
@@ -1021,7 +1024,8 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
           />
         ) : null}
 
-        {mode === 'SOCIAL_WRITING' ? (
+        {/* Advanced social writing options */}
+        {showComposerOptions && mode === 'SOCIAL_WRITING' ? (
           <>
             <div className="flex flex-wrap gap-2 px-2">
               {PLATFORM_OPTIONS.map((p) => (
@@ -1064,13 +1068,13 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
           </>
         ) : null}
 
-        {mode === 'SOCIAL_WRITING' ? (
+        {showComposerOptions && mode === 'SOCIAL_WRITING' ? (
           <p className="px-2 text-xs text-slate-500">
             Tip: Edit your topic above and click Generate again to iterate on results. Previous posts will be saved in the conversation.
           </p>
         ) : null}
 
-        {promptTemplates.length > 0 ? (
+        {showComposerOptions && promptTemplates.length > 0 ? (
           <div className="flex flex-wrap items-center gap-2 px-2" aria-label="Prompt templates">
             <span className="text-xs font-medium text-slate-500">Examples:</span>
             {promptTemplates.map((template) => (
@@ -1107,41 +1111,77 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
               : getLauncherPlaceholder(selectedLauncherId)
           }
           disabled={isStreaming || providers.length === 0 || !!pendingPlan || analyzing}
-          className="min-h-24 resize-none rounded-2xl bg-transparent px-3 py-2 text-slate-100 outline-none placeholder:text-slate-500"
+          className="min-h-16 max-h-40 resize-none rounded-2xl bg-ink/35 px-3 py-2 text-slate-100 outline-none placeholder:text-slate-500 focus:bg-ink/60"
         />
-        {mode === 'IMAGE_GENERATION' ? (
+        {showComposerOptions && mode === 'IMAGE_GENERATION' ? (
           <ImageOptionsPanel options={imageOptions} onChange={setImageOptions} />
         ) : null}
-        <div className="flex flex-col gap-3">
-          <TaskLauncher selectedLauncherId={selectedLauncherId} mode={mode} skillReadiness={skillReadiness} onSelect={selectLauncherItem} />
-          {(mode === 'CHAT' || mode === 'DEEP_RESEARCH') ? (
-            <SkillAssistPanel
-              appMode={mode}
-              prompt={input}
-              assistMode={skillAssistMode}
-              selectedSkillSlugs={selectedSkillSlugs}
-              launcherSkillSlug={selectedLauncherSkillSlug}
-              options={skillAssistOptions}
-              disabled={isStreaming || !!pendingPlan || analyzing}
-              onModeChange={setSkillAssistMode}
-              onToggleSkill={toggleSkillAssistSlug}
-            />
-          ) : null}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2 flex-wrap">
-              <ProviderPicker />
-              {mode !== 'IMAGE_GENERATION' && mode !== 'VIDEO_GENERATION' && mode !== 'SOCIAL_WRITING' ? (
-                <>
-                  <input ref={fileInputRef} type="file" multiple accept=".txt,.md,.json,.pdf,.doc,.docx" onChange={handleFileUpload} className="hidden" />
-                  <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isStreaming} className="rounded-xl border border-line px-3 py-2 text-sm text-slate-300 hover:border-accent disabled:opacity-50">📎 Attach Files</button>
-                </>
-              ) : null}
-            </div>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line/70 pt-2">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            <label className="flex items-center gap-1.5 rounded-xl border border-line bg-ink/50 px-2 py-1.5 text-xs text-slate-400">
+              <span>Mode</span>
+              <select
+                value={selectedLauncherItem?.id ?? selectedLauncherId}
+                onChange={(event) => {
+                  const item = launcherItems.find((candidate) => candidate.id === event.target.value);
+                  if (item) selectLauncherItem(item);
+                }}
+                disabled={isStreaming || !!pendingPlan || analyzing}
+                className="max-w-[170px] bg-transparent text-slate-100 outline-none disabled:opacity-50"
+              >
+                {launcherItems.map((item) => (
+                  <option key={item.id} value={item.id} className="bg-ink text-slate-100">
+                    {item.label}{item.status === 'near_existing' ? ' (soon)' : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {skillAssistPreview ? (
+              <label className="flex items-center gap-1.5 rounded-xl border border-line bg-ink/50 px-2 py-1.5 text-xs text-slate-400" title={skillAssistPreview.description}>
+                <span>Skill Assist</span>
+                <select
+                  value={skillAssistMode}
+                  onChange={(event) => setSkillAssistMode(event.target.value as SkillAssistMode)}
+                  disabled={isStreaming || !!pendingPlan || analyzing}
+                  className="bg-transparent text-slate-100 outline-none disabled:opacity-50"
+                >
+                  {getSkillAssistModeOptions().map((option) => (
+                    <option key={option.mode} value={option.mode} className="bg-ink text-slate-100">
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+
+            <ProviderPicker />
+
+            {mode !== 'IMAGE_GENERATION' && mode !== 'VIDEO_GENERATION' && mode !== 'SOCIAL_WRITING' ? (
+              <>
+                <input ref={fileInputRef} type="file" multiple accept=".txt,.md,.json,.pdf,.doc,.docx" onChange={handleFileUpload} className="hidden" />
+                <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isStreaming} className="rounded-xl border border-line px-3 py-1.5 text-xs text-slate-300 hover:border-accent disabled:opacity-50">📎 Attach</button>
+              </>
+            ) : null}
+
+            {skillAssistPreview ? (
+              <span className="hidden max-w-[260px] truncate text-xs text-slate-500 lg:inline" title={skillAssistPreview.description}>{skillAssistPreview.label}</span>
+            ) : null}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowComposerOptions((value) => !value)}
+              className="rounded-xl border border-line px-3 py-1.5 text-xs text-slate-300 hover:border-accent hover:text-accent"
+            >
+              Options {showComposerOptions ? '▴' : '▾'}
+            </button>
             {mode === 'SOCIAL_WRITING' ? (
               <button
                 onClick={submitSocial}
                 disabled={isStreaming || !input.trim() || selectedPlatforms.length === 0 || providers.length === 0}
-                className="rounded-2xl bg-accent px-5 py-2 font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-xl bg-accent px-4 py-1.5 text-sm font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isStreaming ? 'Generating...' : 'Generate Posts'}
               </button>
@@ -1149,13 +1189,32 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
               <button
                 onClick={submit}
                 disabled={isStreaming || (!input.trim() && uploadedFiles.length === 0 && chatImages.length === 0) || manualSkillAssistRequiresSelection || providers.length === 0 || !!pendingPlan || analyzing}
-                className="rounded-2xl bg-accent px-5 py-2 font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-xl bg-accent px-4 py-1.5 text-sm font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {analyzing ? 'Analyzing images...' : pendingPlan ? 'Reviewing Plan...' : isStreaming ? 'Working...' : editingImages.length > 0 ? 'Edit Image' : mode === 'IMAGE_GENERATION' ? 'Generate Image' : mode === 'VIDEO_GENERATION' ? 'Generate Video' : 'Send'}
+                {analyzing ? 'Analyzing...' : pendingPlan ? 'Reviewing...' : isStreaming ? 'Working...' : editingImages.length > 0 ? 'Edit Image' : mode === 'IMAGE_GENERATION' ? 'Generate Image' : mode === 'VIDEO_GENERATION' ? 'Generate Video' : 'Send'}
               </button>
             )}
           </div>
         </div>
+
+        {showComposerOptions ? (
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <TaskLauncher selectedLauncherId={selectedLauncherId} mode={mode} skillReadiness={skillReadiness} onSelect={selectLauncherItem} />
+            {(mode === 'CHAT' || mode === 'DEEP_RESEARCH') ? (
+              <SkillAssistPanel
+                appMode={mode}
+                prompt={input}
+                assistMode={skillAssistMode}
+                selectedSkillSlugs={selectedSkillSlugs}
+                launcherSkillSlug={selectedLauncherSkillSlug}
+                options={skillAssistOptions}
+                disabled={isStreaming || !!pendingPlan || analyzing}
+                onModeChange={setSkillAssistMode}
+                onToggleSkill={toggleSkillAssistSlug}
+              />
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );
