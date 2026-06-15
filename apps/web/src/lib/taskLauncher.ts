@@ -39,13 +39,13 @@ export interface LauncherItem {
   readiness?: LauncherReadinessBadge | undefined;
 }
 
-export interface WorkflowSelectionGroups {
+export interface TaskSelectionGroups {
   modes: LauncherItem[];
   taskTemplates: LauncherItem[];
 }
 
 export interface AdminConfigurationModelItem {
-  label: 'Modes' | 'Task templates' | 'Skills' | 'Workflows';
+  label: 'Modes' | 'Task templates' | 'Skills';
   description: string;
   href: string;
 }
@@ -284,7 +284,7 @@ export function getDefaultLauncherIdForMode(mode: AppMode): string {
   return getPrimaryLauncherItems().find((item) => item.mode === mode)?.id ?? 'ask-chat';
 }
 
-export function buildWorkflowSelectionGroups(items: LauncherItem[]): WorkflowSelectionGroups {
+export function buildTaskSelectionGroups(items: LauncherItem[]): TaskSelectionGroups {
   return {
     modes: items.filter((item) => item.kind === 'mode'),
     taskTemplates: items.filter((item) => item.kind === 'template'),
@@ -307,11 +307,6 @@ export function getAdminConfigurationModel(): AdminConfigurationModelItem[] {
       label: 'Skills',
       description: 'Governed capability packages that Skill Assist can route into a run when Auto, Hybrid, or Manual is enabled.',
       href: '/settings/admin/skills',
-    },
-    {
-      label: 'Workflows',
-      description: 'Advanced multi-step recipes with approvals, triggers, and operational trace. For now, the Runs ledger shows what executed.',
-      href: '/runs',
     },
   ];
 }

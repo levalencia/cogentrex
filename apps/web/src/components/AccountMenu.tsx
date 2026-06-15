@@ -128,7 +128,7 @@ export function AccountMenu() {
                 href="/settings/admin/analytics"
                 className="block rounded-xl px-3 py-2 text-sm text-accent hover:bg-accent/10"
               >
-                Workflow analytics
+                Capability analytics
               </a>
             </div>
           ) : null}

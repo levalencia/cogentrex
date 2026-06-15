@@ -34,7 +34,7 @@ import {
   type LauncherItem,
   type SkillAssistMode,
   type SkillAssistPickerOption,
-} from '@/lib/workflowLauncher';
+} from '@/lib/taskLauncher';
 import { buildResearchWorkspaceCards, type ResearchWorkspaceStatus } from '@/lib/researchWorkspace';
 import { buildReferencedSources, linkCitationMarkers } from '@/lib/citations';
 import {
@@ -357,7 +357,7 @@ const PLATFORM_OPTIONS = [
   { key: 'substack', label: 'Substack' },
 ];
 
-function WorkflowLauncher({
+function TaskLauncher({
   selectedLauncherId,
   mode,
   skillReadiness,
@@ -368,30 +368,30 @@ function WorkflowLauncher({
   skillReadiness: SkillReadiness[] | null;
   onSelect: (item: LauncherItem) => void;
 }) {
-  const workflows = skillReadiness ? applyLauncherReadiness(getLauncherItems(), skillReadiness) : getLauncherItems();
-  const selectedWorkflow = workflows.find((workflow) => selectedLauncherId === workflow.id || (selectedLauncherId === '' && mode === workflow.mode));
+  const tasks = skillReadiness ? applyLauncherReadiness(getLauncherItems(), skillReadiness) : getLauncherItems();
+  const selectedTask = tasks.find((task) => selectedLauncherId === task.id || (selectedLauncherId === '' && mode === task.mode));
 
   return (
     <section className="rounded-2xl border border-line bg-ink/35 p-2">
       <div className="mb-1 flex flex-wrap items-center justify-between gap-2 px-1">
         <p className="text-[10px] uppercase tracking-[0.22em] text-accent">Task</p>
-        {selectedWorkflow ? <p className="text-[11px] text-slate-500">{selectedWorkflow.description}</p> : null}
+        {selectedTask ? <p className="text-[11px] text-slate-500">{selectedTask.description}</p> : null}
       </div>
       <div className="flex w-full gap-1.5 overflow-x-auto pb-0.5">
-        {workflows.map((workflow) => {
-          const active = selectedLauncherId === workflow.id || (selectedLauncherId === '' && mode === workflow.mode);
+        {tasks.map((task) => {
+          const active = selectedLauncherId === task.id || (selectedLauncherId === '' && mode === task.mode);
           return (
             <button
-              key={workflow.id}
+              key={task.id}
               type="button"
-              onClick={() => onSelect(workflow)}
-              className={`flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-left text-xs transition ${getLauncherToneClasses(workflow.tone, active)}`}
+              onClick={() => onSelect(task)}
+              className={`flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-left text-xs transition ${getLauncherToneClasses(task.tone, active)}`}
             >
-              <span className="font-semibold">{workflow.label}</span>
-              {workflow.readiness ? (
-                <span className={`h-2 w-2 rounded-full border ${getReadinessBadgeClasses(workflow.readiness.status)}`} title={workflow.readiness.label} />
+              <span className="font-semibold">{task.label}</span>
+              {task.readiness ? (
+                <span className={`h-2 w-2 rounded-full border ${getReadinessBadgeClasses(task.readiness.status)}`} title={task.readiness.label} />
               ) : null}
-              {workflow.status === 'near_existing' ? (
+              {task.status === 'near_existing' ? (
                 <span className="rounded-full border border-current/20 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.12em] opacity-75">Soon</span>
               ) : null}
             </button>
@@ -603,11 +603,11 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
   const exitEditMode = useAppStore((state) => state.exitEditMode);
   const addEditingImage = useAppStore((state) => state.addEditingImage);
   const removeEditingImage = useAppStore((state) => state.removeEditingImage);
-  const storedWorkflowLauncherId = useAppStore((state) => state.selectedWorkflowLauncherId);
-  const setSelectedWorkflowLauncher = useAppStore((state) => state.setSelectedWorkflowLauncher);
+  const storedTaskLauncherId = useAppStore((state) => state.selectedTaskLauncherId);
+  const setSelectedTaskLauncher = useAppStore((state) => state.setSelectedTaskLauncher);
 
   const [input, setInput] = useState('');
-  const [selectedLauncherId, setSelectedLauncherId] = useState(() => storedWorkflowLauncherId ?? getDefaultLauncherIdForMode(mode));
+  const [selectedLauncherId, setSelectedLauncherId] = useState(() => storedTaskLauncherId ?? getDefaultLauncherIdForMode(mode));
   const [skillReadiness, setSkillReadiness] = useState<SkillReadiness[] | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -637,9 +637,9 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
     if (!selected || selected.mode !== mode) {
       const defaultLauncherId = getDefaultLauncherIdForMode(mode);
       setSelectedLauncherId(defaultLauncherId);
-      setSelectedWorkflowLauncher(defaultLauncherId);
+      setSelectedTaskLauncher(defaultLauncherId);
     }
-  }, [mode, selectedLauncherId, setSelectedWorkflowLauncher]);
+  }, [mode, selectedLauncherId, setSelectedTaskLauncher]);
 
   useEffect(() => {
     let cancelled = false;
@@ -754,9 +754,9 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
 
   const selectLauncherItem = useCallback((item: LauncherItem) => {
     setSelectedLauncherId(item.id);
-    setSelectedWorkflowLauncher(item.id);
+    setSelectedTaskLauncher(item.id);
     setMode(item.mode);
-  }, [setMode, setSelectedWorkflowLauncher]);
+  }, [setMode, setSelectedTaskLauncher]);
 
   const toggleSkillAssistSlug = useCallback((slug: string) => {
     setSelectedSkillSlugs((current) => current.includes(slug) ? current.filter((item) => item !== slug) : [...current, slug]);
@@ -1113,7 +1113,7 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
           <ImageOptionsPanel options={imageOptions} onChange={setImageOptions} />
         ) : null}
         <div className="flex flex-col gap-3">
-          <WorkflowLauncher selectedLauncherId={selectedLauncherId} mode={mode} skillReadiness={skillReadiness} onSelect={selectLauncherItem} />
+          <TaskLauncher selectedLauncherId={selectedLauncherId} mode={mode} skillReadiness={skillReadiness} onSelect={selectLauncherItem} />
           {(mode === 'CHAT' || mode === 'DEEP_RESEARCH') ? (
             <SkillAssistPanel
               appMode={mode}

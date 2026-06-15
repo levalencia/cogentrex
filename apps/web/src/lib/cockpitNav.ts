@@ -1,7 +1,7 @@
 import type { PublicUser } from '@cogentrex/shared';
 
 export interface CockpitNavItem {
-  id: 'workflows' | 'chat' | 'runs' | 'library' | 'admin';
+  id: 'chat' | 'runs' | 'library' | 'admin';
   label: string;
   href: string;
   description: string;
@@ -15,11 +15,6 @@ function isActivePath(pathname: string | null | undefined, href: string): boolea
   return current === href || current.startsWith(`${href}/`);
 }
 
-function isWorkflowRoute(pathname: string | null | undefined): boolean {
-  const current = pathname ?? '/';
-  return current === '/workflows' || current.startsWith('/workflows/') || current === '/skills' || current.startsWith('/skills/');
-}
-
 export function getCockpitNavItems(role: PublicUser['role'] | undefined, pathname: string | null | undefined): CockpitNavItem[] {
   const items: Array<Omit<CockpitNavItem, 'isActive'>> = [
     {
@@ -28,12 +23,7 @@ export function getCockpitNavItems(role: PublicUser['role'] | undefined, pathnam
       href: '/chats',
       description: 'Chat with Cogentrex',
     },
-    {
-      id: 'workflows',
-      label: 'Start',
-      href: '/workflows',
-      description: 'Choose a mode or template',
-    },
+
     {
       id: 'runs',
       label: 'Runs',
@@ -61,8 +51,6 @@ export function getCockpitNavItems(role: PublicUser['role'] | undefined, pathnam
     ...item,
     isActive: item.id === 'admin'
       ? Boolean(pathname?.startsWith('/settings/admin'))
-      : item.id === 'workflows'
-        ? isWorkflowRoute(pathname)
-        : isActivePath(pathname, item.href),
+      : isActivePath(pathname, item.href),
   }));
 }

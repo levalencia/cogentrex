@@ -162,7 +162,7 @@ export interface SkillRunEventRow {
 }
 
 export interface SkillRunNextAction {
-  id: 'troubleshoot-run' | 'continue-chat' | 'open-output' | 'open-mode';
+  id: 'troubleshoot-run' | 'continue-chat' | 'open-output' | 'open-chat';
   label: string;
   description: string;
   href: string;
@@ -236,9 +236,9 @@ export function buildSkillRunEmptyState(input: { totalRuns: number; filteredRuns
     return {
       kind: 'first-run',
       title: 'No runs yet.',
-      description: 'Open Chat, Deep Research, Social Writer, Image, or Video to populate this auditable ledger.',
-      primaryAction: { label: 'Choose a mode', href: '/workflows' },
-      secondaryAction: { label: 'Try Deep Research', href: '/workflows/deep-research' },
+      description: 'Open Chat and ask Cogentrex to create a useful output. Runs will appear here as the audit trail.',
+      primaryAction: { label: 'Open chat', href: '/chats' },
+      secondaryAction: { label: 'Ask Cogentrex', href: '/chats' },
       clearFiltersHref: null,
     };
   }
@@ -246,9 +246,9 @@ export function buildSkillRunEmptyState(input: { totalRuns: number; filteredRuns
   return {
     kind: 'filtered-empty',
     title: 'No runs match these filters.',
-    description: 'Clear the current search, status, mode, and provider filters or open a mode to create more run history.',
+    description: 'Clear the current search, status, mode, and provider filters or open Chat to create more run history.',
     primaryAction: { label: 'Clear filters', href: '/runs' },
-    secondaryAction: { label: 'Choose a mode', href: '/workflows' },
+    secondaryAction: { label: 'Open chat', href: '/chats' },
     clearFiltersHref: '/runs',
   };
 }
@@ -999,13 +999,15 @@ export function buildSkillRunNextActions(run: SkillRunSummary): SkillRunNextActi
     });
   }
 
-  actions.push({
-    id: 'open-mode',
-    label: 'Open mode',
-    description: `Review readiness and launch ${run.skillName} again from its mode.`,
-    href: `/workflows/${encodeURIComponent(run.skillSlug)}`,
-    tone: 'neutral',
-  });
+  if (!run.conversationId) {
+    actions.push({
+      id: 'open-chat',
+      label: 'Open chat',
+      description: `Start a new chat to run ${run.skillName} again with Skill Assist when needed.`,
+      href: '/chats',
+      tone: 'neutral',
+    });
+  }
 
   return actions;
 }

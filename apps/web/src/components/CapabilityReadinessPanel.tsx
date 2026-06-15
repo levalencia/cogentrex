@@ -7,7 +7,7 @@ import { api } from '@/lib/api';
 import { formatCapabilityId, getCapabilityAction, getCapabilitySummary, getReadinessTone } from '@/lib/capabilities';
 
 export function CapabilityReadinessPanel() {
-  const [workflows, setWorkflows] = useState<WorkflowReadiness[]>([]);
+  const [capabilities, setCapabilities] = useState<WorkflowReadiness[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
 
@@ -17,7 +17,7 @@ export function CapabilityReadinessPanel() {
     void api.getCapabilities()
       .then(({ workflows: data }) => {
         if (!active) return;
-        setWorkflows(data);
+        setCapabilities(data);
         setError(undefined);
       })
       .catch((err) => {
@@ -37,9 +37,9 @@ export function CapabilityReadinessPanel() {
     <section className="mb-6 rounded-3xl border border-line bg-panel/70 p-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-xl font-semibold">Workflow readiness</h2>
+          <h2 className="text-xl font-semibold">Capability readiness</h2>
           <p className="mt-1 text-sm text-slate-400">
-            Check whether each product workflow has the providers and tools it needs.
+            Check whether each Chat capability has the providers and tools it needs.
           </p>
         </div>
         <button
@@ -48,7 +48,7 @@ export function CapabilityReadinessPanel() {
             setLoading(true);
             setError(undefined);
             void api.getCapabilities()
-              .then(({ workflows: data }) => setWorkflows(data))
+              .then(({ workflows: data }) => setCapabilities(data))
               .catch((err) => setError(err instanceof Error ? err.message : 'Could not refresh capability readiness'))
               .finally(() => setLoading(false));
           }}
@@ -63,8 +63,8 @@ export function CapabilityReadinessPanel() {
 
       {!loading && !error ? (
         <div className="mt-4 grid gap-4 md:grid-cols-2">
-          {workflows.map((item) => (
-            <WorkflowReadinessCard key={item.workflow.id} item={item} />
+          {capabilities.map((item) => (
+            <CapabilityReadinessCard key={item.workflow.id} item={item} />
           ))}
         </div>
       ) : null}
@@ -72,7 +72,7 @@ export function CapabilityReadinessPanel() {
   );
 }
 
-function WorkflowReadinessCard({ item }: { item: WorkflowReadiness }) {
+function CapabilityReadinessCard({ item }: { item: WorkflowReadiness }) {
   const tone = getReadinessTone(item.status);
   return (
     <article className="rounded-2xl border border-line bg-ink/50 p-4">

@@ -44,7 +44,7 @@ describe('skill manifest helpers', () => {
     const model = buildSkillManifestModel(skillDetail({ slug: 'image-studio', route: route('IMAGE_GENERATION'), inputSchema: null, outputContract: null }), null, []);
 
     expect(model.inputs).toEqual([{ name: 'prompt', label: 'Prompt', type: 'textarea', required: true, helpText: 'Describe what this skill should do.' }]);
-    expect(model.outputs).toEqual(['Workflow result', 'Run trace']);
+    expect(model.outputs).toEqual(['Task result', 'Run trace']);
     expect(model.launchPath).toBe('/chats');
     expect(getSkillLaunchPath(route('CHAT'))).toBe('/chats');
   });

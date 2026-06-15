@@ -231,7 +231,7 @@ export function buildAdminSkillMetrics(rows: AdminSkillCatalogRow[], analytics?:
   const runHealth = analytics?.totals.successRate ?? 0;
   return [
     { label: 'Total skills', value: String(total), hint: `${published} published · ${disabled} disabled`, tone: 'accent' },
-    { label: 'User visible', value: String(userVisible), hint: 'Visible in workflow picker', tone: userVisible > 0 ? 'ready' : 'neutral' },
+    { label: 'User visible', value: String(userVisible), hint: 'Visible in Skill Assist picker', tone: userVisible > 0 ? 'ready' : 'neutral' },
     { label: 'Ready routes', value: String(readyRoutes), hint: `${needsRouteOrSetup} need route/setup`, tone: needsRouteOrSetup > 0 ? 'warning' : 'ready' },
     {
       label: 'Run health',
@@ -271,7 +271,7 @@ export function getAdminSkillPanelCopy(mode: AdminSkillPanelMode): AdminSkillPan
     return {
       eyebrow: 'Manual draft',
       title: 'Create manual draft',
-      description: 'Create read-only SKILL.md instructions for a new workflow before routing or publishing it.',
+      description: 'Create read-only SKILL.md instructions for a new skill before routing or publishing it.',
     };
   }
   return {
@@ -340,7 +340,7 @@ function getSkillNextAction(skill: SkillSummary, status: CapabilityStatus | 'unc
   if (skill.status === 'DISABLED') return 'Enable or keep disabled intentionally before exposing to users.';
   if (status === 'missing') return 'Configure required provider/tool dependencies before publishing broadly.';
   if (status === 'degraded') return 'Verify optional dependencies or provider route quality.';
-  if (!skill.route) return 'Configure a route so the workflow has an explicit mode, provider, and budget policy.';
+  if (!skill.route) return 'Configure a route so the skill has an explicit mode, provider, and budget policy.';
   if (status === 'unchecked') return 'Refresh readiness to confirm provider and tool configuration.';
   return 'Monitor usage and failures after each release.';
 }

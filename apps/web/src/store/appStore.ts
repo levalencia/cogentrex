@@ -33,7 +33,7 @@ interface AppState {
   activeConversationId: string | undefined;
   activeProviderId: string | undefined;
   mode: AppMode;
-  selectedWorkflowLauncherId: string | undefined;
+  selectedTaskLauncherId: string | undefined;
   reasoning: ReasoningItem[];
   sources: ResearchSource[];
   searchIterations: SearchIteration[];
@@ -65,7 +65,7 @@ interface AppState {
   startResearch: (plan: string[]) => Promise<void>;
   cancelPlan: () => void;
   setMode: (mode: AppMode) => void;
-  setSelectedWorkflowLauncher: (id: string | undefined) => void;
+  setSelectedTaskLauncher: (id: string | undefined) => void;
   setActiveProvider: (id: string) => void;
   setImageOptions: (options: ImageGenerationOptions) => void;
   enterEditMode: (filenames: string[]) => void;
@@ -103,7 +103,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   activeConversationId: undefined,
   activeProviderId: undefined,
   mode: 'CHAT',
-  selectedWorkflowLauncherId: undefined,
+  selectedTaskLauncherId: undefined,
   reasoning: [],
   sources: [],
   searchIterations: [],
@@ -693,8 +693,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   setMode(mode) {
     set({ mode });
   },
-  setSelectedWorkflowLauncher(id) {
-    set({ selectedWorkflowLauncherId: id });
+  setSelectedTaskLauncher(id) {
+    set({ selectedTaskLauncherId: id });
   },
   setActiveProvider(id) {
     set({ activeProviderId: id });

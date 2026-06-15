@@ -49,7 +49,7 @@ const defaultPromptInput: SkillManifestInput = {
   helpText: 'Describe what this skill should do.',
 };
 
-const fallbackOutputs = ['Workflow result', 'Run trace'];
+const fallbackOutputs = ['Task result', 'Run trace'];
 
 export function buildSkillManifestModel(
   skill: SkillDetail,
