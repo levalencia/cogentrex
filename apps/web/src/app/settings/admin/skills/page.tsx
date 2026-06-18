@@ -25,6 +25,7 @@ import {
   type SkillUpdateDraft,
 } from '@/lib/skills';
 import { useAppStore } from '@/store/appStore';
+import { MobileStandaloneShell } from '@/components/MobileAppMenu';
 
 const statusOptions: { value: SkillStatus; label: string }[] = [
   { value: 'DRAFT', label: 'Draft' },
@@ -256,7 +257,7 @@ export default function AdminSkillsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-ink text-slate-100">
+    <MobileStandaloneShell title="Admin" subtitle="Skill catalog">
       <div className="mx-auto max-w-[1800px] px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -535,7 +536,7 @@ export default function AdminSkillsPage() {
           </aside>
         </div>
       ) : null}
-    </main>
+    </MobileStandaloneShell>
   );
 }
 

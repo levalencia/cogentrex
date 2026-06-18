@@ -6,6 +6,7 @@ import type { ProviderConfigView } from '@cogentrex/shared';
 import { api } from '@/lib/api';
 import { getProtectedRouteState } from '@/lib/protectedRoute';
 import { useAppStore } from '@/store/appStore';
+import { MobileStandaloneShell } from '@/components/MobileAppMenu';
 
 interface FormState {
   name: string;
@@ -168,7 +169,7 @@ export default function AdminProvidersPage() {
   }
 
   return (
-    <main className="min-h-screen bg-ink text-slate-100">
+    <MobileStandaloneShell title="Admin" subtitle="Provider settings">
       <div className="mx-auto max-w-5xl px-4 py-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
@@ -312,6 +313,6 @@ export default function AdminProvidersPage() {
           )}
         </div>
       </div>
-    </main>
+    </MobileStandaloneShell>
   );
 }
