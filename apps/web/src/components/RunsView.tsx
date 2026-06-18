@@ -247,24 +247,24 @@ export function RunsView() {
           </div>
         </header>
 
-        <section className="flex-1 overflow-y-auto px-6 py-6">
-          <div className="grid gap-3 md:grid-cols-4">
-            <article className="rounded-3xl border border-accent/20 bg-accent/10 p-4">
+        <section className="flex-1 overflow-y-auto px-3 py-4 md:px-6 md:py-6">
+          <div className="grid gap-2 sm:grid-cols-2 md:gap-3 lg:grid-cols-4">
+            <article className="rounded-2xl border border-accent/20 bg-accent/10 p-3 md:rounded-3xl md:p-4">
               <p className="text-[10px] uppercase tracking-[0.2em] text-accent">Total runs</p>
               <p className="mt-2 text-2xl font-semibold text-white">{skillRunStats.totalRuns}</p>
               <p className="mt-1 text-xs leading-5 text-slate-500">All skill executions captured in the run ledger.</p>
             </article>
-            <article className="rounded-3xl border border-emerald-400/20 bg-emerald-400/5 p-4">
+            <article className="rounded-2xl border border-emerald-400/20 bg-emerald-400/5 p-3 md:rounded-3xl md:p-4">
               <p className="text-[10px] uppercase tracking-[0.2em] text-emerald-200/60">Completed</p>
               <p className="mt-2 text-2xl font-semibold text-emerald-100">{skillRunStats.completedRuns}</p>
               <p className="mt-1 text-xs leading-5 text-slate-500">Runs that reached a terminal success state.</p>
             </article>
-            <article className="rounded-3xl border border-amber-400/20 bg-amber-400/5 p-4">
+            <article className="rounded-2xl border border-amber-400/20 bg-amber-400/5 p-3 md:rounded-3xl md:p-4">
               <p className="text-[10px] uppercase tracking-[0.2em] text-amber-200/60">Active</p>
               <p className="mt-2 text-2xl font-semibold text-amber-100">{skillRunStats.activeRuns}</p>
               <p className="mt-1 text-xs leading-5 text-slate-500">Pending or running work that is still in flight.</p>
             </article>
-            <article className="rounded-3xl border border-rose-400/20 bg-rose-400/5 p-4">
+            <article className="rounded-2xl border border-rose-400/20 bg-rose-400/5 p-3 md:rounded-3xl md:p-4">
               <p className="text-[10px] uppercase tracking-[0.2em] text-rose-200/60">Failed</p>
               <p className="mt-2 text-2xl font-semibold text-rose-100">{skillRunStats.failedRuns}</p>
               <p className="mt-1 text-xs leading-5 text-slate-500">Runs that need product or provider troubleshooting.</p>

@@ -7,6 +7,7 @@ import { api } from '@/lib/api';
 import { buildAdminAnalyticsViewModel, type AdminAnalyticsHealthTone } from '@/lib/adminAnalytics';
 import { getProtectedRouteState } from '@/lib/protectedRoute';
 import { useAppStore } from '@/store/appStore';
+import { MobileStandaloneShell } from '@/components/MobileAppMenu';
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
@@ -102,7 +103,7 @@ export default function AdminAnalyticsPage() {
   const analyticsView = analytics ? buildAdminAnalyticsViewModel(analytics) : null;
 
   return (
-    <main className="min-h-screen bg-ink text-slate-100">
+    <MobileStandaloneShell title="Admin" subtitle="Analytics">
       <div className="mx-auto max-w-6xl px-4 py-8">
         <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -303,6 +304,6 @@ export default function AdminAnalyticsPage() {
           </div>
         )}
       </div>
-    </main>
+    </MobileStandaloneShell>
   );
 }

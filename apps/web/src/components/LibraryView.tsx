@@ -247,10 +247,10 @@ export function LibraryView() {
         </div>
       </header>
 
-      <section className="flex-1 overflow-y-auto px-6 py-6">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+      <section className="flex-1 overflow-y-auto px-3 py-4 md:px-6 md:py-6">
+        <div className="grid gap-2 sm:grid-cols-2 md:gap-3 xl:grid-cols-6">
           {artifactTypeCards.map((card) => (
-            <article key={card.id} className={`${card.id === 'all' ? 'border-accent/20 bg-accent/10' : 'border-line bg-panel/70'} rounded-3xl border p-4`}>
+            <article key={card.id} className={`${card.id === 'all' ? 'border-accent/20 bg-accent/10' : 'border-line bg-panel/70'} rounded-2xl border p-3 md:rounded-3xl md:p-4`}>
               <p className={`${card.id === 'all' ? 'text-accent' : 'text-slate-500'} text-[10px] uppercase tracking-[0.2em]`}>{card.label}</p>
               <p className="mt-2 text-2xl font-semibold text-white">{card.count}</p>
               <p className="mt-1 text-xs leading-5 text-slate-500">{card.description}</p>

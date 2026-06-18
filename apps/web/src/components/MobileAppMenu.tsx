@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/store/appStore';
 
@@ -49,7 +50,7 @@ export function MobileAppDrawer({ open, onClose }: MobileAppDrawerProps) {
             { label: 'Chat', href: '/chats' },
             { label: 'Runs', href: '/runs' },
             { label: 'Library', href: '/library' },
-            { label: 'Admin', href: '/settings/admin' },
+            { label: 'Admin', href: '/settings/admin/skills' },
           ].map((item) => (
             <button
               key={item.href}
@@ -106,5 +107,25 @@ export function MobileSurfaceHeader({ title, subtitle, onOpenHistory }: { title:
         {subtitle ? <p className="truncate text-[11px] text-slate-500">{subtitle}</p> : null}
       </div>
     </div>
+  );
+}
+
+export function MobileStandaloneShell({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle: string | undefined;
+  children: ReactNode;
+}) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  return (
+    <main className="min-h-screen bg-ink text-slate-100">
+      <MobileAppDrawer open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
+      <MobileSurfaceHeader title={title} subtitle={subtitle} onOpenHistory={() => setMobileMenuOpen(true)} />
+      {children}
+    </main>
   );
 }
