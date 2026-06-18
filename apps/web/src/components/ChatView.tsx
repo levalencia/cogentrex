@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback, memo, type FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
 import type { AppMode, ConversationSummary, ProjectSummary, ResearchSource, SkillReadiness } from '@cogentrex/shared';
 import { useAppStore } from '@/store/appStore';
 import { ReasoningPanel } from '@/components/ReasoningPanel';
@@ -1317,87 +1316,6 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
   );
 }
 
-function MobileHistoryDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const router = useRouter();
-  const conversations = useAppStore((state) => state.conversations);
-  const activeConversationId = useAppStore((state) => state.activeConversationId);
-  const clearChat = useAppStore((state) => state.clearChat);
-
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Conversation history">
-      <button type="button" className="absolute inset-0 bg-black/60" onClick={onClose} aria-label="Close history" />
-      <aside className="absolute inset-y-0 left-0 flex w-[86vw] max-w-sm flex-col border-r border-line bg-panel shadow-2xl">
-        <div className="flex items-center justify-between border-b border-line p-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.22em] text-accent">History</p>
-            <p className="text-sm text-slate-400">Conversations and recent work</p>
-          </div>
-          <button type="button" onClick={onClose} className="rounded-full border border-line px-3 py-1.5 text-sm text-slate-300">Close</button>
-        </div>
-        <div className="p-3">
-          <button
-            type="button"
-            onClick={() => {
-              clearChat();
-              router.push('/');
-              onClose();
-            }}
-            className="w-full rounded-2xl bg-accent px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-white"
-          >
-            New chat
-          </button>
-        </div>
-        <nav className="grid gap-1 px-3 pb-3 text-sm" aria-label="Mobile navigation">
-          {[
-            { label: 'Chat', href: '/chats' },
-            { label: 'Runs', href: '/runs' },
-            { label: 'Library', href: '/library' },
-            { label: 'Admin', href: '/settings/admin' },
-          ].map((item) => (
-            <button
-              key={item.href}
-              type="button"
-              onClick={() => {
-                router.push(item.href);
-                onClose();
-              }}
-              className="rounded-xl border border-line px-3 py-2 text-left text-slate-300 hover:border-accent hover:text-accent"
-            >
-              {item.label}
-            </button>
-          ))}
-        </nav>
-        <div className="flex-1 overflow-y-auto px-3 pb-4">
-          {conversations.length === 0 ? (
-            <p className="py-8 text-center text-xs text-slate-600">No conversations yet</p>
-          ) : (
-            <div className="space-y-1">
-              {conversations.map((conversation) => {
-                const isActive = activeConversationId === conversation.id;
-                return (
-                  <button
-                    key={conversation.id}
-                    type="button"
-                    onClick={() => {
-                      router.push(`/chats/${conversation.id}`);
-                      onClose();
-                    }}
-                    className={`w-full truncate rounded-xl px-3 py-2 text-left text-sm transition ${isActive ? 'bg-accent/15 text-accent' : 'text-slate-300 hover:bg-white/5'}`}
-                  >
-                    {conversation.title || 'Untitled'}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </aside>
-    </div>
-  );
-}
-
 function CockpitHeader({
   activeProject,
   activeConversation,
@@ -1496,7 +1414,7 @@ function CockpitHeader({
 }
 
 // ── ChatView (layout shell only) ────────────────────
-export function ChatView() {
+export function ChatView({ onOpenHistory }: { onOpenHistory: () => void }) {
   const enterEditMode = useAppStore((state) => state.enterEditMode);
   const artifacts = useAppStore((state) => state.artifacts);
   const artifactPanelOpen = useAppStore((state) => state.artifactPanelOpen);
@@ -1508,7 +1426,6 @@ export function ChatView() {
 
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
-  const [mobileHistoryOpen, setMobileHistoryOpen] = useState(false);
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId);
   const activeProject = activeProjectId ? projects.find((project) => project.id === activeProjectId) : undefined;
@@ -1563,7 +1480,6 @@ export function ChatView() {
   return (
     <div className="flex flex-1 overflow-hidden">
       <main className="flex h-full flex-1 flex-col overflow-hidden bg-[radial-gradient(circle_at_top_right,#152238,#0b0f19_45%)]">
-      <MobileHistoryDrawer open={mobileHistoryOpen} onClose={() => setMobileHistoryOpen(false)} />
       <PlanEditor />
       <CockpitHeader
         activeProject={activeProject}
@@ -1575,7 +1491,7 @@ export function ChatView() {
         isSharing={isSharing}
         handleShare={() => void handleShare()}
         handleUnshare={() => void handleUnshare()}
-        onOpenHistory={() => setMobileHistoryOpen(true)}
+        onOpenHistory={onOpenHistory}
       />
 
       <MessageList onEditImage={handleEditImage} />

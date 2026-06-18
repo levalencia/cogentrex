@@ -227,7 +227,7 @@ export function LibraryView() {
 
   return (
     <>
-      <main className="flex h-full flex-1 flex-col overflow-hidden bg-[radial-gradient(circle_at_top_right,#17213b,#0b0f19_45%)]">
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[radial-gradient(circle_at_top_right,#17213b,#0b0f19_45%)]">
       <header className="border-b border-line bg-panel/70 px-6 py-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
