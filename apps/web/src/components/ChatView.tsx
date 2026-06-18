@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback, memo, type FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import type { AppMode, ConversationSummary, ProjectSummary, ResearchSource, SkillReadiness } from '@cogentrex/shared';
 import { useAppStore } from '@/store/appStore';
 import { ReasoningPanel } from '@/components/ReasoningPanel';
@@ -302,15 +303,15 @@ function MessageList({ onEditImage }: { onEditImage: (content: string) => void }
 
   return (
     <div ref={scrollRef} className="flex-1 overflow-y-auto">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-6 md:px-8">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-3 py-4 md:gap-5 md:px-8 md:py-6">
         {!messages.length ? (
-          <section className="my-auto max-w-3xl py-20">
-            <p className="text-sm uppercase tracking-[0.3em] text-accent">Chat</p>
-            <h1 className="mt-5 text-5xl font-semibold tracking-tight text-white md:text-7xl">Ask Cogentrex anything.</h1>
-            <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-300">
+          <section className="max-w-3xl py-6 md:my-auto md:py-20">
+            <p className="text-xs uppercase tracking-[0.3em] text-accent md:text-sm">Chat</p>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white md:mt-5 md:text-7xl">Ask Cogentrex anything.</h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 md:mt-5 md:text-lg md:leading-8">
               Start with a plain question, draft, file, or idea. Skill Assist can stay automatic, be guided manually, or turn off when you want a normal chat.
             </p>
-            <div className="mt-8 flex flex-wrap gap-2 text-sm text-slate-400">
+            <div className="mt-5 hidden flex-wrap gap-2 text-sm text-slate-400 sm:flex md:mt-8">
               <span className="rounded-full border border-line bg-panel/70 px-3 py-1.5">Research a question</span>
               <span className="rounded-full border border-line bg-panel/70 px-3 py-1.5">Draft an artifact</span>
               <span className="rounded-full border border-line bg-panel/70 px-3 py-1.5">Analyze files or images</span>
@@ -563,7 +564,7 @@ function ResearchWorkspacePreview({
   });
 
   return (
-    <section className="flex flex-wrap items-center gap-2 rounded-2xl border border-accent/20 bg-accent/5 px-3 py-2 text-xs" aria-label="Deep Research status">
+    <section className="hidden flex-wrap items-center gap-2 rounded-2xl border border-accent/20 bg-accent/5 px-3 py-2 text-xs md:flex" aria-label="Deep Research status">
       <span className="font-semibold uppercase tracking-[0.18em] text-accent">Deep Research</span>
       <span className="text-slate-500">Plan → search → evidence → synthesis</span>
       <div className="flex flex-wrap items-center gap-1.5">
@@ -880,16 +881,98 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
     setInput(prompt);
     requestAnimationFrame(() => textareaRef.current?.focus());
   }, []);
+  const skillAssistModeLabel = getSkillAssistModeOptions().find((option) => option.mode === skillAssistMode)?.label ?? 'Auto';
+  const mobileActionLabel = mode === 'SOCIAL_WRITING'
+    ? (isStreaming ? 'Generating…' : 'Generate')
+    : analyzing
+    ? 'Analyzing…'
+    : pendingPlan
+    ? 'Reviewing…'
+    : isStreaming
+    ? 'Working…'
+    : editingImages.length > 0
+    ? 'Edit'
+    : mode === 'IMAGE_GENERATION'
+    ? 'Image'
+    : mode === 'VIDEO_GENERATION'
+    ? 'Video'
+    : 'Send';
+  const mobileActionDisabled = mode === 'SOCIAL_WRITING'
+    ? isStreaming || !input.trim() || selectedPlatforms.length === 0 || providers.length === 0
+    : isStreaming || (!input.trim() && uploadedFiles.length === 0 && chatImages.length === 0) || manualSkillAssistRequiresSelection || providers.length === 0 || !!pendingPlan || analyzing;
+  const submitPrimary = mode === 'SOCIAL_WRITING' ? submitSocial : submit;
+  const promptTemplatesPanel = promptTemplates.length > 0 ? (
+    <div className="flex flex-wrap items-center gap-2 px-2" aria-label="Prompt templates">
+      <span className="text-xs font-medium text-slate-500">Examples:</span>
+      {promptTemplates.map((template) => (
+        <button
+          key={template.id}
+          type="button"
+          onClick={() => applyPromptTemplate(template.prompt)}
+          title={template.description ?? template.prompt}
+          disabled={isStreaming || providers.length === 0 || !!pendingPlan || analyzing}
+          className="rounded-full border border-line bg-ink/60 px-3 py-1.5 text-xs text-slate-300 transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {template.label}
+        </button>
+      ))}
+    </div>
+  ) : null;
+  const socialWritingOptionsPanel = mode === 'SOCIAL_WRITING' ? (
+    <>
+      <div className="flex flex-wrap gap-2 px-2">
+        {PLATFORM_OPTIONS.map((p) => (
+          <button
+            key={p.key}
+            onClick={() => togglePlatform(p.key)}
+            className={`rounded-xl border px-3 py-1.5 text-xs transition-colors ${
+              selectedPlatforms.includes(p.key)
+                ? 'border-accent bg-accent/20 text-accent'
+                : 'border-line text-slate-400 hover:border-slate-500'
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+      <label className="flex items-center gap-2 px-2 text-sm text-slate-300">
+        <input
+          type="checkbox"
+          checked={useResearch}
+          onChange={(e) => setUseResearch(e.target.checked)}
+          className="rounded border-line bg-panel text-accent"
+        />
+        Run mini deep research before writing
+      </label>
+      {useResearch ? (
+        <div className="flex items-center gap-3 px-2">
+          <span className="text-xs text-slate-400">Sources:</span>
+          <input
+            type="range"
+            min={1}
+            max={10}
+            value={researchSources}
+            onChange={(e) => setResearchSources(Number(e.target.value))}
+            className="w-32 accent-accent"
+          />
+          <span className="min-w-[1.5rem] text-xs font-medium text-accent">{researchSources}</span>
+        </div>
+      ) : null}
+      <p className="px-2 text-xs text-slate-500">
+        Tip: Edit your topic above and click Generate again to iterate on results. Previous posts will be saved in the conversation.
+      </p>
+    </>
+  ) : null;
 
   return (
-    <div className="shrink-0 border-t border-line bg-ink/90 p-3 backdrop-blur">
+    <div className="shrink-0 border-t border-line bg-ink/90 p-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] backdrop-blur md:p-3 md:pb-3">
       <div
         ref={containerRef}
         onPaste={handlePaste}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`relative mx-auto flex w-full max-w-6xl flex-col gap-2 rounded-3xl border border-line bg-panel p-2.5 shadow-2xl shadow-black/30 transition-colors ${isDragOver ? 'border-accent bg-accent/5' : ''}`}
+        className={`relative mx-auto flex w-full max-w-6xl flex-col gap-1.5 rounded-2xl border border-line bg-panel p-2 shadow-2xl shadow-black/30 transition-colors md:gap-2 md:rounded-3xl md:p-2.5 ${isDragOver ? 'border-accent bg-accent/5' : ''}`}
       >
         {/* Drag overlay */}
         {isDragOver ? (
@@ -1025,70 +1108,15 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
         ) : null}
 
         {/* Advanced social writing options */}
-        {showComposerOptions && mode === 'SOCIAL_WRITING' ? (
-          <>
-            <div className="flex flex-wrap gap-2 px-2">
-              {PLATFORM_OPTIONS.map((p) => (
-                <button
-                  key={p.key}
-                  onClick={() => togglePlatform(p.key)}
-                  className={`rounded-xl border px-3 py-1.5 text-xs transition-colors ${
-                    selectedPlatforms.includes(p.key)
-                      ? 'border-accent bg-accent/20 text-accent'
-                      : 'border-line text-slate-400 hover:border-slate-500'
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-            <label className="flex items-center gap-2 px-2 text-sm text-slate-300">
-              <input
-                type="checkbox"
-                checked={useResearch}
-                onChange={(e) => setUseResearch(e.target.checked)}
-                className="rounded border-line bg-panel text-accent"
-              />
-              Run mini deep research before writing
-            </label>
-            {useResearch ? (
-              <div className="flex items-center gap-3 px-2">
-                <span className="text-xs text-slate-400">Sources:</span>
-                <input
-                  type="range"
-                  min={1}
-                  max={10}
-                  value={researchSources}
-                  onChange={(e) => setResearchSources(Number(e.target.value))}
-                  className="w-32 accent-accent"
-                />
-                <span className="min-w-[1.5rem] text-xs font-medium text-accent">{researchSources}</span>
-              </div>
-            ) : null}
-          </>
+        {showComposerOptions && socialWritingOptionsPanel ? (
+          <div className="hidden space-y-2 md:contents">
+            {socialWritingOptionsPanel}
+          </div>
         ) : null}
 
-        {showComposerOptions && mode === 'SOCIAL_WRITING' ? (
-          <p className="px-2 text-xs text-slate-500">
-            Tip: Edit your topic above and click Generate again to iterate on results. Previous posts will be saved in the conversation.
-          </p>
-        ) : null}
-
-        {showComposerOptions && promptTemplates.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-2 px-2" aria-label="Prompt templates">
-            <span className="text-xs font-medium text-slate-500">Examples:</span>
-            {promptTemplates.map((template) => (
-              <button
-                key={template.id}
-                type="button"
-                onClick={() => applyPromptTemplate(template.prompt)}
-                title={template.description ?? template.prompt}
-                disabled={isStreaming || providers.length === 0 || !!pendingPlan || analyzing}
-                className="rounded-full border border-line bg-ink/60 px-3 py-1.5 text-xs text-slate-300 transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {template.label}
-              </button>
-            ))}
+        {showComposerOptions && promptTemplatesPanel ? (
+          <div className="hidden md:block">
+            {promptTemplatesPanel}
           </div>
         ) : null}
 
@@ -1111,12 +1139,37 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
               : getLauncherPlaceholder(selectedLauncherId)
           }
           disabled={isStreaming || providers.length === 0 || !!pendingPlan || analyzing}
-          className="min-h-16 max-h-40 resize-none rounded-2xl bg-ink/35 px-3 py-2 text-slate-100 outline-none placeholder:text-slate-500 focus:bg-ink/60"
+          className="min-h-12 max-h-28 resize-none rounded-2xl bg-ink/35 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:bg-ink/60 md:min-h-16 md:max-h-40 md:text-base"
         />
         {showComposerOptions && mode === 'IMAGE_GENERATION' ? (
-          <ImageOptionsPanel options={imageOptions} onChange={setImageOptions} />
+          <div className="hidden md:block">
+            <ImageOptionsPanel options={imageOptions} onChange={setImageOptions} />
+          </div>
         ) : null}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line/70 pt-2">
+        <div className="flex items-center justify-between gap-2 border-t border-line/70 pt-2 md:hidden">
+          <button
+            type="button"
+            onClick={() => setShowComposerOptions(true)}
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-line bg-ink/50 px-3 py-2 text-left text-xs text-slate-300"
+            aria-label="Open chat options"
+          >
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-line text-base text-accent">+</span>
+            <span className="min-w-0 truncate">
+              <span className="font-semibold text-slate-100">{selectedLauncherItem?.label ?? 'Ask Cogentrex'}</span>
+              {skillAssistPreview ? <span className="text-slate-500"> · Skill {skillAssistModeLabel}</span> : null}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => void submitPrimary()}
+            disabled={mobileActionDisabled}
+            className="shrink-0 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {mobileActionLabel}
+          </button>
+        </div>
+
+        <div className="hidden flex-wrap items-center justify-between gap-2 border-t border-line/70 pt-2 md:flex">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
             <label className="flex items-center gap-1.5 rounded-xl border border-line bg-ink/50 px-2 py-1.5 text-xs text-slate-400">
               <span>Mode</span>
@@ -1198,24 +1251,149 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
         </div>
 
         {showComposerOptions ? (
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-            <TaskLauncher selectedLauncherId={selectedLauncherId} mode={mode} skillReadiness={skillReadiness} onSelect={selectLauncherItem} />
-            {(mode === 'CHAT' || mode === 'DEEP_RESEARCH') ? (
-              <SkillAssistPanel
-                appMode={mode}
-                prompt={input}
-                assistMode={skillAssistMode}
-                selectedSkillSlugs={selectedSkillSlugs}
-                launcherSkillSlug={selectedLauncherSkillSlug}
-                options={skillAssistOptions}
-                disabled={isStreaming || !!pendingPlan || analyzing}
-                onModeChange={setSkillAssistMode}
-                onToggleSkill={toggleSkillAssistSlug}
-              />
-            ) : null}
+          <div className="fixed inset-0 z-40 flex items-end bg-black/60 p-2 md:static md:block md:bg-transparent md:p-0">
+            <div className="max-h-[78vh] w-full overflow-y-auto rounded-t-3xl border border-line bg-panel p-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-2xl md:max-h-none md:overflow-visible md:rounded-none md:border-0 md:bg-transparent md:p-0 md:shadow-none">
+              <div className="mb-3 flex items-center justify-between md:hidden">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.22em] text-accent">Options</p>
+                  <p className="text-sm text-slate-400">Task, Skill Assist, model, and attachments.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowComposerOptions(false)}
+                  className="rounded-full border border-line px-3 py-1.5 text-sm text-slate-300"
+                  aria-label="Close chat options"
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="mb-3 grid gap-2 md:hidden">
+                <ProviderPicker />
+                {mode !== 'IMAGE_GENERATION' && mode !== 'VIDEO_GENERATION' && mode !== 'SOCIAL_WRITING' ? (
+                  <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isStreaming} className="rounded-xl border border-line px-3 py-2 text-left text-sm text-slate-300 hover:border-accent disabled:opacity-50">📎 Attach files</button>
+                ) : null}
+              </div>
+
+              {mode === 'IMAGE_GENERATION' ? (
+                <div className="mb-3 md:hidden">
+                  <ImageOptionsPanel options={imageOptions} onChange={setImageOptions} />
+                </div>
+              ) : null}
+
+              {socialWritingOptionsPanel ? (
+                <div className="mb-3 space-y-2 md:hidden">
+                  {socialWritingOptionsPanel}
+                </div>
+              ) : null}
+
+              {promptTemplatesPanel ? (
+                <div className="mb-3 md:hidden">
+                  {promptTemplatesPanel}
+                </div>
+              ) : null}
+
+              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                <TaskLauncher selectedLauncherId={selectedLauncherId} mode={mode} skillReadiness={skillReadiness} onSelect={selectLauncherItem} />
+                {(mode === 'CHAT' || mode === 'DEEP_RESEARCH') ? (
+                  <SkillAssistPanel
+                    appMode={mode}
+                    prompt={input}
+                    assistMode={skillAssistMode}
+                    selectedSkillSlugs={selectedSkillSlugs}
+                    launcherSkillSlug={selectedLauncherSkillSlug}
+                    options={skillAssistOptions}
+                    disabled={isStreaming || !!pendingPlan || analyzing}
+                    onModeChange={setSkillAssistMode}
+                    onToggleSkill={toggleSkillAssistSlug}
+                  />
+                ) : null}
+              </div>
+            </div>
           </div>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+function MobileHistoryDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const router = useRouter();
+  const conversations = useAppStore((state) => state.conversations);
+  const activeConversationId = useAppStore((state) => state.activeConversationId);
+  const clearChat = useAppStore((state) => state.clearChat);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Conversation history">
+      <button type="button" className="absolute inset-0 bg-black/60" onClick={onClose} aria-label="Close history" />
+      <aside className="absolute inset-y-0 left-0 flex w-[86vw] max-w-sm flex-col border-r border-line bg-panel shadow-2xl">
+        <div className="flex items-center justify-between border-b border-line p-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.22em] text-accent">History</p>
+            <p className="text-sm text-slate-400">Conversations and recent work</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-full border border-line px-3 py-1.5 text-sm text-slate-300">Close</button>
+        </div>
+        <div className="p-3">
+          <button
+            type="button"
+            onClick={() => {
+              clearChat();
+              router.push('/');
+              onClose();
+            }}
+            className="w-full rounded-2xl bg-accent px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-white"
+          >
+            New chat
+          </button>
+        </div>
+        <nav className="grid gap-1 px-3 pb-3 text-sm" aria-label="Mobile navigation">
+          {[
+            { label: 'Chat', href: '/chats' },
+            { label: 'Runs', href: '/runs' },
+            { label: 'Library', href: '/library' },
+            { label: 'Admin', href: '/settings/admin' },
+          ].map((item) => (
+            <button
+              key={item.href}
+              type="button"
+              onClick={() => {
+                router.push(item.href);
+                onClose();
+              }}
+              className="rounded-xl border border-line px-3 py-2 text-left text-slate-300 hover:border-accent hover:text-accent"
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+        <div className="flex-1 overflow-y-auto px-3 pb-4">
+          {conversations.length === 0 ? (
+            <p className="py-8 text-center text-xs text-slate-600">No conversations yet</p>
+          ) : (
+            <div className="space-y-1">
+              {conversations.map((conversation) => {
+                const isActive = activeConversationId === conversation.id;
+                return (
+                  <button
+                    key={conversation.id}
+                    type="button"
+                    onClick={() => {
+                      router.push(`/chats/${conversation.id}`);
+                      onClose();
+                    }}
+                    className={`w-full truncate rounded-xl px-3 py-2 text-left text-sm transition ${isActive ? 'bg-accent/15 text-accent' : 'text-slate-300 hover:bg-white/5'}`}
+                  >
+                    {conversation.title || 'Untitled'}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </aside>
     </div>
   );
 }
@@ -1230,6 +1408,7 @@ function CockpitHeader({
   isSharing,
   handleShare,
   handleUnshare,
+  onOpenHistory,
 }: {
   activeProject: ProjectSummary | undefined;
   activeConversation: ConversationSummary | undefined;
@@ -1240,29 +1419,41 @@ function CockpitHeader({
   isSharing: boolean;
   handleShare: () => void;
   handleUnshare: () => void;
+  onOpenHistory: () => void;
 }) {
   const contextLabel = activeProject ? `Project: ${activeProject.name}` : 'All conversations';
   const sessionLabel = activeConversation ? activeConversation.title : 'New chat';
 
   return (
-    <div className="border-b border-line bg-panel/70 px-4 py-3">
-      <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white shadow-sm">
-              <img src="/logo" alt="Cogentrex" className="h-5 w-5 object-contain" />
+    <div className="border-b border-line bg-panel/70 px-3 py-2 md:px-4 md:py-3">
+      <div className="flex items-center justify-between gap-3 md:gap-4">
+        <div className="flex min-w-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={onOpenHistory}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-line text-lg text-slate-200 lg:hidden"
+            aria-label="Open conversation history"
+          >
+            ☰
+          </button>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white shadow-sm">
+                <img src="/logo" alt="Cogentrex" className="h-5 w-5 object-contain" />
+              </div>
+              <div className="min-w-0">
+                <span className="block truncate text-sm font-semibold tracking-[0.12em] text-accent">Cogentrex</span>
+                <p className="hidden text-[11px] uppercase tracking-[0.2em] text-slate-500 sm:block">Research cockpit</p>
+                <p className="truncate text-[11px] text-slate-500 sm:hidden">{sessionLabel}</p>
+              </div>
             </div>
-            <div>
-              <span className="text-sm font-semibold tracking-[0.12em] text-accent">Cogentrex</span>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Research cockpit</p>
+            <div className="mt-3 hidden flex-wrap items-center gap-2 text-xs sm:flex">
+              <span className="rounded-full border border-line bg-ink/50 px-3 py-1 text-slate-300">{contextLabel}</span>
+              <span className="max-w-md truncate rounded-full border border-line bg-ink/50 px-3 py-1 text-slate-400">{sessionLabel}</span>
+              {artifactCount > 0 ? (
+                <span className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent">{artifactCount} artifact{artifactCount === 1 ? '' : 's'}</span>
+              ) : null}
             </div>
-          </div>
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-            <span className="rounded-full border border-line bg-ink/50 px-3 py-1 text-slate-300">{contextLabel}</span>
-            <span className="max-w-md truncate rounded-full border border-line bg-ink/50 px-3 py-1 text-slate-400">{sessionLabel}</span>
-            {artifactCount > 0 ? (
-              <span className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent">{artifactCount} artifact{artifactCount === 1 ? '' : 's'}</span>
-            ) : null}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -1317,6 +1508,7 @@ export function ChatView() {
 
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
+  const [mobileHistoryOpen, setMobileHistoryOpen] = useState(false);
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId);
   const activeProject = activeProjectId ? projects.find((project) => project.id === activeProjectId) : undefined;
@@ -1371,6 +1563,7 @@ export function ChatView() {
   return (
     <div className="flex flex-1 overflow-hidden">
       <main className="flex h-full flex-1 flex-col overflow-hidden bg-[radial-gradient(circle_at_top_right,#152238,#0b0f19_45%)]">
+      <MobileHistoryDrawer open={mobileHistoryOpen} onClose={() => setMobileHistoryOpen(false)} />
       <PlanEditor />
       <CockpitHeader
         activeProject={activeProject}
@@ -1382,6 +1575,7 @@ export function ChatView() {
         isSharing={isSharing}
         handleShare={() => void handleShare()}
         handleUnshare={() => void handleUnshare()}
+        onOpenHistory={() => setMobileHistoryOpen(true)}
       />
 
       <MessageList onEditImage={handleEditImage} />
