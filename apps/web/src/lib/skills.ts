@@ -81,6 +81,8 @@ export interface SkillExampleView {
   visibleToUsers: boolean;
 }
 
+export interface SkillExampleDraft extends SkillExampleView {}
+
 const statusBadges: Record<SkillStatus, SkillBadge> = {
   DRAFT: { label: 'Draft', className: 'border-slate-500/30 bg-slate-500/10 text-slate-300' },
   STAGED: { label: 'Staged', className: 'border-yellow-500/30 bg-yellow-500/10 text-yellow-200' },
@@ -292,24 +294,82 @@ export function getSkillInstructionsFile(files: SkillFileView[]): SkillFileView 
 }
 
 export function buildSkillExampleViews(skill: SkillSummary): SkillExampleView[] {
+  return getSkillExampleDrafts(skill).map((example) => ({
+    ...example,
+    visibleToUsers: example.visibleToUsers && skill.status === 'PUBLISHED' && skill.visibility === 'USER_VISIBLE',
+  }));
+}
+
+export function getSkillExampleDrafts(skill: SkillSummary): SkillExampleDraft[] {
   const templates = skill.route?.config && typeof skill.route.config === 'object'
     ? (skill.route.config as Record<string, unknown>).promptTemplates
     : undefined;
-  if (!Array.isArray(templates)) return [];
-  return templates.flatMap((template, index): SkillExampleView[] => {
+  return parseSkillExampleDrafts(templates, skill.slug);
+}
+
+export function mergeSkillExamplesIntoRouteDraft(draft: SkillRouteDraft, examples: SkillExampleDraft[]): SkillRouteDraft {
+  const config = parseNullableConfig(draft.configJson) ?? {};
+  return {
+    ...draft,
+    configJson: JSON.stringify({
+      ...config,
+      promptTemplates: normalizeSkillExampleDrafts(examples),
+    }, null, 2),
+  };
+}
+
+export function normalizeSkillExampleDrafts(examples: SkillExampleDraft[]): PromptTemplate[] {
+  return examples.flatMap((example, index): PromptTemplate[] => {
+    const label = example.label.trim();
+    const prompt = example.prompt.trim();
+    if (!label || !prompt) return [];
+    const id = slugifyExampleId(example.id) || slugifyExampleId(label) || `example-${index + 1}`;
+    const description = example.description.trim();
+    return [{
+      id,
+      label,
+      prompt,
+      ...(description ? { description } : {}),
+      visibleToUsers: example.visibleToUsers,
+    }];
+  });
+}
+
+function parseSkillExampleDrafts(value: unknown, skillSlug: string): SkillExampleDraft[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((template, index): SkillExampleDraft[] => {
     if (!template || typeof template !== 'object' || Array.isArray(template)) return [];
     const entry = template as Partial<PromptTemplate> & Record<string, unknown>;
     const label = typeof entry.label === 'string' ? entry.label.trim() : '';
     const prompt = typeof entry.prompt === 'string' ? entry.prompt.trim() : '';
     if (!label || !prompt) return [];
     return [{
-      id: typeof entry.id === 'string' && entry.id.trim() ? entry.id.trim() : `${skill.slug}-example-${index + 1}`,
+      id: typeof entry.id === 'string' && entry.id.trim() ? entry.id.trim() : `${skillSlug}-example-${index + 1}`,
       label,
       prompt,
       description: typeof entry.description === 'string' ? entry.description.trim() : '',
-      visibleToUsers: skill.status === 'PUBLISHED' && skill.visibility === 'USER_VISIBLE',
+      visibleToUsers: entry.visibleToUsers !== false,
     }];
   });
+}
+
+export function createEmptySkillExampleDraft(index: number): SkillExampleDraft {
+  return {
+    id: `example-${index + 1}`,
+    label: '',
+    prompt: '',
+    description: '',
+    visibleToUsers: false,
+  };
+}
+
+function slugifyExampleId(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
 }
 
 export function getAdminSkillPanelCopy(mode: AdminSkillPanelMode): AdminSkillPanelCopy {

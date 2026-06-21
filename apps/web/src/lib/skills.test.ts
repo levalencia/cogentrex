@@ -7,6 +7,10 @@ import {
   buildAdminSkillPackageCatalog,
   buildSkillDetailModel,
   buildSkillExampleViews,
+  createEmptySkillExampleDraft,
+  getSkillExampleDrafts,
+  mergeSkillExamplesIntoRouteDraft,
+  normalizeSkillExampleDrafts,
   buildSkillFileViews,
   buildSkillRoutePayload,
   buildSkillUpdatePayload,
@@ -323,6 +327,58 @@ describe('admin skill helpers', () => {
       { id: 'positioning', label: 'Position a brand', prompt: 'Create a positioning brief for this brand:', description: 'Strategic brand positioning.', visibleToUsers: true },
       { id: 'campaign-angles', label: 'Campaign angles', prompt: 'Generate five campaign angles for:', description: '', visibleToUsers: true },
     ]);
+  });
+
+  it('normalizes editable skill examples and merges them into route config', () => {
+    const drafts = [
+      { id: '  ', label: 'Position a premium brand', prompt: ' Create a positioning brief: ', description: ' Positioning ', visibleToUsers: true },
+      { id: 'internal-note', label: 'Internal only', prompt: 'Draft private QA notes', description: '', visibleToUsers: false },
+      { id: 'empty', label: '', prompt: 'Ignored', description: '', visibleToUsers: true },
+    ];
+
+    expect(normalizeSkillExampleDrafts(drafts)).toEqual([
+      { id: 'position-a-premium-brand', label: 'Position a premium brand', prompt: 'Create a positioning brief:', description: 'Positioning', visibleToUsers: true },
+      { id: 'internal-note', label: 'Internal only', prompt: 'Draft private QA notes', visibleToUsers: false },
+    ]);
+
+    const routeDraft = mergeSkillExamplesIntoRouteDraft({
+      mode: 'CHAT',
+      defaultProviderId: '',
+      searchProfile: '',
+      maxBudgetCents: '',
+      supportedModes: ['CHAT'],
+      configJson: '{"existing":true}',
+    }, drafts);
+
+    expect(JSON.parse(routeDraft.configJson)).toEqual({
+      existing: true,
+      promptTemplates: [
+        { id: 'position-a-premium-brand', label: 'Position a premium brand', prompt: 'Create a positioning brief:', description: 'Positioning', visibleToUsers: true },
+        { id: 'internal-note', label: 'Internal only', prompt: 'Draft private QA notes', visibleToUsers: false },
+      ],
+    });
+  });
+
+  it('builds editable example drafts and empty drafts for the admin examples editor', () => {
+    const importedSkill = skill({
+      slug: 'brand-agency',
+      route: {
+        id: 'route-brand',
+        skillId: 'skill-brand',
+        mode: 'CHAT',
+        defaultProviderId: null,
+        searchProfile: null,
+        maxBudgetCents: null,
+        config: { promptTemplates: [{ id: 'positioning', label: 'Positioning', prompt: 'Write positioning:', visibleToUsers: false }] },
+        createdAt: '2026-05-22T00:00:00.000Z',
+        updatedAt: '2026-05-22T00:00:00.000Z',
+      },
+    });
+
+    expect(getSkillExampleDrafts(importedSkill)).toEqual([
+      { id: 'positioning', label: 'Positioning', prompt: 'Write positioning:', description: '', visibleToUsers: false },
+    ]);
+    expect(createEmptySkillExampleDraft(2)).toEqual({ id: 'example-3', label: '', prompt: '', description: '', visibleToUsers: false });
   });
 
   it('builds admin skill metrics for top cards', () => {

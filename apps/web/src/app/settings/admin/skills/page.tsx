@@ -12,20 +12,23 @@ import {
   buildAdminSkillMetrics,
   buildAdminSkillPackageCatalog,
   buildSkillDetailModel,
-  buildSkillExampleViews,
   buildSkillFileViews,
   buildSkillRoutePayload,
   buildSkillUpdatePayload,
   buildSkillKitImportPayload,
+  createEmptySkillExampleDraft,
   getAdminSkillPanelCopy,
   getSkillIconGlyph,
   getSkillInstructionsFile,
+  getSkillExampleDrafts,
   getSkillRouteDraft,
   getSkillUpdateDraft,
+  mergeSkillExamplesIntoRouteDraft,
   type AdminSkillPanelMode,
   type SkillKitImportDraft,
   type SkillRouteDraft,
   type SkillUpdateDraft,
+  type SkillExampleDraft,
 } from '@/lib/skills';
 import { useAppStore } from '@/store/appStore';
 import { MobileStandaloneShell } from '@/components/MobileAppMenu';
@@ -68,6 +71,7 @@ export default function AdminSkillsPage() {
   const [activeTab, setActiveTab] = useState<DetailTab>('overview');
   const [skillDraft, setSkillDraft] = useState<SkillUpdateDraft | null>(null);
   const [routeDraft, setRouteDraft] = useState<SkillRouteDraft | null>(null);
+  const [exampleDrafts, setExampleDrafts] = useState<SkillExampleDraft[]>([]);
   const [createDraft, setCreateDraft] = useState<CreateSkillInput>(emptyCreateDraft);
   const [importDraft, setImportDraft] = useState<SkillKitImportDraft>({ sourceUrl: '', folderPath: '', ref: '' });
   const [importing, setImporting] = useState(false);
@@ -131,6 +135,7 @@ export default function AdminSkillsPage() {
     setActiveTab(tab);
     setSkillDraft(getSkillUpdateDraft(skill));
     setRouteDraft(getSkillRouteDraft(skill));
+    setExampleDrafts(getSkillExampleDrafts(skill));
     setError(undefined);
     setSuccess(undefined);
     if (!skillFiles[skill.slug]) void loadSkillFiles(skill.slug);
@@ -147,6 +152,7 @@ export default function AdminSkillsPage() {
     setSelectedSlug(null);
     setSkillDraft(null);
     setRouteDraft(null);
+    setExampleDrafts([]);
     setActiveTab('overview');
     setError(undefined);
     setSuccess(undefined);
@@ -184,6 +190,48 @@ export default function AdminSkillsPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function saveSkillExamples() {
+    if (!selectedSlug || !routeDraft) return;
+    const nextDraft = mergeSkillExamplesIntoRouteDraft(routeDraft, exampleDrafts);
+    setSaving(true);
+    setError(undefined);
+    setSuccess(undefined);
+    try {
+      await api.updateAdminSkillRoute(selectedSlug, buildSkillRoutePayload(nextDraft));
+      setRouteDraft(nextDraft);
+      setSuccess('Skill examples saved.');
+      await loadAdminData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save examples');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function updateExampleDraft(index: number, patch: Partial<SkillExampleDraft>) {
+    setExampleDrafts((current) => current.map((example, itemIndex) => itemIndex === index ? { ...example, ...patch } : example));
+  }
+
+  function moveExampleDraft(index: number, direction: -1 | 1) {
+    setExampleDrafts((current) => {
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= current.length) return current;
+      const next = [...current];
+      const [item] = next.splice(index, 1);
+      if (!item) return current;
+      next.splice(targetIndex, 0, item);
+      return next;
+    });
+  }
+
+  function removeExampleDraft(index: number) {
+    setExampleDrafts((current) => current.filter((_example, itemIndex) => itemIndex !== index));
+  }
+
+  function addExampleDraft() {
+    setExampleDrafts((current) => [...current, createEmptySkillExampleDraft(current.length)]);
   }
 
   async function createSkill(event: FormEvent) {
@@ -232,7 +280,7 @@ export default function AdminSkillsPage() {
   const detailModel = selectedSkill ? buildSkillDetailModel(selectedSkill, selectedReadiness, analytics) : null;
   const selectedFiles = selectedSlug ? buildSkillFileViews(skillFiles[selectedSlug] ?? []) : [];
   const selectedInstructions = getSkillInstructionsFile(selectedFiles);
-  const selectedExamples = selectedSkill ? buildSkillExampleViews(selectedSkill) : [];
+  const selectedExamples = exampleDrafts;
   const panelCopy = panelMode ? getAdminSkillPanelCopy(panelMode) : null;
 
   if (routeState.status === 'loading' || routeState.status === 'redirect') {
@@ -540,22 +588,40 @@ export default function AdminSkillsPage() {
                   {activeTab === 'examples' ? (
                     <div className="mt-5 space-y-4">
                       <div className="rounded-2xl border border-line bg-ink/50 p-4 text-sm text-slate-400">
-                        Examples are the admin-curated prompts users see when they select this skill in Chat. Today they are read from route config promptTemplates; create/edit/delete controls come next.
+                        Examples are admin-managed prompt starters that appear in Chat when users select this published skill. Add, edit, delete, reorder, and choose which examples are user-visible.
+                      </div>
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <button type="button" onClick={addExampleDraft} className="rounded-xl border border-accent/40 bg-accent/10 px-4 py-2 text-sm font-semibold text-accent hover:border-accent">Add example</button>
+                        <button type="button" onClick={() => void saveSkillExamples()} disabled={saving || !routeDraft} className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50">{saving ? 'Saving…' : 'Save examples'}</button>
                       </div>
                       {selectedExamples.length === 0 ? (
-                        <p className="rounded-2xl border border-dashed border-line p-4 text-sm text-slate-500">No examples configured. Add promptTemplates in route config for now; the next slice should add direct example editing.</p>
+                        <p className="rounded-2xl border border-dashed border-line p-4 text-sm text-slate-500">No examples configured yet. Add one before publishing the package to users.</p>
                       ) : (
                         selectedExamples.map((example, index) => (
-                          <article key={example.id} className="rounded-2xl border border-line bg-ink/50 p-4">
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Example {index + 1}</p>
-                                <h3 className="mt-1 font-semibold text-white">{example.label}</h3>
-                                {example.description ? <p className="mt-1 text-xs text-slate-500">{example.description}</p> : null}
+                          <article key={`${example.id}-${index}`} className="rounded-2xl border border-line bg-ink/50 p-4">
+                            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                              <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Example {index + 1}</p>
+                              <div className="flex gap-1.5">
+                                <button type="button" onClick={() => moveExampleDraft(index, -1)} disabled={index === 0} className="rounded-lg border border-line px-2 py-1 text-xs text-slate-300 disabled:opacity-40">↑</button>
+                                <button type="button" onClick={() => moveExampleDraft(index, 1)} disabled={index === selectedExamples.length - 1} className="rounded-lg border border-line px-2 py-1 text-xs text-slate-300 disabled:opacity-40">↓</button>
+                                <button type="button" onClick={() => removeExampleDraft(index)} className="rounded-lg border border-red-500/30 px-2 py-1 text-xs text-red-200 hover:bg-red-500/10">Delete</button>
                               </div>
-                              <span className={`rounded-full border px-2 py-1 text-xs ${example.visibleToUsers ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : 'border-slate-500/30 bg-slate-500/10 text-slate-300'}`}>{example.visibleToUsers ? 'User visible' : 'Admin only'}</span>
                             </div>
-                            <p className="mt-3 rounded-xl border border-line bg-black/20 p-3 text-sm text-slate-300">{example.prompt}</p>
+                            <div className="grid gap-3">
+                              <label className="block text-sm text-slate-400">Title
+                                <input value={example.label} onChange={(e) => updateExampleDraft(index, { label: e.target.value })} placeholder="Position a premium brand" className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 text-white outline-none focus:border-accent" />
+                              </label>
+                              <label className="block text-sm text-slate-400">Prompt
+                                <textarea value={example.prompt} onChange={(e) => updateExampleDraft(index, { prompt: e.target.value })} rows={3} placeholder="Create a positioning brief for this brand:" className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 text-white outline-none focus:border-accent" />
+                              </label>
+                              <label className="block text-sm text-slate-400">Description
+                                <input value={example.description} onChange={(e) => updateExampleDraft(index, { description: e.target.value })} placeholder="Short note shown to admins and users." className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 text-white outline-none focus:border-accent" />
+                              </label>
+                              <label className="flex items-center gap-2 rounded-xl border border-line bg-panel/40 px-3 py-2 text-sm text-slate-300">
+                                <input type="checkbox" checked={example.visibleToUsers} onChange={(e) => updateExampleDraft(index, { visibleToUsers: e.target.checked })} />
+                                Visible to users when this skill is published
+                              </label>
+                            </div>
                           </article>
                         ))
                       )}

@@ -54,7 +54,7 @@ export interface SkillAssistPickerOption {
   slug: string;
   label: string;
   description: string;
-  group: 'Project management' | 'Visual & diagrams';
+  group: string;
 }
 
 export interface SkillAssistModeOption {
@@ -315,9 +315,33 @@ export function getLauncherSkillSlug(itemId: string): string | null {
   return launcherSkillSlugs[itemId] ?? null;
 }
 
-export function getSkillAssistPickerOptions(mode: AppMode): SkillAssistPickerOption[] {
+export function getSkillAssistPickerOptions(mode: AppMode, readiness: SkillReadiness[] = []): SkillAssistPickerOption[] {
   if (mode !== 'CHAT' && mode !== 'DEEP_RESEARCH') return [];
-  return skillAssistPickerOptions.map((option) => ({ ...option }));
+  const staticOptions = skillAssistPickerOptions.map((option) => ({ ...option }));
+  const staticSlugs = new Set(staticOptions.map((option) => option.slug));
+  const dynamicOptions = readiness.flatMap((item): SkillAssistPickerOption[] => {
+    const skill = item.skill;
+    if (skill.kind !== 'IMPORTED') return [];
+    if (staticSlugs.has(skill.slug)) return [];
+    const supportedModes = getSkillSupportedModesForAssist(skill);
+    if (supportedModes.length > 0 && !supportedModes.includes(mode)) return [];
+    return [{
+      slug: skill.slug,
+      label: skill.name,
+      description: skill.description,
+      group: skill.kind === 'IMPORTED' ? 'Skill packages' : 'Built-in skills',
+    }];
+  });
+  return [...staticOptions, ...dynamicOptions.sort((left, right) => left.group.localeCompare(right.group) || left.label.localeCompare(right.label))];
+}
+
+function getSkillSupportedModesForAssist(skill: SkillReadiness['skill']): AppMode[] {
+  const config = skill.route?.config;
+  const value = config && typeof config === 'object' ? (config as Record<string, unknown>).supportedModes : undefined;
+  if (Array.isArray(value)) {
+    return value.filter((mode): mode is AppMode => typeof mode === 'string' && ['CHAT', 'DEEP_RESEARCH', 'SOCIAL_WRITING', 'IMAGE_GENERATION', 'VIDEO_GENERATION'].includes(mode));
+  }
+  return skill.route?.mode ? [skill.route.mode] : [];
 }
 
 export function getSkillAssistModeOptions(): SkillAssistModeOption[] {
@@ -438,8 +462,22 @@ export function getLauncherPlaceholder(itemId: string): string {
 export function getLauncherPromptTemplates(itemId: string, readiness: SkillReadiness[]): PromptTemplate[] {
   const skillSlug = launcherReadinessSlugs[itemId];
   if (!skillSlug) return [];
+  return getSkillPromptTemplates(skillSlug, readiness);
+}
+
+export function getSkillPromptTemplates(skillSlug: string, readiness: SkillReadiness[]): PromptTemplate[] {
   const templates = readiness.find((item) => item.skill.slug === skillSlug)?.skill.route?.config?.promptTemplates;
   return sanitizePromptTemplates(templates);
+}
+
+export function getSelectedSkillPromptTemplates(skillSlugs: string[], readiness: SkillReadiness[]): PromptTemplate[] {
+  const seen = new Set<string>();
+  return skillSlugs.flatMap((slug) => getSkillPromptTemplates(slug, readiness))
+    .filter((template) => {
+      if (seen.has(template.id)) return false;
+      seen.add(template.id);
+      return true;
+    });
 }
 
 function sanitizePromptTemplates(value: unknown): PromptTemplate[] {
@@ -451,7 +489,8 @@ function sanitizePromptTemplates(value: unknown): PromptTemplate[] {
     const label = typeof candidate.label === 'string' ? candidate.label.trim() : '';
     const prompt = typeof candidate.prompt === 'string' ? candidate.prompt : '';
     const description = typeof candidate.description === 'string' ? candidate.description.trim() : '';
-    if (!id || !label || !prompt.trim()) return [];
+    const visibleToUsers = typeof candidate.visibleToUsers === 'boolean' ? candidate.visibleToUsers : true;
+    if (!id || !label || !prompt.trim() || !visibleToUsers) return [];
     return [{ id, label, prompt, ...(description ? { description } : {}) }];
   }).slice(0, 8);
 }
