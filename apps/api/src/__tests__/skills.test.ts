@@ -421,6 +421,49 @@ describe('skill registry API', () => {
     database.close();
   });
 
+  it('allows admins to upload a manual skill package folder with supported files and warnings', async () => {
+    const { agent, database } = await makeTestApp();
+    await registerAdmin(agent, database);
+
+    const res = await agent.post('/api/admin/skills/import-manual-kit').send({
+      sourceLabel: 'local brand package',
+      files: [
+        {
+          path: 'local-brand-package/SKILL.md',
+          content: '---\nname: Brand Voice\ndescription: Keep launch copy sharp.\n---\n\nUse the references before drafting.',
+        },
+        { path: 'local-brand-package/references/tone.md', content: '# Tone\n\nPremium, direct, grounded.' },
+        { path: 'local-brand-package/scripts/check.py', content: 'print("reference only")' },
+        { path: 'local-brand-package/private/raw.bin', content: 'ignored binary-ish content' },
+      ],
+    }).expect(201);
+
+    expect(res.body.skill).toMatchObject({
+      slug: 'brand-voice',
+      kind: 'IMPORTED',
+      status: 'DRAFT',
+      visibility: 'ADMIN_ONLY',
+    });
+    expect(res.body.skill.route.config.manualSkillKit).toMatchObject({
+      sourceLabel: 'local brand package',
+      fileCount: 3,
+    });
+    expect(res.body.skill.route.config.importedSkillKit).toBeUndefined();
+    expect(res.body.skill.route.config.importWarnings).toEqual(expect.arrayContaining([
+      expect.stringContaining('scripts/check.py'),
+      expect.stringContaining('private/raw.bin'),
+    ]));
+    expect(res.body.files.map((file: { path: string }) => file.path)).toEqual([
+      'SKILL.md',
+      'references/tone.md',
+      'scripts/check.py',
+    ]);
+
+    await agent.post('/api/admin/skills/brand-voice/reimport').expect(404);
+
+    database.close();
+  });
+
   it('imports one skill kit from a specific GitHub folder and ignores sibling skills', async () => {
     const { agent, database } = await makeTestApp();
     await registerAdmin(agent, database);

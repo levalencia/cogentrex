@@ -1,8 +1,8 @@
 import type { SkillSeed } from './skillRepository.js';
 import { SkillRepository } from './skillRepository.js';
 import { notFound, conflict } from '../http/errors.js';
-import { importSkillKitFromGitHub } from './skillKitImporter.js';
-import type { CreateSkillInput, ImportSkillKitInput, UpdateSkillInput, UpdateSkillInstructionsInput, UpdateSkillRouteInput } from '@cogentrex/shared';
+import { importSkillKitFromGitHub, importSkillKitFromManualFiles } from './skillKitImporter.js';
+import type { CreateSkillInput, ImportManualSkillKitInput, ImportSkillKitInput, UpdateSkillInput, UpdateSkillInstructionsInput, UpdateSkillRouteInput } from '@cogentrex/shared';
 import type { AppLogger } from '../observability/logger.js';
 
 function promptInput(label = 'Prompt', helpText = 'Describe what this skill should do.'): Record<string, unknown> {
@@ -343,6 +343,14 @@ export class SkillService {
     const result = await this.repository.importSkillKit(snapshot);
     if (!result) throw conflict('Imported skill slug conflicts with an existing native skill');
     this.logger.info({ slug: result.skill.slug, fileCount: result.files.length, sourcePath: snapshot.sourcePath }, 'skill_kit_imported');
+    return result;
+  }
+
+  async importManualSkillKit(input: ImportManualSkillKitInput) {
+    const snapshot = importSkillKitFromManualFiles(input);
+    const result = await this.repository.importSkillKit(snapshot);
+    if (!result) throw conflict('Imported skill slug conflicts with an existing native skill');
+    this.logger.info({ slug: result.skill.slug, fileCount: result.files.length }, 'manual_skill_kit_imported');
     return result;
   }
 

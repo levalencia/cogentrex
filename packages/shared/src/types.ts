@@ -71,10 +71,17 @@ export interface SkillImportSource {
   lastImportedAt?: string | undefined;
 }
 
+export interface ManualSkillImportSource {
+  sourceLabel: string;
+  lastImportedAt?: string | undefined;
+  fileCount?: number | undefined;
+}
+
 export interface SkillProviderRouteConfig extends Record<string, unknown> {
   promptTemplates?: PromptTemplate[] | undefined;
   adminTestGate?: SkillPublishGateLastTest | undefined;
   importedSkillKit?: SkillImportSource | undefined;
+  manualSkillKit?: ManualSkillImportSource | undefined;
   importWarnings?: string[] | undefined;
 }
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import type { FormEvent } from 'react';
+import type { ChangeEvent, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import type { AdminAnalyticsSummary, AdminSkillTestResponse, CreateSkillInput, ProviderConfigView, SkillFileSummary, SkillReadiness, SkillStatus, SkillSummary, SkillVisibility } from '@cogentrex/shared';
 import { api } from '@/lib/api';
@@ -11,6 +11,7 @@ import {
   buildAdminBuiltInCapabilityCatalog,
   buildAdminSkillMetrics,
   buildAdminSkillPackageCatalog,
+  buildManualSkillKitImportPayload,
   buildSkillDetailModel,
   buildSkillFileViews,
   buildSkillRoutePayload,
@@ -28,6 +29,7 @@ import {
   isPublishBlockedByGate,
   mergeSkillExamplesIntoRouteDraft,
   type AdminSkillPanelMode,
+  type ManualSkillKitImportDraft,
   type SkillKitImportDraft,
   type SkillRouteDraft,
   type SkillUpdateDraft,
@@ -49,6 +51,11 @@ const visibilityOptions: { value: SkillVisibility; label: string }[] = [
 ];
 
 type DetailTab = 'overview' | 'instructions' | 'examples' | 'test' | 'route' | 'files' | 'settings';
+
+const emptyManualImportDraft: ManualSkillKitImportDraft = {
+  sourceLabel: '',
+  files: [],
+};
 
 const emptyCreateDraft: CreateSkillInput = {
   slug: '',
@@ -82,6 +89,7 @@ export default function AdminSkillsPage() {
   const [testResult, setTestResult] = useState<AdminSkillTestResponse | null>(null);
   const [createDraft, setCreateDraft] = useState<CreateSkillInput>(emptyCreateDraft);
   const [importDraft, setImportDraft] = useState<SkillKitImportDraft>({ sourceUrl: '', folderPath: '', ref: '' });
+  const [manualImportDraft, setManualImportDraft] = useState<ManualSkillKitImportDraft>(emptyManualImportDraft);
   const [importing, setImporting] = useState(false);
   const [reimporting, setReimporting] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -389,6 +397,52 @@ export default function AdminSkillsPage() {
     }
   }
 
+  async function loadManualPackageFiles(event: ChangeEvent<HTMLInputElement>) {
+    const selectedFiles = Array.from(event.target.files ?? []);
+    if (!selectedFiles.length) {
+      setManualImportDraft((current) => ({ ...current, files: [] }));
+      return;
+    }
+    try {
+      const rawPaths = selectedFiles.map((file) => ('webkitRelativePath' in file && typeof file.webkitRelativePath === 'string' && file.webkitRelativePath ? file.webkitRelativePath : file.name));
+      const firstSegments = rawPaths.map((path) => path.split('/')[0]).filter(Boolean);
+      const sharedRoot = firstSegments.length > 0 && firstSegments.every((segment) => segment === firstSegments[0]) && rawPaths.some((path) => path.includes('/'))
+        ? `${firstSegments[0]}/`
+        : '';
+      const files = await Promise.all(selectedFiles.map(async (file, index) => {
+        const rawPath = rawPaths[index] ?? file.name;
+        const path = sharedRoot && rawPath.startsWith(sharedRoot) ? rawPath.slice(sharedRoot.length) : rawPath;
+        return { path, content: await file.text() };
+      }));
+      setManualImportDraft((current) => ({
+        ...current,
+        sourceLabel: current.sourceLabel || (sharedRoot ? sharedRoot.replace(/\/$/u, '') : 'Manual upload'),
+        files,
+      }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not read selected package files');
+    }
+  }
+
+  async function importManualSkillKit(event: FormEvent) {
+    event.preventDefault();
+    setImporting(true);
+    setError(undefined);
+    setSuccess(undefined);
+    try {
+      const result = await api.importManualAdminSkillKit(buildManualSkillKitImportPayload(manualImportDraft));
+      setSuccess(`Uploaded ${result.skill.name} from ${result.files.length} file${result.files.length === 1 ? '' : 's'}${result.warnings.length ? ` (${result.warnings.length} warning${result.warnings.length === 1 ? '' : 's'})` : ''}.`);
+      setManualImportDraft(emptyManualImportDraft);
+      setSkillFiles((current) => ({ ...current, [result.skill.slug]: result.files }));
+      await loadAdminData();
+      selectSkill(result.skill, 'files');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not upload manual skill package');
+    } finally {
+      setImporting(false);
+    }
+  }
+
   async function reimportSkillKit() {
     if (!selectedSlug) return;
     setReimporting(true);
@@ -610,23 +664,51 @@ export default function AdminSkillsPage() {
             </div>
 
             {panelMode === 'import' ? (
-              <form onSubmit={importSkillKit} className="mt-6 space-y-4">
+              <div className="mt-6 space-y-5">
                 <div className="rounded-2xl border border-accent/20 bg-accent/10 p-4 text-sm text-slate-300">
-                  Import is scoped to one GitHub folder. Cogentrex stores SKILL.md plus references/templates/scripts/assets as a draft package for review, examples, testing, and publish approval.
+                  Import a governed skill package from GitHub or a local folder. Cogentrex stores SKILL.md plus supported references/templates/scripts/assets as a draft package for review, examples, testing, and publish approval.
                 </div>
-                <label className="block text-sm text-slate-400">GitHub repo or tree URL
-                  <input value={importDraft.sourceUrl} onChange={(e) => setImportDraft({ ...importDraft, sourceUrl: e.target.value })} placeholder="https://github.com/org/skills-repo" className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 text-white outline-none focus:border-accent" />
-                </label>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="block text-sm text-slate-400">Folder path
-                    <input value={importDraft.folderPath} onChange={(e) => setImportDraft({ ...importDraft, folderPath: e.target.value })} placeholder="skills/excalidraw" className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 text-white outline-none focus:border-accent" />
+                <form onSubmit={importSkillKit} className="space-y-4 rounded-2xl border border-line bg-ink/40 p-4">
+                  <div>
+                    <p className="text-sm font-semibold text-white">Import from GitHub</p>
+                    <p className="mt-1 text-xs text-slate-500">Use when the package has a source URL and can be refreshed later.</p>
+                  </div>
+                  <label className="block text-sm text-slate-400">GitHub repo or tree URL
+                    <input value={importDraft.sourceUrl} onChange={(e) => setImportDraft({ ...importDraft, sourceUrl: e.target.value })} placeholder="https://github.com/org/skills-repo" className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 text-white outline-none focus:border-accent" />
                   </label>
-                  <label className="block text-sm text-slate-400">Ref
-                    <input value={importDraft.ref} onChange={(e) => setImportDraft({ ...importDraft, ref: e.target.value })} placeholder="main" className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 text-white outline-none focus:border-accent" />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="block text-sm text-slate-400">Folder path
+                      <input value={importDraft.folderPath} onChange={(e) => setImportDraft({ ...importDraft, folderPath: e.target.value })} placeholder="skills/excalidraw" className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 text-white outline-none focus:border-accent" />
+                    </label>
+                    <label className="block text-sm text-slate-400">Ref
+                      <input value={importDraft.ref} onChange={(e) => setImportDraft({ ...importDraft, ref: e.target.value })} placeholder="main" className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 text-white outline-none focus:border-accent" />
+                    </label>
+                  </div>
+                  <button type="submit" disabled={importing} className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50">{importing ? 'Importing…' : 'Import GitHub package'}</button>
+                </form>
+
+                <form onSubmit={importManualSkillKit} className="space-y-4 rounded-2xl border border-line bg-ink/40 p-4">
+                  <div>
+                    <p className="text-sm font-semibold text-white">Upload local package</p>
+                    <p className="mt-1 text-xs text-slate-500">Choose a folder or multiple files containing SKILL.md. Local uploads are stored as manual packages and cannot be re-imported from source.</p>
+                  </div>
+                  <label className="block text-sm text-slate-400">Source label
+                    <input value={manualImportDraft.sourceLabel} onChange={(e) => setManualImportDraft({ ...manualImportDraft, sourceLabel: e.target.value })} placeholder="Local brand-agency folder" className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 text-white outline-none focus:border-accent" />
                   </label>
-                </div>
-                <button type="submit" disabled={importing} className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50">{importing ? 'Importing…' : 'Import package as draft'}</button>
-              </form>
+                  <label className="block rounded-2xl border border-dashed border-line bg-panel/40 p-4 text-sm text-slate-400 hover:border-accent">
+                    <span className="font-semibold text-white">Choose folder or files</span>
+                    <span className="mt-1 block text-xs text-slate-500">Supported paths: SKILL.md, README.md, references/*.md, templates/*, scripts/*, assets/*.</span>
+                    <input type="file" multiple {...({ webkitdirectory: '', directory: '' } as Record<string, string>)} onChange={(e) => void loadManualPackageFiles(e)} className="mt-3 block w-full text-xs text-slate-400 file:mr-3 file:rounded-lg file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-ink" />
+                  </label>
+                  {manualImportDraft.files.length ? (
+                    <div className="rounded-xl border border-line bg-black/20 p-3 text-xs text-slate-400">
+                      <p className="font-semibold text-white">{manualImportDraft.files.length} selected file{manualImportDraft.files.length === 1 ? '' : 's'}</p>
+                      <p className="mt-1 line-clamp-3 font-mono">{manualImportDraft.files.slice(0, 6).map((file) => file.path).join(', ')}{manualImportDraft.files.length > 6 ? ', …' : ''}</p>
+                    </div>
+                  ) : null}
+                  <button type="submit" disabled={importing || manualImportDraft.files.length === 0} className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50">{importing ? 'Uploading…' : 'Upload package as draft'}</button>
+                </form>
+              </div>
             ) : null}
 
             {panelMode === 'create' ? (
