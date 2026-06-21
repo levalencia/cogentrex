@@ -1,4 +1,4 @@
-import type { AdminAnalyticsSummary, AppMode, CapabilityStatus, ImportSkillKitInput, PromptTemplate, SkillFileSummary, SkillPublishGate, SkillReadiness, SkillStatus, SkillSummary, SkillVisibility, UpdateSkillInput, UpdateSkillRouteInput } from '@cogentrex/shared';
+import type { AdminAnalyticsSummary, AppMode, CapabilityStatus, ImportManualSkillKitInput, ImportSkillKitInput, PromptTemplate, SkillFileSummary, SkillPublishGate, SkillReadiness, SkillStatus, SkillSummary, SkillVisibility, UpdateSkillInput, UpdateSkillRouteInput } from '@cogentrex/shared';
 
 export interface SkillBadge {
   label: string;
@@ -25,6 +25,16 @@ export interface SkillKitImportDraft {
   sourceUrl: string;
   folderPath: string;
   ref: string;
+}
+
+export interface ManualSkillKitFileDraft {
+  path: string;
+  content: string;
+}
+
+export interface ManualSkillKitImportDraft {
+  sourceLabel: string;
+  files: ManualSkillKitFileDraft[];
 }
 
 export interface AdminSkillCatalogRow {
@@ -207,15 +217,16 @@ export function isPublishBlockedByGate(skill: SkillSummary, draft: SkillUpdateDr
 export function getSkillImportSourceView(skill: SkillSummary): AdminSkillImportSourceView {
   const config = skill.route?.config;
   const source = config?.importedSkillKit;
+  const manualSource = config?.manualSkillKit;
   const warnings = Array.isArray(config?.importWarnings)
     ? config.importWarnings.filter((warning): warning is string => typeof warning === 'string' && warning.trim().length > 0)
     : [];
   if (!source) {
     return {
-      sourceLabel: 'Manual package',
+      sourceLabel: manualSource?.sourceLabel ?? 'Manual package',
       refLabel: 'Not linked to GitHub source',
-      pathLabel: 'Created in Cogentrex',
-      lastImportedLabel: 'Not imported from source',
+      pathLabel: manualSource?.fileCount ? `${manualSource.fileCount} uploaded file${manualSource.fileCount === 1 ? '' : 's'}` : 'Created in Cogentrex',
+      lastImportedLabel: manualSource?.lastImportedAt ? formatRelativeDate(manualSource.lastImportedAt) : 'Not imported from source',
       warnings,
       canRefresh: false,
     };
@@ -285,6 +296,14 @@ export function buildSkillRoutePayload(draft: SkillRouteDraft): UpdateSkillRoute
     searchProfile: nullableTrim(draft.searchProfile),
     maxBudgetCents: parseNullableCents(draft.maxBudgetCents),
     config: { ...config, supportedModes },
+  };
+}
+
+export function buildManualSkillKitImportPayload(draft: ManualSkillKitImportDraft): ImportManualSkillKitInput {
+  if (!draft.files.length) throw new Error('Choose a folder or files that include SKILL.md');
+  return {
+    ...(draft.sourceLabel.trim() ? { sourceLabel: draft.sourceLabel.trim() } : {}),
+    files: draft.files.map((file) => ({ path: file.path, content: file.content })),
   };
 }
 

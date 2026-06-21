@@ -1,4 +1,4 @@
-import type { AdminAnalyticsSummary, AdminSkillTestResponse, ArtifactItem, ChatMessage, ConversationSummary, MediaArtifact, ProjectSummary, ProviderConfigView, PublicUser, RequestMetric, StreamEvent, ImageGenerationOptions, GeneratedPost, SocialPlatformConfig, WorkflowReadiness, SkillDetail, SkillReadiness, SkillSummary, SkillFileSummary, CreateSkillInput, ImportSkillKitInput, UpdateSkillInput, UpdateSkillRouteInput, WorkflowRunDetailResponse, WorkflowRunEventsResponse, WorkflowRunListResponse, SkillAssistMode } from '@cogentrex/shared';
+import type { AdminAnalyticsSummary, AdminSkillTestResponse, ArtifactItem, ChatMessage, ConversationSummary, MediaArtifact, ProjectSummary, ProviderConfigView, PublicUser, RequestMetric, StreamEvent, ImageGenerationOptions, GeneratedPost, SocialPlatformConfig, WorkflowReadiness, SkillDetail, SkillReadiness, SkillSummary, SkillFileSummary, CreateSkillInput, ImportManualSkillKitInput, ImportSkillKitInput, UpdateSkillInput, UpdateSkillRouteInput, WorkflowRunDetailResponse, WorkflowRunEventsResponse, WorkflowRunListResponse, SkillAssistMode } from '@cogentrex/shared';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001';
 
@@ -88,6 +88,8 @@ export const api = {
     jsonRequest<{ skill: SkillSummary; files: SkillFileSummary[] }>(`/api/admin/skills`, { method: 'POST', body: JSON.stringify(input) }),
   importAdminSkillKit: (input: ImportSkillKitInput) =>
     jsonRequest<{ skill: SkillSummary; files: SkillFileSummary[]; warnings: string[] }>('/api/admin/skills/import-kit', { method: 'POST', body: JSON.stringify(input) }),
+  importManualAdminSkillKit: (input: ImportManualSkillKitInput) =>
+    jsonRequest<{ skill: SkillSummary; files: SkillFileSummary[]; warnings: string[] }>('/api/admin/skills/import-manual-kit', { method: 'POST', body: JSON.stringify(input) }),
   reimportAdminSkillKit: (slug: string) =>
     jsonRequest<{ skill: SkillSummary; files: SkillFileSummary[]; warnings: string[] }>(`/api/admin/skills/${slug}/reimport`, { method: 'POST' }),
   updateAdminSkill: (slug: string, input: UpdateSkillInput) =>

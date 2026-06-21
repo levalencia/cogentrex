@@ -36,9 +36,11 @@ export interface ImportedSkillKitSnapshot {
   slug: string;
   name: string;
   description: string;
+  sourceKind?: 'github' | 'manual' | undefined;
   sourceUrl: string;
   sourceRef: string;
   sourcePath: string;
+  sourceLabel?: string | undefined;
   files: ImportedSkillFile[];
   warnings: string[];
 }
@@ -155,8 +157,21 @@ function parseToolRequirements(value: string | null): SkillToolRequirement[] {
 }
 
 function mergeImportedRouteConfig(existingConfig: SkillProviderRouteConfig | null, snapshot: ImportedSkillKitSnapshot, now: string): SkillProviderRouteConfig {
+  if (snapshot.sourceKind === 'manual') {
+    return {
+      ...(existingConfig ?? {}),
+      importedSkillKit: undefined,
+      manualSkillKit: {
+        sourceLabel: snapshot.sourceLabel ?? 'Manual upload',
+        lastImportedAt: now,
+        fileCount: snapshot.files.length,
+      },
+      importWarnings: snapshot.warnings,
+    };
+  }
   return {
     ...(existingConfig ?? {}),
+    manualSkillKit: undefined,
     importedSkillKit: {
       sourceUrl: snapshot.sourceUrl,
       sourceRef: snapshot.sourceRef,
@@ -538,7 +553,7 @@ export class SkillRepository {
           content,
           sha256,
           sizeBytes: Buffer.byteLength(content, 'utf8'),
-          updatedAt: effectiveNow,
+          updatedAt: now,
         });
       } else {
         await tx.prepare(
@@ -554,7 +569,7 @@ export class SkillRepository {
           sha256,
           sizeBytes: Buffer.byteLength(content, 'utf8'),
           createdAt: effectiveNow,
-          updatedAt: effectiveNow,
+          updatedAt: now,
         });
       }
 
@@ -638,10 +653,14 @@ export class SkillRepository {
   async importSkillKit(snapshot: ImportedSkillKitSnapshot, now = new Date().toISOString()): Promise<ImportedSkillKitResult | null> {
     const existing = await this.findBySlug(snapshot.slug);
     if (existing?.kind === 'NATIVE') return null;
+    const testedRouteUpdatedAt = existing?.route?.config?.adminTestGate?.testedRouteUpdatedAt;
+    const effectiveNow = testedRouteUpdatedAt && new Date(now).getTime() <= new Date(testedRouteUpdatedAt).getTime()
+      ? new Date(new Date(testedRouteUpdatedAt).getTime() + 1).toISOString()
+      : now;
     const skillId = existing?.id ?? `skl_imp_${snapshot.slug.replaceAll('-', '_')}`;
     const routeId = existing?.route?.id ?? `skr_${snapshot.slug.replaceAll('-', '_')}`;
-    const createdAt = existing?.createdAt ?? now;
-    const routeConfig = mergeImportedRouteConfig(existing?.route?.config ?? null, snapshot, now);
+    const createdAt = existing?.createdAt ?? effectiveNow;
+    const routeConfig = mergeImportedRouteConfig(existing?.route?.config ?? null, snapshot, effectiveNow);
 
     await this.db.transaction(async (tx) => {
       await tx.prepare(
@@ -663,7 +682,7 @@ export class SkillRepository {
         name: snapshot.name,
         description: snapshot.description,
         createdAt,
-        updatedAt: now,
+        updatedAt: effectiveNow,
       });
 
       await tx.prepare(
@@ -679,7 +698,7 @@ export class SkillRepository {
         skillId,
         configJson: JSON.stringify(routeConfig),
         createdAt,
-        updatedAt: now,
+        updatedAt: effectiveNow,
       });
 
       await tx.prepare('DELETE FROM skill_files WHERE skill_id = ?').run(skillId);
@@ -701,7 +720,7 @@ export class SkillRepository {
           sizeBytes: file.sizeBytes,
           executable: file.executable ? 1 : 0,
           createdAt: now,
-          updatedAt: now,
+          updatedAt: effectiveNow,
         });
       }
     });

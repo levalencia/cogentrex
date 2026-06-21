@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { adminSkillTestSchema, createSkillSchema, importSkillKitSchema, updateSkillInstructionsSchema, updateSkillRouteSchema, updateSkillSchema } from '@cogentrex/shared';
+import { adminSkillTestSchema, createSkillSchema, importManualSkillKitSchema, importSkillKitSchema, updateSkillInstructionsSchema, updateSkillRouteSchema, updateSkillSchema } from '@cogentrex/shared';
 import type { SkillPublishGate, SkillProviderRouteConfig, SkillSummary, UpdateSkillInput } from '@cogentrex/shared';
 import { currentUser, requireAuth, requireAdmin } from '../auth/authMiddleware.js';
 import type { AuthService } from '../auth/authService.js';
@@ -207,6 +207,16 @@ export function adminSkillRoutes(auth: AuthService, skills: SkillService, provid
     try {
       const input = importSkillKitSchema.parse(req.body);
       const result = await skills.importSkillKit(input);
+      res.status(201).json(result);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post('/import-manual-kit', async (req, res, next) => {
+    try {
+      const input = importManualSkillKitSchema.parse(req.body);
+      const result = await skills.importManualSkillKit(input);
       res.status(201).json(result);
     } catch (error) {
       next(error);
