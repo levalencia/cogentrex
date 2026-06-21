@@ -483,6 +483,72 @@ describe('skill registry API', () => {
     }
   });
 
+  it('refreshes imported skill kits from stored source while preserving examples and test history', async () => {
+    const { agent, database } = await makeTestApp();
+    await registerAdmin(agent, database);
+    const provider = await createProvider(agent);
+    let skillMd = '---\nname: Writing Coach\ndescription: Improve user writing.\n---\n\nFollow the brief.';
+    setSkillKitImportFetchForTests((async (url: string | URL | Request) => {
+      const href = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;
+      if (href === 'https://api.github.com/repos/acme/agent-skills/git/trees/main?recursive=1') {
+        return new Response(JSON.stringify({
+          tree: [
+            { path: 'skills/writing/SKILL.md', type: 'blob', size: 220 },
+            { path: 'skills/writing/scripts/check.py', type: 'blob', size: 30 },
+          ],
+        }), { status: 200 });
+      }
+      const rawPrefix = 'https://raw.githubusercontent.com/acme/agent-skills/main/';
+      if (href === `${rawPrefix}skills/writing/SKILL.md`) return new Response(skillMd, { status: 200 });
+      if (href === `${rawPrefix}skills/writing/scripts/check.py`) return new Response('print("reference only")', { status: 200 });
+      return new Response('not found', { status: 404 });
+    }) as typeof fetch);
+
+    try {
+      const imported = await agent.post('/api/admin/skills/import-kit').send({
+        sourceUrl: 'https://github.com/acme/agent-skills',
+        folderPath: 'skills/writing',
+      }).expect(201);
+      expect(imported.body.skill.route.config.importedSkillKit).toMatchObject({
+        sourceUrl: 'https://github.com/acme/agent-skills',
+        sourceRef: 'main',
+        sourcePath: 'skills/writing',
+      });
+      expect(imported.body.skill.route.config.importWarnings).toEqual(expect.arrayContaining([
+        expect.stringContaining('scripts/check.py'),
+      ]));
+
+      await agent.put('/api/admin/skills/writing-coach/route').send({
+        mode: 'CHAT',
+        defaultProviderId: provider.id,
+        config: {
+          promptTemplates: [{ id: 'rewrite', label: 'Rewrite', prompt: 'Rewrite this:', visibleToUsers: true }],
+          importedSkillKit: imported.body.skill.route.config.importedSkillKit,
+          importWarnings: imported.body.skill.route.config.importWarnings,
+        },
+      }).expect(200);
+      const testRes = await agent.post('/api/admin/skills/writing-coach/test').send({ prompt: 'Rewrite this launch note.', providerId: provider.id }).expect(200);
+
+      skillMd = '---\nname: Writing Coach\ndescription: Improve user writing.\n---\n\nFollow the refreshed brief.';
+      const refreshed = await agent.post('/api/admin/skills/writing-coach/reimport').expect(200);
+
+      expect(refreshed.body.files).toEqual(expect.arrayContaining([
+        expect.objectContaining({ path: 'SKILL.md', content: skillMd }),
+      ]));
+      expect(refreshed.body.skill.route.config.promptTemplates).toEqual([
+        { id: 'rewrite', label: 'Rewrite', prompt: 'Rewrite this:', visibleToUsers: true },
+      ]);
+      expect(refreshed.body.skill.route.config.adminTestGate).toMatchObject({ runId: testRes.body.run.id });
+      expect(refreshed.body.skill.route.config.importWarnings).toEqual(expect.arrayContaining([
+        expect.stringContaining('scripts/check.py'),
+      ]));
+      expect(refreshed.body.skill.publishGate.status).toBe('stale');
+    } finally {
+      setSkillKitImportFetchForTests(null);
+      database.close();
+    }
+  });
+
   it('accepts GitHub tree URLs as direct folder imports', async () => {
     const { agent, database } = await makeTestApp();
     await registerAdmin(agent, database);

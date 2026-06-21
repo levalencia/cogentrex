@@ -92,6 +92,15 @@ export interface AdminSkillPublishGateView {
   runHref: string | null;
 }
 
+export interface AdminSkillImportSourceView {
+  sourceLabel: string;
+  refLabel: string;
+  pathLabel: string;
+  lastImportedLabel: string;
+  warnings: string[];
+  canRefresh: boolean;
+}
+
 const statusBadges: Record<SkillStatus, SkillBadge> = {
   DRAFT: { label: 'Draft', className: 'border-slate-500/30 bg-slate-500/10 text-slate-300' },
   STAGED: { label: 'Staged', className: 'border-yellow-500/30 bg-yellow-500/10 text-yellow-200' },
@@ -193,6 +202,32 @@ export function isPublishBlockedByGate(skill: SkillSummary, draft: SkillUpdateDr
   const wantsPublic = draft.status === 'PUBLISHED' && draft.visibility === 'USER_VISIBLE';
   const alreadyPublic = skill.status === 'PUBLISHED' && skill.visibility === 'USER_VISIBLE';
   return skill.kind === 'IMPORTED' && wantsPublic && !alreadyPublic && skill.publishGate?.status !== 'passing';
+}
+
+export function getSkillImportSourceView(skill: SkillSummary): AdminSkillImportSourceView {
+  const config = skill.route?.config;
+  const source = config?.importedSkillKit;
+  const warnings = Array.isArray(config?.importWarnings)
+    ? config.importWarnings.filter((warning): warning is string => typeof warning === 'string' && warning.trim().length > 0)
+    : [];
+  if (!source) {
+    return {
+      sourceLabel: 'Manual package',
+      refLabel: 'Not linked to GitHub source',
+      pathLabel: 'Created in Cogentrex',
+      lastImportedLabel: 'Not imported from source',
+      warnings,
+      canRefresh: false,
+    };
+  }
+  return {
+    sourceLabel: source.sourceUrl,
+    refLabel: source.sourceRef,
+    pathLabel: source.sourcePath || '/',
+    lastImportedLabel: source.lastImportedAt ? formatRelativeDate(source.lastImportedAt) : 'Imported before source timestamps were tracked',
+    warnings,
+    canRefresh: true,
+  };
 }
 
 function formatRelativeDate(value: string): string {

@@ -213,6 +213,15 @@ export function adminSkillRoutes(auth: AuthService, skills: SkillService, provid
     }
   });
 
+  router.post('/:slug/reimport', async (req, res, next) => {
+    try {
+      const result = await skills.reimportSkillKit(req.params.slug);
+      res.json({ ...result, skill: result.skill.kind === 'IMPORTED' ? { ...result.skill, publishGate: buildPublishGate(result.skill) } : result.skill });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   router.post('/', async (req, res, next) => {
     try {
       const input = createSkillSchema.parse(req.body);
