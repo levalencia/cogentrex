@@ -98,6 +98,8 @@ export const api = {
     jsonRequest<{ route: SkillSummary['route'] }>(`/api/admin/skills/${slug}/route`, { method: 'PUT', body: JSON.stringify(input) }),
   updateAdminSkillInstructions: (slug: string, input: { content: string }) =>
     jsonRequest<{ files: SkillFileSummary[]; skill: SkillSummary }>(`/api/admin/skills/${slug}/instructions`, { method: 'PUT', body: JSON.stringify(input) }),
+  updateAdminSkillFile: (slug: string, input: { path: string; content: string }) =>
+    jsonRequest<{ files: SkillFileSummary[]; skill: SkillSummary }>(`/api/admin/skills/${slug}/files`, { method: 'PUT', body: JSON.stringify(input) }),
   runAdminSkillTest: (slug: string, input: { prompt: string; exampleId?: string; providerId?: string }) =>
     jsonRequest<AdminSkillTestResponse>(`/api/admin/skills/${slug}/test`, { method: 'POST', body: JSON.stringify(input) }),
   // Media

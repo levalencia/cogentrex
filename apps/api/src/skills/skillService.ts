@@ -1,8 +1,8 @@
 import type { SkillSeed } from './skillRepository.js';
 import { SkillRepository } from './skillRepository.js';
-import { notFound, conflict } from '../http/errors.js';
+import { HttpError, notFound, conflict } from '../http/errors.js';
 import { importSkillKitFromGitHub, importSkillKitFromManualFiles } from './skillKitImporter.js';
-import type { CreateSkillInput, ImportManualSkillKitInput, ImportSkillKitInput, UpdateSkillInput, UpdateSkillInstructionsInput, UpdateSkillRouteInput } from '@cogentrex/shared';
+import type { CreateSkillInput, ImportManualSkillKitInput, ImportSkillKitInput, UpdateSkillFileInput, UpdateSkillInput, UpdateSkillInstructionsInput, UpdateSkillRouteInput } from '@cogentrex/shared';
 import type { AppLogger } from '../observability/logger.js';
 
 function promptInput(label = 'Prompt', helpText = 'Describe what this skill should do.'): Record<string, unknown> {
@@ -322,6 +322,24 @@ export class SkillService {
     if (!files) throw notFound('Skill not found');
     this.logger.info({ slug }, 'skill_instructions_updated');
     return files;
+  }
+
+
+  async updateSkillFile(slug: string, input: UpdateSkillFileInput) {
+    const files = await this.repository.listFilesBySkillSlug(slug);
+    if (!files) throw notFound('Skill not found');
+    const file = files.find((candidate) => candidate.path === input.path);
+    if (!file) throw notFound('Skill file not found');
+    if (file.kind === 'skill') {
+      throw new HttpError(400, 'SKILL_FILE_USE_INSTRUCTIONS_EDITOR', 'Edit SKILL.md from the Instructions.md tab');
+    }
+    if (file.kind === 'script' || file.kind === 'asset') {
+      throw new HttpError(400, 'SKILL_FILE_READ_ONLY', 'Scripts and assets are read-only in this editor');
+    }
+    const updatedFiles = await this.repository.updateSkillFile(slug, input);
+    if (!updatedFiles) throw notFound('Skill file not found');
+    this.logger.info({ slug, path: input.path, kind: file.kind }, 'skill_file_updated');
+    return updatedFiles;
   }
 
   async updateRoute(slug: string, input: UpdateSkillRouteInput) {

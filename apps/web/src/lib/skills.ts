@@ -1,4 +1,4 @@
-import type { AdminAnalyticsSummary, AppMode, CapabilityStatus, ImportManualSkillKitInput, ImportSkillKitInput, PromptTemplate, SkillFileSummary, SkillPublishGate, SkillReadiness, SkillStatus, SkillSummary, SkillVisibility, UpdateSkillInput, UpdateSkillRouteInput } from '@cogentrex/shared';
+import type { AdminAnalyticsSummary, AppMode, CapabilityStatus, ImportManualSkillKitInput, ImportSkillKitInput, PromptTemplate, SkillFileKind, SkillFileSummary, SkillPublishGate, SkillReadiness, SkillStatus, SkillSummary, SkillVisibility, UpdateSkillInput, UpdateSkillRouteInput } from '@cogentrex/shared';
 
 export interface SkillBadge {
   label: string;
@@ -76,6 +76,7 @@ export interface SkillFileView {
   path: string;
   label: string;
   role: string;
+  kind: SkillFileKind;
   byteLabel: string;
   checksumLabel: string;
   preview: string;
@@ -381,6 +382,7 @@ export function buildSkillFileViews(files: SkillFileSummary[]): SkillFileView[] 
       path: file.path,
       label: isInstructions ? 'Instructions' : titleCase(file.kind),
       role: isInstructions ? 'Skill Markdown / SKILL.md' : 'Supporting file',
+      kind: file.kind,
       byteLabel: formatBytes(file.sizeBytes),
       checksumLabel: file.sha256.slice(0, 12),
       preview: file.content.trim().slice(0, 120),
@@ -392,6 +394,10 @@ export function buildSkillFileViews(files: SkillFileSummary[]): SkillFileView[] 
 
 export function getSkillInstructionsFile(files: SkillFileView[]): SkillFileView | null {
   return files.find((file) => file.path === 'SKILL.md' || file.label === 'Instructions') ?? null;
+}
+
+export function isEditableSupportingSkillFile(file: SkillFileView): boolean {
+  return file.kind === 'reference' || file.kind === 'template';
 }
 
 export function buildSkillExampleViews(skill: SkillSummary): SkillExampleView[] {
