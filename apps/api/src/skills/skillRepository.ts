@@ -8,6 +8,7 @@ import type {
   SkillKind,
   SkillProviderRoute,
   SkillProviderRouteConfig,
+  SkillPublishGateLastTest,
   SkillStatus,
   SkillSummary,
   SkillToolRequirement,
@@ -483,6 +484,10 @@ export class SkillRepository {
     if (!skill) return null;
     const routeId = skill.route?.id ?? `skr_${slug.replaceAll('-', '_')}`;
     const createdAt = skill.route?.createdAt ?? now;
+    const config = input.config ? { ...input.config } as SkillProviderRouteConfig : null;
+    if (config && skill.route?.config?.adminTestGate && !config.adminTestGate) {
+      config.adminTestGate = skill.route.config.adminTestGate;
+    }
 
     await this.db.prepare(
       `INSERT INTO skill_routes (
@@ -503,12 +508,37 @@ export class SkillRepository {
       defaultProviderId: input.defaultProviderId ?? null,
       searchProfile: input.searchProfile ?? null,
       maxBudgetCents: input.maxBudgetCents ?? null,
-      configJson: input.config ? JSON.stringify(input.config) : null,
+      configJson: config ? JSON.stringify(config) : null,
       createdAt,
       updatedAt: now,
     });
 
-    return (await this.findBySlug(slug))?.route ?? null;
+    const updated = await this.findBySlug(slug);
+    return updated?.route ?? null;
+  }
+
+  async recordAdminTestGate(slug: string, gate: Omit<SkillPublishGateLastTest, 'testedRouteUpdatedAt'>, now = new Date().toISOString()): Promise<SkillProviderRoute | null> {
+    const skill = await this.findBySlug(slug);
+    if (!skill?.route) return null;
+    const config: SkillProviderRouteConfig = {
+      ...(skill.route.config ?? {}),
+      adminTestGate: {
+        ...gate,
+        testedRouteUpdatedAt: now,
+      },
+    };
+    await this.db.prepare(
+      `UPDATE skill_routes
+       SET config_json = @configJson,
+           updated_at = @updatedAt
+       WHERE skill_id = @skillId`,
+    ).run({
+      skillId: skill.id,
+      configJson: JSON.stringify(config),
+      updatedAt: now,
+    });
+    const updated = await this.findBySlug(slug);
+    return updated?.route ?? null;
   }
 
   async importSkillKit(snapshot: ImportedSkillKitSnapshot, now = new Date().toISOString()): Promise<ImportedSkillKitResult | null> {

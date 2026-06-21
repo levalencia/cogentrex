@@ -324,6 +324,13 @@ export class SkillService {
     return route;
   }
 
+  async recordAdminTestGate(slug: string, input: Parameters<SkillRepository['recordAdminTestGate']>[1]) {
+    const route = await this.repository.recordAdminTestGate(slug, input);
+    if (!route) throw notFound('Skill route not found');
+    this.logger.info({ slug, runId: input.runId }, 'skill_admin_test_gate_recorded');
+    return route;
+  }
+
   async importSkillKit(input: ImportSkillKitInput) {
     const snapshot = await importSkillKitFromGitHub(input);
     const result = await this.repository.importSkillKit(snapshot);

@@ -21,8 +21,10 @@ import {
   getSkillIconGlyph,
   getSkillInstructionsFile,
   getSkillExampleDrafts,
+  getSkillPublishGateView,
   getSkillRouteDraft,
   getSkillUpdateDraft,
+  isPublishBlockedByGate,
   mergeSkillExamplesIntoRouteDraft,
   type AdminSkillPanelMode,
   type SkillKitImportDraft,
@@ -324,6 +326,8 @@ export default function AdminSkillsPage() {
   const selectedFiles = selectedSlug ? buildSkillFileViews(skillFiles[selectedSlug] ?? []) : [];
   const selectedInstructions = getSkillInstructionsFile(selectedFiles);
   const selectedExamples = exampleDrafts;
+  const selectedPublishGate = selectedSkill ? getSkillPublishGateView(selectedSkill) : null;
+  const publishBlocked = selectedSkill && skillDraft ? isPublishBlockedByGate(selectedSkill, skillDraft) : false;
   const testExampleOptions = selectedExamples.filter((example) => example.prompt.trim());
   const panelCopy = panelMode ? getAdminSkillPanelCopy(panelMode) : null;
 
@@ -584,6 +588,20 @@ export default function AdminSkillsPage() {
                           {detailModel.dependencySummaries.map((summary) => <li key={summary}>{summary}</li>)}
                         </ul>
                       </div>
+                      {selectedPublishGate ? (
+                        <div className={`rounded-2xl border p-4 text-sm ${publishGateClass(selectedPublishGate.tone)}`}>
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.16em] opacity-80">Publish gate</p>
+                              <h3 className="mt-1 font-semibold text-white">{selectedPublishGate.label}</h3>
+                              <p className="mt-2 text-xs opacity-90">{selectedPublishGate.description}</p>
+                              <p className="mt-2 text-xs opacity-80">Last successful admin test: {selectedPublishGate.lastTestLabel}</p>
+                            </div>
+                            {selectedPublishGate.runHref ? <a href={selectedPublishGate.runHref} className="rounded-lg border border-current/30 px-3 py-1.5 text-xs hover:border-current">Open run trace</a> : null}
+                          </div>
+                        </div>
+                      ) : null}
+                      {publishBlocked ? <p className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">Publishing is blocked until this package has a current successful admin test in Test Lab.</p> : null}
                       <div className="grid gap-3 sm:grid-cols-2">
                         <label className="block text-sm text-slate-400">Status
                           <select value={skillDraft.status} onChange={(e) => setSkillDraft({ ...skillDraft, status: e.target.value as SkillStatus })} className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 text-white outline-none focus:border-accent">
@@ -602,7 +620,7 @@ export default function AdminSkillsPage() {
                           <input value={skillDraft.icon} onChange={(e) => setSkillDraft({ ...skillDraft, icon: e.target.value })} className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 text-white outline-none focus:border-accent" />
                         </label>
                       </div>
-                      <button type="submit" disabled={saving} className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50">Save lifecycle</button>
+                      <button type="submit" disabled={saving || publishBlocked} className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50">{publishBlocked ? 'Run Test Lab before publish' : 'Save lifecycle'}</button>
                     </form>
                   ) : null}
 
@@ -805,6 +823,11 @@ export default function AdminSkillsPage() {
                           <dt className="text-xs uppercase tracking-[0.14em] text-slate-500">Files</dt>
                           <dd className="mt-1 text-white">{selectedFiles.length}</dd>
                         </div>
+                        <div className="rounded-xl border border-line bg-black/20 p-3 sm:col-span-2">
+                          <dt className="text-xs uppercase tracking-[0.14em] text-slate-500">Publish gate</dt>
+                          <dd className="mt-1 text-white">{selectedPublishGate?.label ?? 'Not checked'}</dd>
+                          <dd className="mt-1 text-xs text-slate-500">{selectedPublishGate?.lastTestLabel ?? 'No successful admin test yet'}</dd>
+                        </div>
                       </dl>
                     </div>
                   ) : null}
@@ -830,6 +853,12 @@ function readinessClass(tone: 'ready' | 'degraded' | 'missing' | 'neutral'): str
   if (tone === 'degraded') return 'border-yellow-500/30 bg-yellow-500/10 text-yellow-200';
   if (tone === 'missing') return 'border-red-500/30 bg-red-500/10 text-red-200';
   return 'border-slate-500/30 bg-slate-500/10 text-slate-300';
+}
+
+function publishGateClass(tone: 'ready' | 'warning' | 'danger'): string {
+  if (tone === 'ready') return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-100';
+  if (tone === 'warning') return 'border-yellow-500/30 bg-yellow-500/10 text-yellow-100';
+  return 'border-red-500/30 bg-red-500/10 text-red-100';
 }
 
 function metricClass(tone: 'accent' | 'ready' | 'warning' | 'danger' | 'neutral'): string {

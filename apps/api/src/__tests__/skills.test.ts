@@ -260,6 +260,17 @@ describe('skill registry API', () => {
       instructions: '# QA Copywriter\n\nAlways produce concise, evidence-aware copy.',
     }).expect(201);
 
+    await agent.patch('/api/admin/skills/qa-copywriter').send({
+      status: 'PUBLISHED',
+      visibility: 'USER_VISIBLE',
+    }).expect(400).expect((publishRes) => {
+      expect(publishRes.body.error.message).toContain('Run a successful admin test');
+    });
+
+    const beforeTestList = await agent.get('/api/admin/skills').expect(200);
+    const beforeTestSkill = beforeTestList.body.skills.find((skill: { slug: string }) => skill.slug === 'qa-copywriter');
+    expect(beforeTestSkill.publishGate).toMatchObject({ status: 'untested' });
+
     const res = await agent.post('/api/admin/skills/qa-copywriter/test').send({
       prompt: 'Write a launch note for the new Test Lab.',
       exampleId: 'launch-note',
@@ -294,6 +305,34 @@ describe('skill registry API', () => {
       'admin_test_output_received',
       'run_completed',
     ]));
+
+    const afterTestList = await agent.get('/api/admin/skills').expect(200);
+    const afterTestSkill = afterTestList.body.skills.find((skill: { slug: string }) => skill.slug === 'qa-copywriter');
+    expect(afterTestSkill.publishGate).toMatchObject({
+      status: 'passing',
+      lastSuccessfulTest: {
+        runId: res.body.run.id,
+        providerId: provider.id,
+        model: 'Kimi 2.6',
+      },
+    });
+
+    await agent.patch('/api/admin/skills/qa-copywriter').send({
+      status: 'PUBLISHED',
+      visibility: 'USER_VISIBLE',
+    }).expect(200).expect((publishRes) => {
+      expect(publishRes.body.skill.status).toBe('PUBLISHED');
+      expect(publishRes.body.skill.visibility).toBe('USER_VISIBLE');
+    });
+
+    await agent.put('/api/admin/skills/qa-copywriter/route').send({
+      mode: 'CHAT',
+      config: { promptTemplates: [{ id: 'changed', label: 'Changed', prompt: 'Changed prompt' }] },
+    }).expect(200);
+
+    const staleList = await agent.get('/api/admin/skills').expect(200);
+    const staleSkill = staleList.body.skills.find((skill: { slug: string }) => skill.slug === 'qa-copywriter');
+    expect(staleSkill.publishGate).toMatchObject({ status: 'stale' });
 
     database.close();
   });
