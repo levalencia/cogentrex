@@ -2,7 +2,7 @@ import type { SkillSeed } from './skillRepository.js';
 import { SkillRepository } from './skillRepository.js';
 import { notFound, conflict } from '../http/errors.js';
 import { importSkillKitFromGitHub } from './skillKitImporter.js';
-import type { CreateSkillInput, ImportSkillKitInput, UpdateSkillInput, UpdateSkillRouteInput } from '@cogentrex/shared';
+import type { CreateSkillInput, ImportSkillKitInput, UpdateSkillInput, UpdateSkillInstructionsInput, UpdateSkillRouteInput } from '@cogentrex/shared';
 import type { AppLogger } from '../observability/logger.js';
 
 function promptInput(label = 'Prompt', helpText = 'Describe what this skill should do.'): Record<string, unknown> {
@@ -315,6 +315,13 @@ export class SkillService {
     if (!skill) throw notFound('Skill not found');
     this.logger.info({ slug, status: skill.status, visibility: skill.visibility }, 'skill_updated');
     return skill;
+  }
+
+  async updateSkillInstructions(slug: string, input: UpdateSkillInstructionsInput) {
+    const files = await this.repository.updateSkillInstructions(slug, input);
+    if (!files) throw notFound('Skill not found');
+    this.logger.info({ slug }, 'skill_instructions_updated');
+    return files;
   }
 
   async updateRoute(slug: string, input: UpdateSkillRouteInput) {

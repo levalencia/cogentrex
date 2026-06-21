@@ -74,6 +74,7 @@ export default function AdminSkillsPage() {
   const [skillDraft, setSkillDraft] = useState<SkillUpdateDraft | null>(null);
   const [routeDraft, setRouteDraft] = useState<SkillRouteDraft | null>(null);
   const [exampleDrafts, setExampleDrafts] = useState<SkillExampleDraft[]>([]);
+  const [instructionsDraft, setInstructionsDraft] = useState('');
   const [testExampleId, setTestExampleId] = useState('custom');
   const [testPrompt, setTestPrompt] = useState('');
   const [testRunning, setTestRunning] = useState(false);
@@ -122,12 +123,16 @@ export default function AdminSkillsPage() {
     }
   }
 
-  async function loadSkillFiles(slug: string) {
+  async function loadSkillFiles(slug: string, syncInstructionsDraft = false) {
     setFilesLoading(true);
     setError(undefined);
     try {
       const result = await api.listAdminSkillFiles(slug);
       setSkillFiles((current) => ({ ...current, [slug]: result.files }));
+      if (syncInstructionsDraft) {
+        const instructions = getSkillInstructionsFile(buildSkillFileViews(result.files));
+        setInstructionsDraft(instructions?.content ?? '');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load skill files');
     } finally {
@@ -142,12 +147,19 @@ export default function AdminSkillsPage() {
     setSkillDraft(getSkillUpdateDraft(skill));
     setRouteDraft(getSkillRouteDraft(skill));
     setExampleDrafts(getSkillExampleDrafts(skill));
+    const cachedFiles = skillFiles[skill.slug];
+    if (Array.isArray(cachedFiles)) {
+      const instructions = getSkillInstructionsFile(buildSkillFileViews(cachedFiles));
+      setInstructionsDraft(instructions?.content ?? '');
+    } else {
+      setInstructionsDraft('');
+    }
     setTestExampleId('custom');
     setTestPrompt('');
     setTestResult(null);
     setError(undefined);
     setSuccess(undefined);
-    if (!skillFiles[skill.slug]) void loadSkillFiles(skill.slug);
+    if (!skillFiles[skill.slug]) void loadSkillFiles(skill.slug, true);
   }
 
   function openPanel(mode: AdminSkillPanelMode) {
@@ -162,6 +174,7 @@ export default function AdminSkillsPage() {
     setSkillDraft(null);
     setRouteDraft(null);
     setExampleDrafts([]);
+    setInstructionsDraft('');
     setTestExampleId('custom');
     setTestPrompt('');
     setTestResult(null);
@@ -220,6 +233,25 @@ export default function AdminSkillsPage() {
       await loadAdminData();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not unpublish skill package');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveSkillInstructions() {
+    if (!selectedSlug || !instructionsDraft.trim()) return;
+    setSaving(true);
+    setError(undefined);
+    setSuccess(undefined);
+    try {
+      const result = await api.updateAdminSkillInstructions(selectedSlug, { content: instructionsDraft });
+      setSkillFiles((current) => ({ ...current, [selectedSlug]: result.files }));
+      setInstructionsDraft(getSkillInstructionsFile(buildSkillFileViews(result.files))?.content ?? '');
+      setSkills((current) => current.map((skill) => skill.slug === selectedSlug ? result.skill : skill));
+      setSuccess('SKILL.md instructions saved. Publish gate is stale until Test Lab passes again.');
+      await loadAdminData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save SKILL.md instructions');
     } finally {
       setSaving(false);
     }
@@ -363,6 +395,7 @@ export default function AdminSkillsPage() {
   const detailModel = selectedSkill ? buildSkillDetailModel(selectedSkill, selectedReadiness, analytics) : null;
   const selectedFiles = selectedSlug ? buildSkillFileViews(skillFiles[selectedSlug] ?? []) : [];
   const selectedInstructions = getSkillInstructionsFile(selectedFiles);
+  const instructionsChanged = instructionsDraft.trim() !== (selectedInstructions?.content.trim() ?? '');
   const selectedExamples = exampleDrafts;
   const selectedPublishGate = selectedSkill ? getSkillPublishGateView(selectedSkill) : null;
   const selectedSkillIsPublic = selectedSkill?.status === 'PUBLISHED' && selectedSkill.visibility === 'USER_VISIBLE';
@@ -688,23 +721,33 @@ export default function AdminSkillsPage() {
                   {activeTab === 'instructions' ? (
                     <div className="mt-5 space-y-4">
                       <div className="rounded-2xl border border-line bg-ink/50 p-4 text-sm text-slate-400">
-                        This is the core skill artifact admins expect: Markdown expertise that can be reviewed, versioned, and injected when the package is selected. Editing imported files is intentionally deferred; this slice makes the governance model explicit.
+                        Edit the package SKILL.md instructions that are injected when this skill is selected. Saving instructions makes the publish gate stale until Test Lab passes again.
                       </div>
                       {filesLoading ? <p className="text-sm text-slate-500">Loading instructions…</p> : null}
-                      {selectedInstructions ? (
-                        <article className="rounded-2xl border border-line bg-black/30 p-4">
-                          <div className="mb-3 flex items-center justify-between gap-3">
-                            <div>
-                              <p className="font-mono text-sm text-white">{selectedInstructions.path}</p>
-                              <p className="mt-1 text-xs text-slate-500">{selectedInstructions.byteLabel} · sha {selectedInstructions.checksumLabel}</p>
-                            </div>
-                            <span className="rounded-full border border-slate-500/30 bg-slate-500/10 px-2 py-1 text-xs text-slate-300">Read-only</span>
+                      <article className="rounded-2xl border border-line bg-black/30 p-4">
+                        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className="font-mono text-sm text-white">{selectedInstructions?.path ?? 'SKILL.md'}</p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              {selectedInstructions ? `${selectedInstructions.byteLabel} · sha ${selectedInstructions.checksumLabel}` : 'New package instructions file'}
+                            </p>
                           </div>
-                          <pre className="max-h-[32rem] overflow-auto whitespace-pre-wrap rounded-xl border border-line bg-ink p-3 text-xs leading-relaxed text-slate-200"><code>{selectedInstructions.content}</code></pre>
-                        </article>
-                      ) : !filesLoading ? (
-                        <p className="rounded-2xl border border-line bg-ink/50 p-4 text-sm text-slate-500">No SKILL.md stored for this package yet.</p>
-                      ) : null}
+                          {instructionsChanged ? <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-2 py-1 text-xs text-yellow-200">Unsaved changes</span> : <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-xs text-emerald-200">Saved</span>}
+                        </div>
+                        <textarea
+                          value={instructionsDraft}
+                          onChange={(event) => setInstructionsDraft(event.target.value)}
+                          rows={18}
+                          placeholder="# Skill name\n\nDescribe when to use this skill and the required operating steps."
+                          className="w-full rounded-xl border border-line bg-ink p-3 font-mono text-xs leading-relaxed text-slate-100 outline-none focus:border-accent"
+                        />
+                        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                          <p className="text-xs text-slate-500">Saving changes preserves test history but requires a fresh successful Test Lab run before publishing.</p>
+                          <button type="button" onClick={() => void saveSkillInstructions()} disabled={saving || filesLoading || !instructionsDraft.trim() || !instructionsChanged} className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-50">
+                            {saving ? 'Saving…' : 'Save SKILL.md'}
+                          </button>
+                        </div>
+                      </article>
                     </div>
                   ) : null}
 

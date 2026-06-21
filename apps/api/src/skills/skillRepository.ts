@@ -14,6 +14,7 @@ import type {
   SkillToolRequirement,
   SkillVisibility,
   UpdateSkillInput,
+  UpdateSkillInstructionsInput,
   UpdateSkillRouteInput,
 } from '@cogentrex/shared';
 import type { DbAdapter } from '../db/adapter.js';
@@ -477,6 +478,69 @@ export class SkillRepository {
       updatedAt: now,
     });
     return this.findBySlug(slug);
+  }
+
+  async updateSkillInstructions(slug: string, input: UpdateSkillInstructionsInput, now = new Date().toISOString()): Promise<SkillFileSummary[] | null> {
+    const skill = await this.findBySlug(slug);
+    if (!skill) return null;
+    const content = input.content.trim();
+    const lastTestedAt = skill.route?.config?.adminTestGate?.testedRouteUpdatedAt;
+    const effectiveNow = lastTestedAt
+      ? new Date(Math.max(new Date(now).getTime(), new Date(lastTestedAt).getTime() + 1)).toISOString()
+      : now;
+    const sha256 = createHash('sha256').update(content).digest('hex');
+    const existingFile = await this.db.prepare(
+      `SELECT * FROM skill_files
+       WHERE skill_id = ? AND (kind = 'skill' OR lower(path) = 'skill.md')
+       ORDER BY CASE WHEN lower(path) = 'skill.md' THEN 0 ELSE 1 END
+       LIMIT 1`,
+    ).get(skill.id) as SkillFileRow | undefined;
+
+    await this.db.transaction(async (tx) => {
+      if (existingFile) {
+        await tx.prepare(
+          `UPDATE skill_files
+           SET path = 'SKILL.md',
+               kind = 'skill',
+               content = @content,
+               content_type = 'text/markdown',
+               sha256 = @sha256,
+               size_bytes = @sizeBytes,
+               executable = 0,
+               updated_at = @updatedAt
+           WHERE id = @id`,
+        ).run({
+          id: existingFile.id,
+          content,
+          sha256,
+          sizeBytes: Buffer.byteLength(content, 'utf8'),
+          updatedAt: effectiveNow,
+        });
+      } else {
+        await tx.prepare(
+          `INSERT INTO skill_files (
+            id, skill_id, path, kind, content, content_type, sha256, size_bytes, executable, created_at, updated_at
+          ) VALUES (
+            @id, @skillId, 'SKILL.md', 'skill', @content, 'text/markdown', @sha256, @sizeBytes, 0, @createdAt, @updatedAt
+          )`,
+        ).run({
+          id: `skf_${skill.id}_SKILL_md`,
+          skillId: skill.id,
+          content,
+          sha256,
+          sizeBytes: Buffer.byteLength(content, 'utf8'),
+          createdAt: effectiveNow,
+          updatedAt: effectiveNow,
+        });
+      }
+
+      await tx.prepare('UPDATE skills SET updated_at = ? WHERE id = ?').run(effectiveNow, skill.id);
+      if (skill.route) {
+        await tx.prepare('UPDATE skill_routes SET updated_at = ? WHERE skill_id = ?').run(effectiveNow, skill.id);
+      }
+    });
+
+    return this.listFilesBySkillSlug(slug);
   }
 
   async upsertRoute(slug: string, input: UpdateSkillRouteInput, now = new Date().toISOString()): Promise<SkillProviderRoute | null> {

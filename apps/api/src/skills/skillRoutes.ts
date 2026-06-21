@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { adminSkillTestSchema, createSkillSchema, importSkillKitSchema, updateSkillRouteSchema, updateSkillSchema } from '@cogentrex/shared';
+import { adminSkillTestSchema, createSkillSchema, importSkillKitSchema, updateSkillInstructionsSchema, updateSkillRouteSchema, updateSkillSchema } from '@cogentrex/shared';
 import type { SkillPublishGate, SkillProviderRouteConfig, SkillSummary, UpdateSkillInput } from '@cogentrex/shared';
 import { currentUser, requireAuth, requireAdmin } from '../auth/authMiddleware.js';
 import type { AuthService } from '../auth/authService.js';
@@ -226,6 +226,17 @@ export function adminSkillRoutes(auth: AuthService, skills: SkillService, provid
   router.get('/:slug/files', async (req, res, next) => {
     try {
       res.json({ files: await skills.listFiles(req.params.slug) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.put('/:slug/instructions', async (req, res, next) => {
+    try {
+      const input = updateSkillInstructionsSchema.parse(req.body);
+      const files = await skills.updateSkillInstructions(req.params.slug, input);
+      const skill = await skills.getAdmin(req.params.slug);
+      res.json({ files, skill: skill.kind === 'IMPORTED' ? { ...skill, publishGate: buildPublishGate(skill) } : skill });
     } catch (error) {
       next(error);
     }
