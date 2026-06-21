@@ -337,6 +337,48 @@ describe('skill registry API', () => {
     database.close();
   });
 
+  it('marks the publish gate stale when admins edit SKILL.md instructions', async () => {
+    const { agent, database } = await makeTestApp();
+    await registerAdmin(agent, database);
+    const provider = await createProvider(agent);
+
+    await agent.post('/api/admin/skills').send({
+      slug: 'editable-skill',
+      name: 'Editable Skill',
+      description: 'A skill with editable instructions.',
+      category: 'Imported',
+      icon: 'sparkles',
+      instructions: '# Editable Skill\n\nInitial instructions.',
+    }).expect(201);
+
+    const testRes = await agent.post('/api/admin/skills/editable-skill/test').send({
+      prompt: 'Run a short QA test.',
+      providerId: provider.id,
+    }).expect(200);
+    expect(testRes.body.run.status).toBe('completed');
+
+    const updateRes = await agent.put('/api/admin/skills/editable-skill/instructions').send({
+      content: '# Editable Skill\n\nUpdated instructions that require a fresh admin test.',
+    }).expect(200);
+    expect(updateRes.body.files).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        path: 'SKILL.md',
+        kind: 'skill',
+        content: '# Editable Skill\n\nUpdated instructions that require a fresh admin test.',
+      }),
+    ]));
+    expect(updateRes.body.skill.publishGate).toMatchObject({ status: 'stale' });
+
+    await agent.patch('/api/admin/skills/editable-skill').send({
+      status: 'PUBLISHED',
+      visibility: 'USER_VISIBLE',
+    }).expect(400).expect((publishRes) => {
+      expect(publishRes.body.error.message).toContain('Re-run Test Lab');
+    });
+
+    database.close();
+  });
+
   it('allows admins to create a draft imported skill and read SKILL.md instructions from stored files', async () => {
     const { agent, database } = await makeTestApp();
     await registerAdmin(agent, database);
