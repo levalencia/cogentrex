@@ -23,6 +23,7 @@ import {
   getLauncherItems,
   getLauncherPlaceholder,
   getLauncherPromptTemplates,
+  getSelectedSkillPromptTemplates,
   getLauncherSkillSlug,
   getSkillAssistModeOptions,
   getSkillAssistPickerOptions,
@@ -861,7 +862,7 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
 
   const launcherItems = skillReadiness ? applyLauncherReadiness(getLauncherItems(), skillReadiness) : getLauncherItems();
   const selectedLauncherItem = launcherItems.find((item) => item.id === selectedLauncherId) ?? launcherItems.find((item) => item.mode === mode);
-  const skillAssistOptions = getSkillAssistPickerOptions(mode);
+  const skillAssistOptions = getSkillAssistPickerOptions(mode, skillReadiness ?? []);
   const selectedLauncherSkillSlug = getLauncherSkillSlug(selectedLauncherId);
   const skillAssistPreview = (mode === 'CHAT' || mode === 'DEEP_RESEARCH') && skillAssistOptions.length
     ? previewSkillAssistResolution({
@@ -875,7 +876,15 @@ function ChatInput({ onSend, onGenerateSocial }: { onSend: (content: string, opt
   const manualSkillAssistRequiresSelection = (mode === 'CHAT' || mode === 'DEEP_RESEARCH')
     && skillAssistMode === 'manual'
     && mergeSkillAssistSlugs(selectedLauncherSkillSlug, selectedSkillSlugs).length === 0;
-  const promptTemplates = getLauncherPromptTemplates(selectedLauncherId, skillReadiness ?? []);
+  const selectedSkillTemplateSlugs = skillAssistMode === 'manual' || skillAssistMode === 'hybrid'
+    ? mergeSkillAssistSlugs(selectedLauncherSkillSlug, selectedSkillSlugs)
+    : selectedLauncherSkillSlug
+      ? [selectedLauncherSkillSlug]
+      : [];
+  const promptTemplates = [
+    ...getLauncherPromptTemplates(selectedLauncherId, skillReadiness ?? []),
+    ...getSelectedSkillPromptTemplates(selectedSkillTemplateSlugs, skillReadiness ?? []),
+  ].filter((template, index, templates) => templates.findIndex((item) => item.id === template.id) === index).slice(0, 10);
   const applyPromptTemplate = useCallback((prompt: string) => {
     setInput(prompt);
     requestAnimationFrame(() => textareaRef.current?.focus());

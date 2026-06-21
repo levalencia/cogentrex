@@ -45,6 +45,7 @@ export interface PromptTemplate {
   label: string;
   prompt: string;
   description?: string | undefined;
+  visibleToUsers?: boolean | undefined;
 }
 
 export interface SkillProviderRouteConfig extends Record<string, unknown> {

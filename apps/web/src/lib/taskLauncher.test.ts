@@ -7,6 +7,7 @@ import {
   getLauncherItems,
   getLauncherPlaceholder,
   getLauncherPromptTemplates,
+  getSelectedSkillPromptTemplates,
   getLauncherSkillSlug,
   getPrimaryLauncherItems,
   getSkillAssistModeOptions,
@@ -159,6 +160,7 @@ describe('task launcher helpers', () => {
     const readiness: SkillReadiness[] = [
       skillReadiness('chat', 'ready', undefined, 'tool', 'web.search', 'Web search', [
         { id: 'chat-plan', label: 'Plan', prompt: 'Create a plan: ', description: 'Planning chip' },
+        { id: 'hidden', label: 'Hidden', prompt: 'Hidden prompt: ', visibleToUsers: false },
         { id: 'bad', label: '', prompt: '' },
       ]),
     ];
@@ -167,6 +169,27 @@ describe('task launcher helpers', () => {
       { id: 'chat-plan', label: 'Plan', prompt: 'Create a plan: ', description: 'Planning chip' },
     ]);
     expect(getLauncherPromptTemplates('deep-research', readiness)).toEqual([]);
+  });
+
+  it('adds published backend skill packages to Skill Assist and exposes selected skill examples', () => {
+    const brand = skillReadiness('brand-agency', 'ready', undefined, 'tool', 'web.search', 'Web search', [
+      { id: 'positioning', label: 'Positioning', prompt: 'Write positioning: ', visibleToUsers: true },
+      { id: 'internal', label: 'Internal', prompt: 'Internal prompt: ', visibleToUsers: false },
+    ]);
+    brand.skill.kind = 'IMPORTED';
+    brand.skill.name = 'Brand Agency';
+    brand.skill.description = 'Brand strategy skill package.';
+    brand.skill.category = 'Brand';
+
+    const options = getSkillAssistPickerOptions('CHAT', [brand]);
+    expect(options.find((option) => option.slug === 'brand-agency')).toMatchObject({
+      label: 'Brand Agency',
+      description: 'Brand strategy skill package.',
+      group: 'Skill packages',
+    });
+    expect(getSelectedSkillPromptTemplates(['brand-agency'], [brand])).toEqual([
+      { id: 'positioning', label: 'Positioning', prompt: 'Write positioning: ' },
+    ]);
   });
 
   it('overlays backend skill readiness onto launcher cards with user-safe setup copy', () => {
