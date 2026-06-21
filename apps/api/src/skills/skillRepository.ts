@@ -154,6 +154,30 @@ function parseToolRequirements(value: string | null): SkillToolRequirement[] {
   return Array.isArray(parsed) ? parsed as SkillToolRequirement[] : [];
 }
 
+function mergeImportedRouteConfig(existingConfig: SkillProviderRouteConfig | null, snapshot: ImportedSkillKitSnapshot, now: string): SkillProviderRouteConfig {
+  return {
+    ...(existingConfig ?? {}),
+    importedSkillKit: {
+      sourceUrl: snapshot.sourceUrl,
+      sourceRef: snapshot.sourceRef,
+      sourcePath: snapshot.sourcePath,
+      lastImportedAt: now,
+    },
+    importWarnings: snapshot.warnings,
+  };
+}
+
+function parseImportedSkillKitSource(config: SkillProviderRouteConfig | null): { sourceUrl: string; ref: string; folderPath?: string } | null {
+  const source = config?.importedSkillKit;
+  if (!source || typeof source !== 'object') return null;
+  if (!source.sourceUrl || !source.sourceRef) return null;
+  return {
+    sourceUrl: source.sourceUrl,
+    ref: source.sourceRef,
+    ...(source.sourcePath ? { folderPath: source.sourcePath } : {}),
+  };
+}
+
 function mapRoute(row: SkillRow): SkillProviderRoute | null {
   if (!row.route_id || !row.route_skill_id || !row.route_mode || !row.route_created_at || !row.route_updated_at) return null;
   return {
@@ -605,12 +629,19 @@ export class SkillRepository {
     return updated?.route ?? null;
   }
 
+  async getImportSource(slug: string): Promise<{ sourceUrl: string; ref: string; folderPath?: string } | null> {
+    const skill = await this.findBySlug(slug);
+    if (!skill) return null;
+    return parseImportedSkillKitSource(skill.route?.config ?? null);
+  }
+
   async importSkillKit(snapshot: ImportedSkillKitSnapshot, now = new Date().toISOString()): Promise<ImportedSkillKitResult | null> {
     const existing = await this.findBySlug(snapshot.slug);
     if (existing?.kind === 'NATIVE') return null;
     const skillId = existing?.id ?? `skl_imp_${snapshot.slug.replaceAll('-', '_')}`;
     const routeId = existing?.route?.id ?? `skr_${snapshot.slug.replaceAll('-', '_')}`;
     const createdAt = existing?.createdAt ?? now;
+    const routeConfig = mergeImportedRouteConfig(existing?.route?.config ?? null, snapshot, now);
 
     await this.db.transaction(async (tx) => {
       await tx.prepare(
@@ -646,13 +677,7 @@ export class SkillRepository {
       ).run({
         id: routeId,
         skillId,
-        configJson: JSON.stringify({
-          importedSkillKit: {
-            sourceUrl: snapshot.sourceUrl,
-            sourceRef: snapshot.sourceRef,
-            sourcePath: snapshot.sourcePath,
-          },
-        }),
+        configJson: JSON.stringify(routeConfig),
         createdAt,
         updatedAt: now,
       });

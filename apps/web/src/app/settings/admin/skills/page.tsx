@@ -19,6 +19,7 @@ import {
   createEmptySkillExampleDraft,
   getAdminSkillPanelCopy,
   getSkillIconGlyph,
+  getSkillImportSourceView,
   getSkillInstructionsFile,
   getSkillExampleDrafts,
   getSkillPublishGateView,
@@ -82,6 +83,7 @@ export default function AdminSkillsPage() {
   const [createDraft, setCreateDraft] = useState<CreateSkillInput>(emptyCreateDraft);
   const [importDraft, setImportDraft] = useState<SkillKitImportDraft>({ sourceUrl: '', folderPath: '', ref: '' });
   const [importing, setImporting] = useState(false);
+  const [reimporting, setReimporting] = useState(false);
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [filesLoading, setFilesLoading] = useState(false);
@@ -387,6 +389,24 @@ export default function AdminSkillsPage() {
     }
   }
 
+  async function reimportSkillKit() {
+    if (!selectedSlug) return;
+    setReimporting(true);
+    setError(undefined);
+    setSuccess(undefined);
+    try {
+      const result = await api.reimportAdminSkillKit(selectedSlug);
+      setSkillFiles((current) => ({ ...current, [result.skill.slug]: result.files }));
+      setSkills((current) => current.map((skill) => skill.slug === result.skill.slug ? result.skill : skill));
+      setSuccess(`Refreshed ${result.skill.name} from source: ${result.files.length} file${result.files.length === 1 ? '' : 's'}${result.warnings.length ? `, ${result.warnings.length} warning${result.warnings.length === 1 ? '' : 's'}` : ''}. Examples and test history were preserved.`);
+      await loadAdminData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not refresh skill package from source');
+    } finally {
+      setReimporting(false);
+    }
+  }
+
   const skillPackageRows = useMemo(() => buildAdminSkillPackageCatalog(skills, readiness, analytics), [skills, readiness, analytics]);
   const builtInCapabilityRows = useMemo(() => buildAdminBuiltInCapabilityCatalog(skills, readiness, analytics), [skills, readiness, analytics]);
   const metrics = useMemo(() => buildAdminSkillMetrics(skillPackageRows, analytics), [skillPackageRows, analytics]);
@@ -398,6 +418,7 @@ export default function AdminSkillsPage() {
   const instructionsChanged = instructionsDraft.trim() !== (selectedInstructions?.content.trim() ?? '');
   const selectedExamples = exampleDrafts;
   const selectedPublishGate = selectedSkill ? getSkillPublishGateView(selectedSkill) : null;
+  const selectedImportSource = selectedSkill ? getSkillImportSourceView(selectedSkill) : null;
   const selectedSkillIsPublic = selectedSkill?.status === 'PUBLISHED' && selectedSkill.visibility === 'USER_VISIBLE';
   const publishBlocked = selectedSkill && skillDraft ? isPublishBlockedByGate(selectedSkill, skillDraft) : false;
   const testExampleOptions = selectedExamples.filter((example) => example.prompt.trim());
@@ -888,6 +909,28 @@ export default function AdminSkillsPage() {
 
                   {activeTab === 'files' ? (
                     <div className="mt-5 space-y-3">
+                      {selectedImportSource ? (
+                        <article className="rounded-2xl border border-accent/20 bg-accent/10 p-4 text-sm text-slate-300">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.16em] text-accent">Import source</p>
+                              <p className="mt-1 break-all font-mono text-xs text-white">{selectedImportSource.sourceLabel}</p>
+                              <p className="mt-2 text-xs text-slate-400">Ref: {selectedImportSource.refLabel} · Path: {selectedImportSource.pathLabel} · Last import: {selectedImportSource.lastImportedLabel}</p>
+                            </div>
+                            <button type="button" onClick={() => void reimportSkillKit()} disabled={reimporting || !selectedImportSource.canRefresh} className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-50">
+                              {reimporting ? 'Refreshing…' : selectedImportSource.canRefresh ? 'Re-import from source' : 'Manual package'}
+                            </button>
+                          </div>
+                          {selectedImportSource.warnings.length ? (
+                            <div className="mt-3 rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-3">
+                              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-yellow-200">Import warnings</p>
+                              <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-yellow-100/90">
+                                {selectedImportSource.warnings.map((warning) => <li key={warning}>{warning}</li>)}
+                              </ul>
+                            </div>
+                          ) : <p className="mt-3 text-xs text-slate-500">No import warnings recorded.</p>}
+                        </article>
+                      ) : null}
                       {filesLoading ? <p className="text-sm text-slate-500">Loading files…</p> : null}
                       {!filesLoading && selectedFiles.length === 0 ? <p className="rounded-2xl border border-line bg-ink/50 p-4 text-sm text-slate-500">No package files stored for this skill yet.</p> : null}
                       {selectedFiles.map((file) => (

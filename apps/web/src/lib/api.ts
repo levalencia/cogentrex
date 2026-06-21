@@ -88,6 +88,8 @@ export const api = {
     jsonRequest<{ skill: SkillSummary; files: SkillFileSummary[] }>(`/api/admin/skills`, { method: 'POST', body: JSON.stringify(input) }),
   importAdminSkillKit: (input: ImportSkillKitInput) =>
     jsonRequest<{ skill: SkillSummary; files: SkillFileSummary[]; warnings: string[] }>('/api/admin/skills/import-kit', { method: 'POST', body: JSON.stringify(input) }),
+  reimportAdminSkillKit: (slug: string) =>
+    jsonRequest<{ skill: SkillSummary; files: SkillFileSummary[]; warnings: string[] }>(`/api/admin/skills/${slug}/reimport`, { method: 'POST' }),
   updateAdminSkill: (slug: string, input: UpdateSkillInput) =>
     jsonRequest<{ skill: SkillSummary }>(`/api/admin/skills/${slug}`, { method: 'PATCH', body: JSON.stringify(input) }),
   updateAdminSkillRoute: (slug: string, input: UpdateSkillRouteInput) =>

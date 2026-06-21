@@ -345,4 +345,16 @@ export class SkillService {
     this.logger.info({ slug: result.skill.slug, fileCount: result.files.length, sourcePath: snapshot.sourcePath }, 'skill_kit_imported');
     return result;
   }
+
+  async reimportSkillKit(slug: string) {
+    const skill = await this.repository.findBySlug(slug);
+    if (!skill || skill.kind !== 'IMPORTED') throw notFound('Imported skill not found');
+    const source = await this.repository.getImportSource(slug);
+    if (!source) throw notFound('Import source not found for this skill');
+    const snapshot = await importSkillKitFromGitHub(source);
+    const result = await this.repository.importSkillKit({ ...snapshot, slug: skill.slug });
+    if (!result) throw conflict('Could not refresh imported skill kit');
+    this.logger.info({ slug: result.skill.slug, fileCount: result.files.length, sourcePath: snapshot.sourcePath }, 'skill_kit_reimported');
+    return result;
+  }
 }

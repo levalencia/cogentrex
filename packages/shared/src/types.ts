@@ -64,9 +64,18 @@ export interface SkillPublishGate {
   message: string;
 }
 
+export interface SkillImportSource {
+  sourceUrl: string;
+  sourceRef: string;
+  sourcePath: string;
+  lastImportedAt?: string | undefined;
+}
+
 export interface SkillProviderRouteConfig extends Record<string, unknown> {
   promptTemplates?: PromptTemplate[] | undefined;
   adminTestGate?: SkillPublishGateLastTest | undefined;
+  importedSkillKit?: SkillImportSource | undefined;
+  importWarnings?: string[] | undefined;
 }
 
 export interface SkillProviderRoute {
