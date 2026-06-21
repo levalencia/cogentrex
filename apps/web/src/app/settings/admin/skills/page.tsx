@@ -8,15 +8,18 @@ import { api } from '@/lib/api';
 import { getProtectedRouteState } from '@/lib/protectedRoute';
 import {
   appModeOptions,
-  buildAdminSkillCatalog,
+  buildAdminBuiltInCapabilityCatalog,
   buildAdminSkillMetrics,
+  buildAdminSkillPackageCatalog,
   buildSkillDetailModel,
+  buildSkillExampleViews,
   buildSkillFileViews,
   buildSkillRoutePayload,
   buildSkillUpdatePayload,
   buildSkillKitImportPayload,
   getAdminSkillPanelCopy,
   getSkillIconGlyph,
+  getSkillInstructionsFile,
   getSkillRouteDraft,
   getSkillUpdateDraft,
   type AdminSkillPanelMode,
@@ -39,7 +42,7 @@ const visibilityOptions: { value: SkillVisibility; label: string }[] = [
   { value: 'USER_VISIBLE', label: 'User visible' },
 ];
 
-type DetailTab = 'overview' | 'route' | 'files';
+type DetailTab = 'overview' | 'instructions' | 'examples' | 'test' | 'route' | 'files' | 'settings';
 
 const emptyCreateDraft: CreateSkillInput = {
   slug: '',
@@ -190,7 +193,7 @@ export default function AdminSkillsPage() {
     setSuccess(undefined);
     try {
       const result = await api.createAdminSkill(createDraft);
-      setSuccess(`Created ${result.skill.name} with read-only SKILL.md instructions.`);
+      setSuccess(`Created ${result.skill.name} as a draft skill package with SKILL.md instructions.`);
       setCreateDraft(emptyCreateDraft);
       setSkillFiles((current) => ({ ...current, [result.skill.slug]: result.files }));
       await loadAdminData();
@@ -221,12 +224,15 @@ export default function AdminSkillsPage() {
     }
   }
 
-  const catalogRows = useMemo(() => buildAdminSkillCatalog(skills, readiness, analytics), [skills, readiness, analytics]);
-  const metrics = useMemo(() => buildAdminSkillMetrics(catalogRows, analytics), [catalogRows, analytics]);
+  const skillPackageRows = useMemo(() => buildAdminSkillPackageCatalog(skills, readiness, analytics), [skills, readiness, analytics]);
+  const builtInCapabilityRows = useMemo(() => buildAdminBuiltInCapabilityCatalog(skills, readiness, analytics), [skills, readiness, analytics]);
+  const metrics = useMemo(() => buildAdminSkillMetrics(skillPackageRows, analytics), [skillPackageRows, analytics]);
   const selectedSkill = selectedSlug ? skills.find((skill) => skill.slug === selectedSlug) : null;
   const selectedReadiness = selectedSlug ? readiness.find((item) => item.skill.slug === selectedSlug) : null;
   const detailModel = selectedSkill ? buildSkillDetailModel(selectedSkill, selectedReadiness, analytics) : null;
   const selectedFiles = selectedSlug ? buildSkillFileViews(skillFiles[selectedSlug] ?? []) : [];
+  const selectedInstructions = getSkillInstructionsFile(selectedFiles);
+  const selectedExamples = selectedSkill ? buildSkillExampleViews(selectedSkill) : [];
   const panelCopy = panelMode ? getAdminSkillPanelCopy(panelMode) : null;
 
   if (routeState.status === 'loading' || routeState.status === 'redirect') {
@@ -262,23 +268,40 @@ export default function AdminSkillsPage() {
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.22em] text-accent">Admin</p>
-            <h1 className="mt-2 text-3xl font-semibold">Skill Catalog</h1>
+            <h1 className="mt-2 text-3xl font-semibold">Skill Governance</h1>
             <p className="mt-2 max-w-3xl text-slate-400">
-              Import skill packages, test/stage/publish them, and decide which ones users can use through Skill Assist. Published skills can be selected automatically or manually in the Chat runner.
+              Govern importable Markdown-based skill packages: SKILL.md expertise, referenced files, examples, admin tests, and publish state. Built-in Cogentrex capabilities like Chat and Deep Research are tracked separately below; they are not user-imported skills.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <a href="/" className="rounded-xl border border-line bg-panel px-4 py-2 text-sm hover:border-accent">Back to Chat</a>
-            <button type="button" onClick={() => openPanel('import')} className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-ink hover:bg-accent/90">Import Skill Kit</button>
-            <button type="button" onClick={() => openPanel('create')} className="rounded-xl border border-accent/40 bg-accent/10 px-4 py-2 text-sm font-semibold text-accent hover:border-accent">Manual Draft</button>
+            <button type="button" onClick={() => openPanel('import')} className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-ink hover:bg-accent/90">Import package</button>
+            <button type="button" onClick={() => openPanel('create')} className="rounded-xl border border-accent/40 bg-accent/10 px-4 py-2 text-sm font-semibold text-accent hover:border-accent">Create package</button>
             <a href="/settings/admin/providers" className="rounded-xl border border-line bg-panel px-4 py-2 text-sm hover:border-accent">Provider admin</a>
-            <a href="/settings/admin/analytics" className="rounded-xl border border-line bg-panel px-4 py-2 text-sm hover:border-accent">Workflow analytics</a>
+            <a href="/settings/admin/analytics" className="rounded-xl border border-line bg-panel px-4 py-2 text-sm hover:border-accent">Run analytics</a>
             <button type="button" onClick={() => void loadAdminData()} className="rounded-xl border border-line bg-panel px-4 py-2 text-sm hover:border-accent">Refresh</button>
           </div>
         </div>
 
         {error ? <p className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</p> : null}
         {success ? <p className="mb-4 rounded-xl border border-green-500/30 bg-green-500/10 p-3 text-sm text-green-200">{success}</p> : null}
+
+        <section className="mb-6 grid gap-4 lg:grid-cols-2">
+          <article className="rounded-3xl border border-accent/25 bg-accent/10 p-5">
+            <p className="text-xs uppercase tracking-[0.18em] text-accent">Skill package</p>
+            <h2 className="mt-2 text-lg font-semibold text-white">Importable governed expertise</h2>
+            <p className="mt-2 text-sm text-slate-300">
+              A skill package is the Claude/OpenCode/Hermes-style object: SKILL.md instructions plus optional references, templates, scripts, and assets. Admins import or create it, add examples, test it, then publish it for Skill Assist.
+            </p>
+          </article>
+          <article className="rounded-3xl border border-line bg-panel/70 p-5">
+            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Built-in capability</p>
+            <h2 className="mt-2 text-lg font-semibold text-white">System modes are not skills</h2>
+            <p className="mt-2 text-sm text-slate-400">
+              Chat, Deep Research, Image, Video, and Social Writing are Cogentrex runtime capabilities. They keep provider/readiness controls, but they are managed separately from imported skill packages.
+            </p>
+          </article>
+        </section>
 
         <section className="mb-6 grid gap-3 md:grid-cols-4">
           {metrics.map((metric) => (
@@ -293,23 +316,23 @@ export default function AdminSkillsPage() {
         <section className="rounded-3xl border border-line bg-panel/70 p-6 shadow-2xl shadow-black/20">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-xl font-semibold">Catalog table</h2>
-              <p className="mt-1 text-sm text-slate-400">Scan readiness, route policy, and usage. Actions open the side panel; the table stays in place.</p>
+              <h2 className="text-xl font-semibold">Governed skill packages</h2>
+              <p className="mt-1 text-sm text-slate-400">Only importable Markdown-based packages live here. Use this table to stage, test, add examples, and publish packages into Skill Assist.</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-line px-3 py-1 text-xs text-slate-400">{skills.length} skills</span>
+              <span className="rounded-full border border-line px-3 py-1 text-xs text-slate-400">{skillPackageRows.length === 1 ? '1 package' : `${skillPackageRows.length} packages`}</span>
               <span className="rounded-full border border-line px-3 py-1 text-xs text-slate-400">{providers.length} providers</span>
             </div>
           </div>
           {loading ? (
-            <p className="py-10 text-center text-slate-500">Loading skills...</p>
-          ) : skills.length === 0 ? (
+            <p className="py-10 text-center text-slate-500">Loading skill packages...</p>
+          ) : skillPackageRows.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-line p-10 text-center">
-              <p className="text-lg font-semibold text-white">No skills seeded yet.</p>
-              <p className="mt-2 text-sm text-slate-500">Import a Skill Kit or create a manual draft to start the catalog.</p>
+              <p className="text-lg font-semibold text-white">No imported skill packages yet.</p>
+              <p className="mt-2 text-sm text-slate-500">Import a GitHub folder like agent-god-mode/organized-skills/brand-agency, or create a manual SKILL.md draft.</p>
               <div className="mt-4 flex justify-center gap-2">
-                <button type="button" onClick={() => openPanel('import')} className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-ink">Import Skill Kit</button>
-                <button type="button" onClick={() => openPanel('create')} className="rounded-xl border border-line px-4 py-2 text-sm hover:border-accent">Manual Draft</button>
+                <button type="button" onClick={() => openPanel('import')} className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-ink">Import package</button>
+                <button type="button" onClick={() => openPanel('create')} className="rounded-xl border border-line px-4 py-2 text-sm hover:border-accent">Create package</button>
               </div>
             </div>
           ) : (
@@ -322,7 +345,7 @@ export default function AdminSkillsPage() {
                   <span>Usage</span>
                   <span className="text-right">Actions</span>
                 </div>
-                {catalogRows.map((row) => (
+                {skillPackageRows.map((row) => (
                   <div key={row.id} className={`grid grid-cols-[minmax(280px,1.6fr)_180px_260px_170px_120px] items-center gap-3 border-b border-line/70 px-4 py-4 text-sm last:border-b-0 ${selectedSlug === row.slug && panelMode === 'detail' ? 'bg-accent/10' : 'bg-panel/30 hover:bg-white/[0.03]'}`}>
                     <div className="min-w-0">
                       <div className="flex items-center gap-3">
@@ -350,6 +373,38 @@ export default function AdminSkillsPage() {
             </div>
           )}
         </section>
+
+        <section className="mt-6 rounded-3xl border border-line bg-panel/50 p-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold">Built-in capabilities</h2>
+              <p className="mt-1 text-sm text-slate-400">These are Cogentrex runtime modes and first-party surfaces. They can have routes/readiness, but they are not imported skill packages.</p>
+            </div>
+            <span className="rounded-full border border-line px-3 py-1 text-xs text-slate-400">{builtInCapabilityRows.length === 1 ? '1 built-in' : `${builtInCapabilityRows.length} built-ins`}</span>
+          </div>
+          {loading ? (
+            <p className="py-6 text-center text-slate-500">Loading capabilities...</p>
+          ) : (
+            <div className="grid gap-3 lg:grid-cols-3">
+              {builtInCapabilityRows.map((row) => (
+                <article key={row.id} className="rounded-2xl border border-line bg-ink/40 p-4">
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-line bg-panel text-lg" aria-hidden="true">{getSkillIconGlyph(row.skill.icon)}</span>
+                    <div className="min-w-0">
+                      <h3 className="truncate font-semibold text-white">{row.name}</h3>
+                      <p className="mt-1 line-clamp-2 text-xs text-slate-500">{row.description}</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-1">
+                    <span className="rounded-full border border-slate-500/30 bg-slate-500/10 px-2 py-0.5 text-[11px] text-slate-300">Built-in capability</span>
+                    <span className={`rounded-full border px-2 py-0.5 text-[11px] ${readinessClass(row.readinessTone)}`}>{row.priority}</span>
+                  </div>
+                  <p className="mt-2 text-xs text-slate-500">{row.routeLabel}</p>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
 
       {panelMode && panelCopy ? (
@@ -368,7 +423,7 @@ export default function AdminSkillsPage() {
             {panelMode === 'import' ? (
               <form onSubmit={importSkillKit} className="mt-6 space-y-4">
                 <div className="rounded-2xl border border-accent/20 bg-accent/10 p-4 text-sm text-slate-300">
-                  Import is intentionally scoped to one GitHub folder. Cogentrex stores the files as read-only kit assets for later inspection and routing.
+                  Import is scoped to one GitHub folder. Cogentrex stores SKILL.md plus references/templates/scripts/assets as a draft package for review, examples, testing, and publish approval.
                 </div>
                 <label className="block text-sm text-slate-400">GitHub repo or tree URL
                   <input value={importDraft.sourceUrl} onChange={(e) => setImportDraft({ ...importDraft, sourceUrl: e.target.value })} placeholder="https://github.com/org/skills-repo" className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 text-white outline-none focus:border-accent" />
@@ -381,14 +436,14 @@ export default function AdminSkillsPage() {
                     <input value={importDraft.ref} onChange={(e) => setImportDraft({ ...importDraft, ref: e.target.value })} placeholder="main" className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 text-white outline-none focus:border-accent" />
                   </label>
                 </div>
-                <button type="submit" disabled={importing} className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50">{importing ? 'Importing…' : 'Import kit'}</button>
+                <button type="submit" disabled={importing} className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50">{importing ? 'Importing…' : 'Import package as draft'}</button>
               </form>
             ) : null}
 
             {panelMode === 'create' ? (
               <form onSubmit={createSkill} className="mt-6 space-y-4">
                 <div className="rounded-2xl border border-line bg-ink/50 p-4 text-sm text-slate-400">
-                  Use this for new internal operating instructions. Published exposure and provider route still happen after creation.
+                  Use this for a new Markdown-based expertise package. It starts as Draft/Admin-only; publish only after examples and admin testing are acceptable.
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="block text-sm text-slate-400">Slug
@@ -400,21 +455,32 @@ export default function AdminSkillsPage() {
                   <label className="block text-sm text-slate-400 sm:col-span-2">Description
                     <input value={createDraft.description} onChange={(e) => setCreateDraft({ ...createDraft, description: e.target.value })} placeholder="Classify tickets and draft next actions." className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 text-white outline-none focus:border-accent" />
                   </label>
-                  <label className="block text-sm text-slate-400 sm:col-span-2">Read-only SKILL.md instructions
+                  <label className="block text-sm text-slate-400 sm:col-span-2">SKILL.md instructions
                     <textarea value={createDraft.instructions} onChange={(e) => setCreateDraft({ ...createDraft, instructions: e.target.value })} rows={10} className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 font-mono text-xs text-white outline-none focus:border-accent" />
                   </label>
                 </div>
-                <button type="submit" disabled={creating} className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50">{creating ? 'Creating…' : 'Create draft'}</button>
+                <button type="submit" disabled={creating} className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50">{creating ? 'Creating…' : 'Create draft package'}</button>
               </form>
             ) : null}
 
             {panelMode === 'detail' ? (
               selectedSkill && detailModel && skillDraft && routeDraft ? (
                 <div className="mt-6">
-                  <div className="flex gap-2 border-b border-line">
-                    {(['overview', 'route', 'files'] as const).map((tab) => (
-                      <button key={tab} type="button" onClick={() => { setActiveTab(tab); if (tab === 'files' && !skillFiles[selectedSkill.slug]) void loadSkillFiles(selectedSkill.slug); }} className={`border-b-2 px-3 py-2 text-sm capitalize ${activeTab === tab ? 'border-accent text-accent' : 'border-transparent text-slate-400 hover:text-white'}`}>{tab === 'overview' ? 'Manifest' : tab}</button>
-                    ))}
+                  <div className="flex gap-2 overflow-x-auto border-b border-line">
+                    {(['overview', 'instructions', 'examples', 'test', 'route', 'files', 'settings'] as const).map((tab) => {
+                      const label: Record<DetailTab, string> = {
+                        overview: 'Overview',
+                        instructions: 'Instructions.md',
+                        examples: 'Examples',
+                        test: 'Test Lab',
+                        route: 'Route',
+                        files: 'Files',
+                        settings: 'Settings',
+                      };
+                      return (
+                        <button key={tab} type="button" onClick={() => { setActiveTab(tab); if ((tab === 'files' || tab === 'instructions') && !skillFiles[selectedSkill.slug]) void loadSkillFiles(selectedSkill.slug); }} className={`shrink-0 border-b-2 px-3 py-2 text-sm ${activeTab === tab ? 'border-accent text-accent' : 'border-transparent text-slate-400 hover:text-white'}`}>{label[tab]}</button>
+                      );
+                    })}
                   </div>
 
                   {activeTab === 'overview' ? (
@@ -444,8 +510,68 @@ export default function AdminSkillsPage() {
                           <input value={skillDraft.icon} onChange={(e) => setSkillDraft({ ...skillDraft, icon: e.target.value })} className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 text-white outline-none focus:border-accent" />
                         </label>
                       </div>
-                      <button type="submit" disabled={saving} className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50">Save visibility</button>
+                      <button type="submit" disabled={saving} className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50">Save lifecycle</button>
                     </form>
+                  ) : null}
+
+                  {activeTab === 'instructions' ? (
+                    <div className="mt-5 space-y-4">
+                      <div className="rounded-2xl border border-line bg-ink/50 p-4 text-sm text-slate-400">
+                        This is the core skill artifact admins expect: Markdown expertise that can be reviewed, versioned, and injected when the package is selected. Editing imported files is intentionally deferred; this slice makes the governance model explicit.
+                      </div>
+                      {filesLoading ? <p className="text-sm text-slate-500">Loading instructions…</p> : null}
+                      {selectedInstructions ? (
+                        <article className="rounded-2xl border border-line bg-black/30 p-4">
+                          <div className="mb-3 flex items-center justify-between gap-3">
+                            <div>
+                              <p className="font-mono text-sm text-white">{selectedInstructions.path}</p>
+                              <p className="mt-1 text-xs text-slate-500">{selectedInstructions.byteLabel} · sha {selectedInstructions.checksumLabel}</p>
+                            </div>
+                            <span className="rounded-full border border-slate-500/30 bg-slate-500/10 px-2 py-1 text-xs text-slate-300">Read-only</span>
+                          </div>
+                          <pre className="max-h-[32rem] overflow-auto whitespace-pre-wrap rounded-xl border border-line bg-ink p-3 text-xs leading-relaxed text-slate-200"><code>{selectedInstructions.content}</code></pre>
+                        </article>
+                      ) : !filesLoading ? (
+                        <p className="rounded-2xl border border-line bg-ink/50 p-4 text-sm text-slate-500">No SKILL.md stored for this package yet.</p>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {activeTab === 'examples' ? (
+                    <div className="mt-5 space-y-4">
+                      <div className="rounded-2xl border border-line bg-ink/50 p-4 text-sm text-slate-400">
+                        Examples are the admin-curated prompts users see when they select this skill in Chat. Today they are read from route config promptTemplates; create/edit/delete controls come next.
+                      </div>
+                      {selectedExamples.length === 0 ? (
+                        <p className="rounded-2xl border border-dashed border-line p-4 text-sm text-slate-500">No examples configured. Add promptTemplates in route config for now; the next slice should add direct example editing.</p>
+                      ) : (
+                        selectedExamples.map((example, index) => (
+                          <article key={example.id} className="rounded-2xl border border-line bg-ink/50 p-4">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Example {index + 1}</p>
+                                <h3 className="mt-1 font-semibold text-white">{example.label}</h3>
+                                {example.description ? <p className="mt-1 text-xs text-slate-500">{example.description}</p> : null}
+                              </div>
+                              <span className={`rounded-full border px-2 py-1 text-xs ${example.visibleToUsers ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : 'border-slate-500/30 bg-slate-500/10 text-slate-300'}`}>{example.visibleToUsers ? 'User visible' : 'Admin only'}</span>
+                            </div>
+                            <p className="mt-3 rounded-xl border border-line bg-black/20 p-3 text-sm text-slate-300">{example.prompt}</p>
+                          </article>
+                        ))
+                      )}
+                    </div>
+                  ) : null}
+
+                  {activeTab === 'test' ? (
+                    <div className="mt-5 space-y-4">
+                      <div className="rounded-2xl border border-accent/20 bg-accent/10 p-4 text-sm text-slate-300">
+                        Test Lab is the approval gate: pick an example or custom prompt, run as admin, inspect output/run trace, then mark the package safe to publish. The current slice reserves the surface without executing tests yet.
+                      </div>
+                      <label className="block text-sm text-slate-400">Test prompt
+                        <textarea rows={5} placeholder="Paste a prompt or choose one of the examples in the previous tab." className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 text-white outline-none focus:border-accent" />
+                      </label>
+                      <button type="button" disabled className="rounded-xl border border-line bg-ink px-4 py-2 text-sm text-slate-500 opacity-70">Run admin test — coming next</button>
+                    </div>
                   ) : null}
 
                   {activeTab === 'route' ? (
@@ -472,8 +598,8 @@ export default function AdminSkillsPage() {
                           <input value={routeDraft.maxBudgetCents} onChange={(e) => setRouteDraft({ ...routeDraft, maxBudgetCents: e.target.value })} inputMode="numeric" className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 text-white outline-none focus:border-accent" />
                         </label>
                         <fieldset className="sm:col-span-2 rounded-xl border border-line bg-ink/50 p-3">
-                          <legend className="px-1 text-sm text-slate-400">Supported workflows</legend>
-                          <p className="mb-3 text-xs text-slate-500">Use this when one skill can assist more than its primary route. The primary mode is always included on save.</p>
+                          <legend className="px-1 text-sm text-slate-400">Compatible capabilities</legend>
+                          <p className="mb-3 text-xs text-slate-500">Use this when one skill package can assist more than its primary Cogentrex mode. The primary mode is always included on save.</p>
                           <div className="grid gap-2 sm:grid-cols-2">
                             {appModeOptions.map((option) => {
                               const checked = routeDraft.supportedModes.includes(option.value) || routeDraft.mode === option.value;
@@ -508,7 +634,7 @@ export default function AdminSkillsPage() {
                   {activeTab === 'files' ? (
                     <div className="mt-5 space-y-3">
                       {filesLoading ? <p className="text-sm text-slate-500">Loading files…</p> : null}
-                      {!filesLoading && selectedFiles.length === 0 ? <p className="rounded-2xl border border-line bg-ink/50 p-4 text-sm text-slate-500">No skill kit files stored for this skill yet.</p> : null}
+                      {!filesLoading && selectedFiles.length === 0 ? <p className="rounded-2xl border border-line bg-ink/50 p-4 text-sm text-slate-500">No package files stored for this skill yet.</p> : null}
                       {selectedFiles.map((file) => (
                         <article key={file.id} className="rounded-2xl border border-line bg-ink/50 p-4">
                           <div className="flex items-start justify-between gap-3">
@@ -523,12 +649,38 @@ export default function AdminSkillsPage() {
                       ))}
                     </div>
                   ) : null}
+
+                  {activeTab === 'settings' ? (
+                    <div className="mt-5 space-y-4">
+                      <div className="rounded-2xl border border-line bg-ink/50 p-4 text-sm text-slate-400">
+                        Governance settings define who can see the package and what must be true before publish. Fine-grained team permissions, cost ceilings, and editable examples are reserved for the next implementation slices.
+                      </div>
+                      <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                        <div className="rounded-xl border border-line bg-black/20 p-3">
+                          <dt className="text-xs uppercase tracking-[0.14em] text-slate-500">Status</dt>
+                          <dd className="mt-1 text-white">{selectedSkill.status}</dd>
+                        </div>
+                        <div className="rounded-xl border border-line bg-black/20 p-3">
+                          <dt className="text-xs uppercase tracking-[0.14em] text-slate-500">Visibility</dt>
+                          <dd className="mt-1 text-white">{selectedSkill.visibility === 'USER_VISIBLE' ? 'Published to users' : 'Admin only'}</dd>
+                        </div>
+                        <div className="rounded-xl border border-line bg-black/20 p-3">
+                          <dt className="text-xs uppercase tracking-[0.14em] text-slate-500">Examples</dt>
+                          <dd className="mt-1 text-white">{selectedExamples.length}</dd>
+                        </div>
+                        <div className="rounded-xl border border-line bg-black/20 p-3">
+                          <dt className="text-xs uppercase tracking-[0.14em] text-slate-500">Files</dt>
+                          <dd className="mt-1 text-white">{selectedFiles.length}</dd>
+                        </div>
+                      </dl>
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <div className="mt-6 flex min-h-96 items-center justify-center rounded-2xl border border-dashed border-line text-center">
                   <div>
-                    <p className="text-lg font-semibold text-white">Select a skill</p>
-                    <p className="mt-2 max-w-xs text-sm text-slate-500">Use Configure from the catalog table, then switch between Manifest, Route, and Files in the drawer.</p>
+                    <p className="text-lg font-semibold text-white">Select a skill package</p>
+                    <p className="mt-2 max-w-xs text-sm text-slate-500">Use Configure from the governed package table, then review Overview, Instructions.md, Examples, Test Lab, Route, Files, and Settings.</p>
                   </div>
                 </div>
               )

@@ -1,4 +1,4 @@
-import type { AdminAnalyticsSummary, AppMode, CapabilityStatus, ImportSkillKitInput, SkillFileSummary, SkillReadiness, SkillStatus, SkillSummary, SkillVisibility, UpdateSkillInput, UpdateSkillRouteInput } from '@cogentrex/shared';
+import type { AdminAnalyticsSummary, AppMode, CapabilityStatus, ImportSkillKitInput, PromptTemplate, SkillFileSummary, SkillReadiness, SkillStatus, SkillSummary, SkillVisibility, UpdateSkillInput, UpdateSkillRouteInput } from '@cogentrex/shared';
 
 export interface SkillBadge {
   label: string;
@@ -71,6 +71,14 @@ export interface SkillFileView {
   preview: string;
   content: string;
   executable: boolean;
+}
+
+export interface SkillExampleView {
+  id: string;
+  label: string;
+  prompt: string;
+  description: string;
+  visibleToUsers: boolean;
 }
 
 const statusBadges: Record<SkillStatus, SkillBadge> = {
@@ -221,6 +229,26 @@ export function buildAdminSkillCatalog(
     .sort((left, right) => priorityRank(left) - priorityRank(right) || left.name.localeCompare(right.name));
 }
 
+export function isImportedSkillPackage(skill: SkillSummary): boolean {
+  return skill.kind === 'IMPORTED';
+}
+
+export function buildAdminSkillPackageCatalog(
+  skills: SkillSummary[],
+  readiness: SkillReadiness[] = [],
+  analytics?: AdminAnalyticsSummary | null,
+): AdminSkillCatalogRow[] {
+  return buildAdminSkillCatalog(skills.filter(isImportedSkillPackage), readiness, analytics);
+}
+
+export function buildAdminBuiltInCapabilityCatalog(
+  skills: SkillSummary[],
+  readiness: SkillReadiness[] = [],
+  analytics?: AdminAnalyticsSummary | null,
+): AdminSkillCatalogRow[] {
+  return buildAdminSkillCatalog(skills.filter((skill) => !isImportedSkillPackage(skill)), readiness, analytics);
+}
+
 export function buildAdminSkillMetrics(rows: AdminSkillCatalogRow[], analytics?: AdminAnalyticsSummary | null): AdminSkillMetric[] {
   const total = rows.length;
   const published = rows.filter((row) => row.skill.status === 'PUBLISHED').length;
@@ -230,14 +258,14 @@ export function buildAdminSkillMetrics(rows: AdminSkillCatalogRow[], analytics?:
   const needsRouteOrSetup = rows.filter((row) => row.priority === 'Needs route' || row.priority === 'Needs setup').length;
   const runHealth = analytics?.totals.successRate ?? 0;
   return [
-    { label: 'Total skills', value: String(total), hint: `${published} published · ${disabled} disabled`, tone: 'accent' },
+    { label: 'Skill packages', value: String(total), hint: `${published} published · ${disabled} disabled`, tone: 'accent' },
     { label: 'User visible', value: String(userVisible), hint: 'Visible in Skill Assist picker', tone: userVisible > 0 ? 'ready' : 'neutral' },
-    { label: 'Ready routes', value: String(readyRoutes), hint: `${needsRouteOrSetup} need route/setup`, tone: needsRouteOrSetup > 0 ? 'warning' : 'ready' },
+    { label: 'Ready routes', value: String(readyRoutes), hint: needsRouteOrSetup > 0 ? `${needsRouteOrSetup} need setup` : 'No packages need setup', tone: needsRouteOrSetup > 0 ? 'warning' : 'ready' },
     {
       label: 'Run health',
-      value: `${runHealth}%`,
-      hint: analytics ? `${analytics.totals.totalRuns} runs · ${analytics.totals.failedRuns} failed` : 'No run telemetry yet',
-      tone: runHealth >= 90 ? 'ready' : runHealth >= 70 ? 'warning' : 'danger',
+      value: analytics && analytics.totals.totalRuns > 0 ? `${runHealth}%` : 'N/A',
+      hint: analytics && analytics.totals.totalRuns > 0 ? `${analytics.totals.totalRuns} runs · ${analytics.totals.failedRuns} failed` : 'No runs yet',
+      tone: !analytics || analytics.totals.totalRuns === 0 ? 'neutral' : runHealth >= 90 ? 'ready' : runHealth >= 70 ? 'warning' : 'danger',
     },
   ];
 }
@@ -249,7 +277,7 @@ export function buildSkillFileViews(files: SkillFileSummary[]): SkillFileView[] 
       id: file.id,
       path: file.path,
       label: isInstructions ? 'Instructions' : titleCase(file.kind),
-      role: isInstructions ? 'Read-only instructions' : 'Supporting file',
+      role: isInstructions ? 'Skill Markdown / SKILL.md' : 'Supporting file',
       byteLabel: formatBytes(file.sizeBytes),
       checksumLabel: file.sha256.slice(0, 12),
       preview: file.content.trim().slice(0, 120),
@@ -259,25 +287,50 @@ export function buildSkillFileViews(files: SkillFileSummary[]): SkillFileView[] 
   });
 }
 
+export function getSkillInstructionsFile(files: SkillFileView[]): SkillFileView | null {
+  return files.find((file) => file.path === 'SKILL.md' || file.label === 'Instructions') ?? null;
+}
+
+export function buildSkillExampleViews(skill: SkillSummary): SkillExampleView[] {
+  const templates = skill.route?.config && typeof skill.route.config === 'object'
+    ? (skill.route.config as Record<string, unknown>).promptTemplates
+    : undefined;
+  if (!Array.isArray(templates)) return [];
+  return templates.flatMap((template, index): SkillExampleView[] => {
+    if (!template || typeof template !== 'object' || Array.isArray(template)) return [];
+    const entry = template as Partial<PromptTemplate> & Record<string, unknown>;
+    const label = typeof entry.label === 'string' ? entry.label.trim() : '';
+    const prompt = typeof entry.prompt === 'string' ? entry.prompt.trim() : '';
+    if (!label || !prompt) return [];
+    return [{
+      id: typeof entry.id === 'string' && entry.id.trim() ? entry.id.trim() : `${skill.slug}-example-${index + 1}`,
+      label,
+      prompt,
+      description: typeof entry.description === 'string' ? entry.description.trim() : '',
+      visibleToUsers: skill.status === 'PUBLISHED' && skill.visibility === 'USER_VISIBLE',
+    }];
+  });
+}
+
 export function getAdminSkillPanelCopy(mode: AdminSkillPanelMode): AdminSkillPanelCopy {
   if (mode === 'import') {
     return {
-      eyebrow: 'Skill Kit Import',
-      title: 'Import Skill Kit',
-      description: 'Pull one scoped GitHub folder into the registry, then inspect stored files in the drawer.',
+      eyebrow: 'Skill package import',
+      title: 'Import skill package',
+      description: 'Pull one scoped GitHub folder into the governed catalog. Cogentrex expects SKILL.md plus optional references, templates, scripts, or assets.',
     };
   }
   if (mode === 'create') {
     return {
-      eyebrow: 'Manual draft',
-      title: 'Create manual draft',
-      description: 'Create read-only SKILL.md instructions for a new skill before routing or publishing it.',
+      eyebrow: 'Manual skill package',
+      title: 'Create manual skill package',
+      description: 'Draft SKILL.md-style operating instructions, add examples, test as admin, then publish when ready.',
     };
   }
   return {
-    eyebrow: 'Skill detail',
-    title: 'Configure selected skill',
-    description: 'Review lifecycle, provider route, and read-only kit files without leaving the catalog.',
+    eyebrow: 'Governance detail',
+    title: 'Review selected package',
+    description: 'Review lifecycle, Instructions.md/SKILL.md, examples, tests, files, and routing before publishing to users.',
   };
 }
 
@@ -349,9 +402,9 @@ function formatSkillRoute(skill: SkillSummary): string {
   if (!skill.route) return 'No route configured';
   return [
     formatSkillMode(skill.route.mode),
-    skill.route.defaultProviderId ?? 'no provider',
-    skill.route.searchProfile ?? 'no search',
-    skill.route.maxBudgetCents === null || skill.route.maxBudgetCents === undefined ? 'no budget' : `${skill.route.maxBudgetCents}¢`,
+    skill.route.defaultProviderId ?? 'runner default provider',
+    skill.route.searchProfile ?? 'no required search profile',
+    skill.route.maxBudgetCents === null || skill.route.maxBudgetCents === undefined ? 'no budget limit' : `${skill.route.maxBudgetCents}¢`,
   ].join(' · ');
 }
 

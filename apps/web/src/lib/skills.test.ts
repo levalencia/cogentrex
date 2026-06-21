@@ -1,9 +1,12 @@
 import type { AdminAnalyticsSummary, SkillReadiness, SkillSummary } from '@cogentrex/shared';
 import { describe, expect, it } from 'vitest';
 import {
+  buildAdminBuiltInCapabilityCatalog,
   buildAdminSkillCatalog,
   buildAdminSkillMetrics,
+  buildAdminSkillPackageCatalog,
   buildSkillDetailModel,
+  buildSkillExampleViews,
   buildSkillFileViews,
   buildSkillRoutePayload,
   buildSkillUpdatePayload,
@@ -278,10 +281,48 @@ describe('admin skill helpers', () => {
     ]);
 
     expect(views.map((view) => ({ path: view.path, label: view.label, role: view.role, byteLabel: view.byteLabel }))).toEqual([
-      { path: 'SKILL.md', label: 'Instructions', role: 'Read-only instructions', byteLabel: '34 B' },
+      { path: 'SKILL.md', label: 'Instructions', role: 'Skill Markdown / SKILL.md', byteLabel: '34 B' },
       { path: 'references/color.md', label: 'Reference', role: 'Supporting file', byteLabel: '7 B' },
     ]);
     expect(views[0]?.preview).toContain('Use references/color.md.');
+  });
+
+  it('separates imported skill packages from built-in capabilities for admin governance', () => {
+    const nativeChat = skill({ id: 'skill-chat', slug: 'chat', name: 'Chat', kind: 'NATIVE' });
+    const importedBrand = skill({ id: 'skill-brand', slug: 'brand-agency', name: 'Brand Agency', kind: 'IMPORTED', status: 'DRAFT', visibility: 'ADMIN_ONLY' });
+
+    expect(buildAdminSkillPackageCatalog([nativeChat, importedBrand]).map((row) => row.slug)).toEqual(['brand-agency']);
+    expect(buildAdminBuiltInCapabilityCatalog([nativeChat, importedBrand]).map((row) => row.slug)).toEqual(['chat']);
+  });
+
+  it('extracts user-facing examples from route prompt templates', () => {
+    const examples = buildSkillExampleViews(skill({
+      slug: 'brand-agency',
+      kind: 'IMPORTED',
+      status: 'PUBLISHED',
+      visibility: 'USER_VISIBLE',
+      route: {
+        id: 'route-brand',
+        skillId: 'skill-brand',
+        mode: 'CHAT',
+        defaultProviderId: null,
+        searchProfile: null,
+        maxBudgetCents: null,
+        config: {
+          promptTemplates: [
+            { id: 'positioning', label: 'Position a brand', prompt: 'Create a positioning brief for this brand: ', description: 'Strategic brand positioning.' },
+            { id: 'campaign-angles', label: 'Campaign angles', prompt: 'Generate five campaign angles for: ' },
+          ],
+        },
+        createdAt: '2026-05-22T00:00:00.000Z',
+        updatedAt: '2026-05-22T00:00:00.000Z',
+      },
+    }));
+
+    expect(examples).toEqual([
+      { id: 'positioning', label: 'Position a brand', prompt: 'Create a positioning brief for this brand:', description: 'Strategic brand positioning.', visibleToUsers: true },
+      { id: 'campaign-angles', label: 'Campaign angles', prompt: 'Generate five campaign angles for:', description: '', visibleToUsers: true },
+    ]);
   });
 
   it('builds admin skill metrics for top cards', () => {
@@ -302,21 +343,21 @@ describe('admin skill helpers', () => {
     ], [readiness('deep-research', 'ready')], analytics());
 
     expect(buildAdminSkillMetrics(rows, analytics()).map((metric) => ({ label: metric.label, value: metric.value, hint: metric.hint }))).toEqual([
-      { label: 'Total skills', value: '3', hint: '2 published · 1 disabled' },
+      { label: 'Skill packages', value: '3', hint: '2 published · 1 disabled' },
       { label: 'User visible', value: '2', hint: 'Visible in Skill Assist picker' },
-      { label: 'Ready routes', value: '1', hint: '1 need route/setup' },
+      { label: 'Ready routes', value: '1', hint: '1 need setup' },
       { label: 'Run health', value: '75%', hint: '12 runs · 3 failed' },
     ]);
   });
 
   it('returns operator copy for drawer panel modes', () => {
     expect(getAdminSkillPanelCopy('detail')).toEqual({
-      eyebrow: 'Skill detail',
-      title: 'Configure selected skill',
-      description: 'Review lifecycle, provider route, and read-only kit files without leaving the catalog.',
+      eyebrow: 'Governance detail',
+      title: 'Review selected package',
+      description: 'Review lifecycle, Instructions.md/SKILL.md, examples, tests, files, and routing before publishing to users.',
     });
-    expect(getAdminSkillPanelCopy('import')).toMatchObject({ title: 'Import Skill Kit' });
-    expect(getAdminSkillPanelCopy('create')).toMatchObject({ title: 'Create manual draft' });
+    expect(getAdminSkillPanelCopy('import')).toMatchObject({ title: 'Import skill package' });
+    expect(getAdminSkillPanelCopy('create')).toMatchObject({ title: 'Create manual skill package' });
   });
 
   it('rejects route config JSON that is not an object', () => {
