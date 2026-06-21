@@ -1,4 +1,4 @@
-import type { AdminAnalyticsSummary, ArtifactItem, ChatMessage, ConversationSummary, MediaArtifact, ProjectSummary, ProviderConfigView, PublicUser, RequestMetric, StreamEvent, ImageGenerationOptions, GeneratedPost, SocialPlatformConfig, WorkflowReadiness, SkillDetail, SkillReadiness, SkillSummary, SkillFileSummary, CreateSkillInput, ImportSkillKitInput, UpdateSkillInput, UpdateSkillRouteInput, WorkflowRunDetailResponse, WorkflowRunEventsResponse, WorkflowRunListResponse, SkillAssistMode } from '@cogentrex/shared';
+import type { AdminAnalyticsSummary, AdminSkillTestResponse, ArtifactItem, ChatMessage, ConversationSummary, MediaArtifact, ProjectSummary, ProviderConfigView, PublicUser, RequestMetric, StreamEvent, ImageGenerationOptions, GeneratedPost, SocialPlatformConfig, WorkflowReadiness, SkillDetail, SkillReadiness, SkillSummary, SkillFileSummary, CreateSkillInput, ImportSkillKitInput, UpdateSkillInput, UpdateSkillRouteInput, WorkflowRunDetailResponse, WorkflowRunEventsResponse, WorkflowRunListResponse, SkillAssistMode } from '@cogentrex/shared';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001';
 
@@ -92,6 +92,8 @@ export const api = {
     jsonRequest<{ skill: SkillSummary }>(`/api/admin/skills/${slug}`, { method: 'PATCH', body: JSON.stringify(input) }),
   updateAdminSkillRoute: (slug: string, input: UpdateSkillRouteInput) =>
     jsonRequest<{ route: SkillSummary['route'] }>(`/api/admin/skills/${slug}/route`, { method: 'PUT', body: JSON.stringify(input) }),
+  runAdminSkillTest: (slug: string, input: { prompt: string; exampleId?: string; providerId?: string }) =>
+    jsonRequest<AdminSkillTestResponse>(`/api/admin/skills/${slug}/test`, { method: 'POST', body: JSON.stringify(input) }),
   // Media
   generateMedia: (input: { prompt: string; type: 'image' | 'video'; conversationId?: string | undefined; providerId?: string | undefined; options?: ImageGenerationOptions }) =>
     jsonRequest<{ messages: ChatMessage[]; conversationId: string; artifact: MediaArtifact }>('/api/media/generate', { method: 'POST', body: JSON.stringify(input) }),

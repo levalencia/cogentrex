@@ -126,6 +126,12 @@ export const importSkillKitSchema = z.object({
   ref: z.string().trim().min(1).max(200).optional(),
 });
 
+export const adminSkillTestSchema = z.object({
+  prompt: z.string().trim().min(1).max(20000),
+  exampleId: z.string().trim().min(1).max(160).optional(),
+  providerId: z.string().trim().min(1).optional(),
+});
+
 export const createArtifactFromMessageSchema = z.object({
   messageId: z.string().trim().min(1),
   filename: z.string().trim().min(1).max(120).optional(),
@@ -152,5 +158,6 @@ export type UpdateSkillInput = z.infer<typeof updateSkillSchema>;
 export type UpdateSkillRouteInput = z.infer<typeof updateSkillRouteSchema>;
 export type CreateSkillInput = z.infer<typeof createSkillSchema>;
 export type ImportSkillKitInput = z.infer<typeof importSkillKitSchema>;
+export type AdminSkillTestInput = z.infer<typeof adminSkillTestSchema>;
 export type CreateArtifactFromMessageInput = z.infer<typeof createArtifactFromMessageSchema>;
 export type UpdateArtifactMetadataInput = z.infer<typeof updateArtifactMetadataSchema>;

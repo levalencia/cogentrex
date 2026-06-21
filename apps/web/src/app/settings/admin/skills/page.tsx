@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import type { AdminAnalyticsSummary, CreateSkillInput, ProviderConfigView, SkillFileSummary, SkillReadiness, SkillStatus, SkillSummary, SkillVisibility } from '@cogentrex/shared';
+import type { AdminAnalyticsSummary, AdminSkillTestResponse, CreateSkillInput, ProviderConfigView, SkillFileSummary, SkillReadiness, SkillStatus, SkillSummary, SkillVisibility } from '@cogentrex/shared';
 import { api } from '@/lib/api';
 import { getProtectedRouteState } from '@/lib/protectedRoute';
 import {
@@ -72,6 +72,10 @@ export default function AdminSkillsPage() {
   const [skillDraft, setSkillDraft] = useState<SkillUpdateDraft | null>(null);
   const [routeDraft, setRouteDraft] = useState<SkillRouteDraft | null>(null);
   const [exampleDrafts, setExampleDrafts] = useState<SkillExampleDraft[]>([]);
+  const [testExampleId, setTestExampleId] = useState('custom');
+  const [testPrompt, setTestPrompt] = useState('');
+  const [testRunning, setTestRunning] = useState(false);
+  const [testResult, setTestResult] = useState<AdminSkillTestResponse | null>(null);
   const [createDraft, setCreateDraft] = useState<CreateSkillInput>(emptyCreateDraft);
   const [importDraft, setImportDraft] = useState<SkillKitImportDraft>({ sourceUrl: '', folderPath: '', ref: '' });
   const [importing, setImporting] = useState(false);
@@ -136,6 +140,9 @@ export default function AdminSkillsPage() {
     setSkillDraft(getSkillUpdateDraft(skill));
     setRouteDraft(getSkillRouteDraft(skill));
     setExampleDrafts(getSkillExampleDrafts(skill));
+    setTestExampleId('custom');
+    setTestPrompt('');
+    setTestResult(null);
     setError(undefined);
     setSuccess(undefined);
     if (!skillFiles[skill.slug]) void loadSkillFiles(skill.slug);
@@ -153,6 +160,9 @@ export default function AdminSkillsPage() {
     setSkillDraft(null);
     setRouteDraft(null);
     setExampleDrafts([]);
+    setTestExampleId('custom');
+    setTestPrompt('');
+    setTestResult(null);
     setActiveTab('overview');
     setError(undefined);
     setSuccess(undefined);
@@ -234,6 +244,39 @@ export default function AdminSkillsPage() {
     setExampleDrafts((current) => [...current, createEmptySkillExampleDraft(current.length)]);
   }
 
+
+  function chooseTestExample(exampleId: string) {
+    setTestExampleId(exampleId);
+    setTestResult(null);
+    if (exampleId === 'custom') {
+      setTestPrompt('');
+      return;
+    }
+    const example = exampleDrafts.find((item) => item.id === exampleId);
+    setTestPrompt(example?.prompt ?? '');
+  }
+
+  async function runAdminSkillTest() {
+    if (!selectedSlug || !testPrompt.trim()) return;
+    setTestRunning(true);
+    setError(undefined);
+    setSuccess(undefined);
+    setTestResult(null);
+    try {
+      const result = await api.runAdminSkillTest(selectedSlug, {
+        prompt: testPrompt,
+        ...(testExampleId !== 'custom' ? { exampleId: testExampleId } : {}),
+      });
+      setTestResult(result);
+      setSuccess(`Admin test completed for ${result.skill.name}.`);
+      await loadAdminData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not run admin test');
+    } finally {
+      setTestRunning(false);
+    }
+  }
+
   async function createSkill(event: FormEvent) {
     event.preventDefault();
     setCreating(true);
@@ -281,6 +324,7 @@ export default function AdminSkillsPage() {
   const selectedFiles = selectedSlug ? buildSkillFileViews(skillFiles[selectedSlug] ?? []) : [];
   const selectedInstructions = getSkillInstructionsFile(selectedFiles);
   const selectedExamples = exampleDrafts;
+  const testExampleOptions = selectedExamples.filter((example) => example.prompt.trim());
   const panelCopy = panelMode ? getAdminSkillPanelCopy(panelMode) : null;
 
   if (routeState.status === 'loading' || routeState.status === 'redirect') {
@@ -631,12 +675,35 @@ export default function AdminSkillsPage() {
                   {activeTab === 'test' ? (
                     <div className="mt-5 space-y-4">
                       <div className="rounded-2xl border border-accent/20 bg-accent/10 p-4 text-sm text-slate-300">
-                        Test Lab is the approval gate: pick an example or custom prompt, run as admin, inspect output/run trace, then mark the package safe to publish. The current slice reserves the surface without executing tests yet.
+                        Test Lab runs this skill package as an admin QA check before publishing. Pick a saved example or custom prompt, execute it through the configured route/provider, then inspect the output and saved run trace.
                       </div>
-                      <label className="block text-sm text-slate-400">Test prompt
-                        <textarea rows={5} placeholder="Paste a prompt or choose one of the examples in the previous tab." className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 text-white outline-none focus:border-accent" />
+                      <label className="block text-sm text-slate-400">Example
+                        <select value={testExampleId} onChange={(event) => chooseTestExample(event.target.value)} className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 text-white outline-none focus:border-accent">
+                          <option value="custom">Custom prompt</option>
+                          {testExampleOptions.map((example) => <option key={example.id} value={example.id}>{example.label}</option>)}
+                        </select>
                       </label>
-                      <button type="button" disabled className="rounded-xl border border-line bg-ink px-4 py-2 text-sm text-slate-500 opacity-70">Run admin test — coming next</button>
+                      <label className="block text-sm text-slate-400">Test prompt
+                        <textarea rows={5} value={testPrompt} onChange={(event) => { setTestPrompt(event.target.value); setTestResult(null); }} placeholder="Paste a prompt or choose one of the examples in the previous tab." className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 text-white outline-none focus:border-accent" />
+                      </label>
+                      <button type="button" onClick={() => void runAdminSkillTest()} disabled={testRunning || !testPrompt.trim()} className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-50">
+                        {testRunning ? 'Running admin test…' : 'Run admin test'}
+                      </button>
+                      {testResult ? (
+                        <div className="space-y-3 rounded-2xl border border-green-500/30 bg-green-500/10 p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                              <p className="text-sm font-semibold text-green-100">Test completed</p>
+                              <p className="text-xs text-green-200/80">{testResult.provider.name} · {testResult.provider.model} · {testResult.durationMs}ms</p>
+                            </div>
+                            <a href={`/runs?run=${testResult.run.id}`} className="rounded-lg border border-green-400/40 px-3 py-1.5 text-xs text-green-100 hover:border-green-300">Open run trace</a>
+                          </div>
+                          <div className="rounded-xl border border-green-500/20 bg-ink/70 p-3">
+                            <p className="text-xs uppercase tracking-[0.14em] text-green-300/80">Output</p>
+                            <pre className="mt-2 max-h-80 whitespace-pre-wrap text-sm leading-6 text-slate-100">{testResult.output}</pre>
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   ) : null}
 

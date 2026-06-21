@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { setSkillKitImportFetchForTests } from '../skills/skillKitImporter.js';
 import { SkillRepository } from '../skills/skillRepository.js';
 import { nativeSkillSeeds } from '../skills/skillService.js';
-import { makeTestApp, registerAndLogin } from './testApp.js';
+import { createProvider, makeTestApp, registerAndLogin } from './testApp.js';
 
 async function registerAdmin(agent: Awaited<ReturnType<typeof makeTestApp>>['agent'], database: Awaited<ReturnType<typeof makeTestApp>>['database']) {
   const user = await registerAndLogin(agent);
@@ -241,6 +241,59 @@ describe('skill registry API', () => {
       expect(res.body.skill.route.searchProfile).toBe('travel-web');
       expect(res.body.skill.route.config.promptTemplates[0].id).toBe('flight-weekend');
     });
+
+    database.close();
+  });
+
+
+  it('runs admin Skill Test Lab checks and records an auditable run', async () => {
+    const { agent, database } = await makeTestApp();
+    await registerAdmin(agent, database);
+    const provider = await createProvider(agent);
+
+    await agent.post('/api/admin/skills').send({
+      slug: 'qa-copywriter',
+      name: 'QA Copywriter',
+      description: 'Drafts concise QA copy.',
+      category: 'Imported',
+      icon: 'sparkles',
+      instructions: '# QA Copywriter\n\nAlways produce concise, evidence-aware copy.',
+    }).expect(201);
+
+    const res = await agent.post('/api/admin/skills/qa-copywriter/test').send({
+      prompt: 'Write a launch note for the new Test Lab.',
+      exampleId: 'launch-note',
+      providerId: provider.id,
+    }).expect(200);
+
+    expect(res.body).toMatchObject({
+      output: 'Research answer with citation [1].',
+      prompt: 'Write a launch note for the new Test Lab.',
+      skill: { slug: 'qa-copywriter', name: 'QA Copywriter' },
+      provider: { id: provider.id, name: 'Microsoft Foundry Kimi', model: 'Kimi 2.6' },
+    });
+    expect(res.body.run).toMatchObject({
+      skillSlug: 'qa-copywriter',
+      skillName: 'QA Copywriter',
+      status: 'completed',
+      mode: 'CHAT',
+      providerId: provider.id,
+    });
+    expect(res.body.run.observability).toMatchObject({
+      isAdminTest: true,
+      exampleId: 'launch-note',
+      promptLength: 'Write a launch note for the new Test Lab.'.length,
+      outputLength: 'Research answer with citation [1].'.length,
+    });
+
+    const events = await agent.get(`/api/runs/${res.body.run.id}/events`).expect(200);
+    const eventTypes = events.body.events.map((event: { eventType: string }) => event.eventType);
+    expect(eventTypes).toEqual(expect.arrayContaining([
+      'run_started',
+      'admin_test_prompt_ready',
+      'admin_test_output_received',
+      'run_completed',
+    ]));
 
     database.close();
   });

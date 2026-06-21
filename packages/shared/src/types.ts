@@ -209,6 +209,23 @@ export interface AdminAnalyticsSummary {
   recentFailures: SkillRunSummary[];
 }
 
+
+export interface AdminSkillTestResponse {
+  run: SkillRunSummary;
+  output: string;
+  prompt: string;
+  skill: {
+    slug: string;
+    name: string;
+  };
+  provider: {
+    id: string;
+    name: string;
+    model: string;
+  };
+  durationMs: number;
+}
+
 export interface WorkflowDefinition {
   id: WorkflowId;
   label: string;
