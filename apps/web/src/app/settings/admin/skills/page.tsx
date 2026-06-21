@@ -23,6 +23,7 @@ import {
   getSkillImportSourceView,
   getSkillInstructionsFile,
   getSkillExampleDrafts,
+  isEditableSupportingSkillFile,
   getSkillPublishGateView,
   getSkillRouteDraft,
   getSkillUpdateDraft,
@@ -83,6 +84,7 @@ export default function AdminSkillsPage() {
   const [routeDraft, setRouteDraft] = useState<SkillRouteDraft | null>(null);
   const [exampleDrafts, setExampleDrafts] = useState<SkillExampleDraft[]>([]);
   const [instructionsDraft, setInstructionsDraft] = useState('');
+  const [fileDrafts, setFileDrafts] = useState<Record<string, string>>({});
   const [testExampleId, setTestExampleId] = useState('custom');
   const [testPrompt, setTestPrompt] = useState('');
   const [testRunning, setTestRunning] = useState(false);
@@ -139,6 +141,7 @@ export default function AdminSkillsPage() {
     try {
       const result = await api.listAdminSkillFiles(slug);
       setSkillFiles((current) => ({ ...current, [slug]: result.files }));
+      setFileDrafts(Object.fromEntries(result.files.map((file) => [file.path, file.content])));
       if (syncInstructionsDraft) {
         const instructions = getSkillInstructionsFile(buildSkillFileViews(result.files));
         setInstructionsDraft(instructions?.content ?? '');
@@ -161,8 +164,10 @@ export default function AdminSkillsPage() {
     if (Array.isArray(cachedFiles)) {
       const instructions = getSkillInstructionsFile(buildSkillFileViews(cachedFiles));
       setInstructionsDraft(instructions?.content ?? '');
+      setFileDrafts(Object.fromEntries(cachedFiles.map((file) => [file.path, file.content])));
     } else {
       setInstructionsDraft('');
+      setFileDrafts({});
     }
     setTestExampleId('custom');
     setTestPrompt('');
@@ -185,6 +190,7 @@ export default function AdminSkillsPage() {
     setRouteDraft(null);
     setExampleDrafts([]);
     setInstructionsDraft('');
+    setFileDrafts({});
     setTestExampleId('custom');
     setTestPrompt('');
     setTestResult(null);
@@ -262,6 +268,28 @@ export default function AdminSkillsPage() {
       await loadAdminData();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save SKILL.md instructions');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+
+  async function saveSkillFile(filePath: string) {
+    if (!selectedSlug) return;
+    const content = fileDrafts[filePath];
+    if (content === undefined || !content.trim()) return;
+    setSaving(true);
+    setError(undefined);
+    setSuccess(undefined);
+    try {
+      const result = await api.updateAdminSkillFile(selectedSlug, { path: filePath, content });
+      setSkillFiles((current) => ({ ...current, [result.skill.slug]: result.files }));
+      setFileDrafts(Object.fromEntries(result.files.map((file) => [file.path, file.content])));
+      setSkills((current) => current.map((skill) => skill.slug === result.skill.slug ? result.skill : skill));
+      setSuccess(`${filePath} saved. Publish gate is stale until Test Lab passes again.`);
+      await loadAdminData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save package file');
     } finally {
       setSaving(false);
     }
@@ -1015,18 +1043,37 @@ export default function AdminSkillsPage() {
                       ) : null}
                       {filesLoading ? <p className="text-sm text-slate-500">Loading files…</p> : null}
                       {!filesLoading && selectedFiles.length === 0 ? <p className="rounded-2xl border border-line bg-ink/50 p-4 text-sm text-slate-500">No package files stored for this skill yet.</p> : null}
-                      {selectedFiles.map((file) => (
-                        <article key={file.id} className="rounded-2xl border border-line bg-ink/50 p-4">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="font-mono text-sm text-white">{file.path}</p>
-                              <p className="mt-1 text-xs text-slate-500">{file.label} · {file.role} · {file.byteLabel} · sha {file.checksumLabel}</p>
+                      {selectedFiles.map((file) => {
+                        const editable = isEditableSupportingSkillFile(file);
+                        const draft = fileDrafts[file.path] ?? file.content;
+                        const changed = draft !== file.content;
+                        return (
+                          <article key={file.id} className="rounded-2xl border border-line bg-ink/50 p-4">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <p className="font-mono text-sm text-white">{file.path}</p>
+                                <p className="mt-1 text-xs text-slate-500">{file.label} · {file.role} · {file.byteLabel} · sha {file.checksumLabel}</p>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {changed ? <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-2 py-1 text-xs text-yellow-200">Unsaved changes</span> : null}
+                                {!editable ? <span className="rounded-full border border-slate-500/30 bg-slate-500/10 px-2 py-1 text-xs text-slate-300">Read-only</span> : null}
+                                {file.executable ? <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-2 py-1 text-xs text-yellow-200">Executable</span> : null}
+                              </div>
                             </div>
-                            {file.executable ? <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-2 py-1 text-xs text-yellow-200">Executable</span> : null}
-                          </div>
-                          <pre className="mt-3 max-h-72 overflow-auto rounded-xl border border-line bg-black/30 p-3 text-xs text-slate-300"><code>{file.content}</code></pre>
-                        </article>
-                      ))}
+                            {editable ? (
+                              <div className="mt-3 space-y-3">
+                                <textarea value={draft} onChange={(event) => setFileDrafts((current) => ({ ...current, [file.path]: event.target.value }))} rows={8} className="w-full rounded-xl border border-line bg-black/30 p-3 font-mono text-xs text-slate-100 outline-none focus:border-accent" />
+                                <button type="button" onClick={() => void saveSkillFile(file.path)} disabled={saving || !changed || !draft.trim()} className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-50">Save file</button>
+                              </div>
+                            ) : (
+                              <>
+                                <pre className="mt-3 max-h-72 overflow-auto rounded-xl border border-line bg-black/30 p-3 text-xs text-slate-300"><code>{file.content}</code></pre>
+                                <p className="mt-2 text-xs text-slate-500">{file.kind === 'skill' ? 'Edit SKILL.md in the Instructions.md tab.' : 'Scripts and assets are read-only for safety.'}</p>
+                              </>
+                            )}
+                          </article>
+                        );
+                      })}
                     </div>
                   ) : null}
 

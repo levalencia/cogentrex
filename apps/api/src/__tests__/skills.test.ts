@@ -464,6 +464,58 @@ describe('skill registry API', () => {
     database.close();
   });
 
+  it('allows admins to edit reference/template package files but keeps scripts and SKILL.md read-only in Files tab editor', async () => {
+    const { agent, database } = await makeTestApp();
+    await registerAdmin(agent, database);
+    const provider = await createProvider(agent);
+
+    await agent.post('/api/admin/skills/import-manual-kit').send({
+      sourceLabel: 'editable package',
+      files: [
+        { path: 'SKILL.md', content: '---\nname: Editable Package\ndescription: Validate file editing.\n---\n\nUse package files.' },
+        { path: 'references/tone.md', content: '# Tone\n\nOriginal.' },
+        { path: 'templates/reply.md', content: 'Original template.' },
+        { path: 'scripts/check.py', content: 'print("reference only")' },
+      ],
+    }).expect(201);
+
+    await agent.put('/api/admin/skills/editable-package/route').send({
+      mode: 'CHAT',
+      defaultProviderId: provider.id,
+    }).expect(200);
+    const testRes = await agent.post('/api/admin/skills/editable-package/test').send({ prompt: 'Use the package.', providerId: provider.id }).expect(200);
+
+    const edited = await agent.put('/api/admin/skills/editable-package/files').send({
+      path: 'references/tone.md',
+      content: '# Tone\n\nUpdated premium voice.',
+    }).expect(200);
+
+    expect(edited.body.files).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        path: 'references/tone.md',
+        content: '# Tone\n\nUpdated premium voice.',
+        executable: false,
+      }),
+    ]));
+    expect(edited.body.skill.route.config.adminTestGate).toMatchObject({ runId: testRes.body.run.id });
+    expect(edited.body.skill.publishGate.status).toBe('stale');
+
+    await agent.put('/api/admin/skills/editable-package/files').send({
+      path: 'templates/reply.md',
+      content: 'Updated template.',
+    }).expect(200);
+    await agent.put('/api/admin/skills/editable-package/files').send({
+      path: 'scripts/check.py',
+      content: 'print("mutated")',
+    }).expect(400);
+    await agent.put('/api/admin/skills/editable-package/files').send({
+      path: 'SKILL.md',
+      content: '# Mutated',
+    }).expect(400);
+
+    database.close();
+  });
+
   it('imports one skill kit from a specific GitHub folder and ignores sibling skills', async () => {
     const { agent, database } = await makeTestApp();
     await registerAdmin(agent, database);

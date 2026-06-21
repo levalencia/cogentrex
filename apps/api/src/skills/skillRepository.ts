@@ -14,6 +14,7 @@ import type {
   SkillToolRequirement,
   SkillVisibility,
   UpdateSkillInput,
+  UpdateSkillFileInput,
   UpdateSkillInstructionsInput,
   UpdateSkillRouteInput,
 } from '@cogentrex/shared';
@@ -553,7 +554,7 @@ export class SkillRepository {
           content,
           sha256,
           sizeBytes: Buffer.byteLength(content, 'utf8'),
-          updatedAt: now,
+          updatedAt: effectiveNow,
         });
       } else {
         await tx.prepare(
@@ -569,10 +570,52 @@ export class SkillRepository {
           sha256,
           sizeBytes: Buffer.byteLength(content, 'utf8'),
           createdAt: effectiveNow,
-          updatedAt: now,
+          updatedAt: effectiveNow,
         });
       }
 
+      await tx.prepare('UPDATE skills SET updated_at = ? WHERE id = ?').run(effectiveNow, skill.id);
+      if (skill.route) {
+        await tx.prepare('UPDATE skill_routes SET updated_at = ? WHERE skill_id = ?').run(effectiveNow, skill.id);
+      }
+    });
+
+    return this.listFilesBySkillSlug(slug);
+  }
+
+
+  async updateSkillFile(slug: string, input: UpdateSkillFileInput, now = new Date().toISOString()): Promise<SkillFileSummary[] | null> {
+    const skill = await this.findBySlug(slug);
+    if (!skill) return null;
+    const file = await this.db.prepare(
+      `SELECT * FROM skill_files
+       WHERE skill_id = ? AND path = ?
+       LIMIT 1`,
+    ).get(skill.id, input.path) as SkillFileRow | undefined;
+    if (!file) return null;
+    const content = input.content;
+    const lastTestedAt = skill.route?.config?.adminTestGate?.testedRouteUpdatedAt;
+    const effectiveNow = lastTestedAt
+      ? new Date(Math.max(new Date(now).getTime(), new Date(lastTestedAt).getTime() + 1)).toISOString()
+      : now;
+    const sha256 = createHash('sha256').update(content).digest('hex');
+
+    await this.db.transaction(async (tx) => {
+      await tx.prepare(
+        `UPDATE skill_files
+         SET content = @content,
+             sha256 = @sha256,
+             size_bytes = @sizeBytes,
+             executable = 0,
+             updated_at = @updatedAt
+         WHERE id = @id`,
+      ).run({
+        id: file.id,
+        content,
+        sha256,
+        sizeBytes: Buffer.byteLength(content, 'utf8'),
+        updatedAt: effectiveNow,
+      });
       await tx.prepare('UPDATE skills SET updated_at = ? WHERE id = ?').run(effectiveNow, skill.id);
       if (skill.route) {
         await tx.prepare('UPDATE skill_routes SET updated_at = ? WHERE skill_id = ?').run(effectiveNow, skill.id);
