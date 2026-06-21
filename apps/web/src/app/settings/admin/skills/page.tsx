@@ -187,6 +187,44 @@ export default function AdminSkillsPage() {
     }
   }
 
+  async function publishSkillPackage() {
+    if (!selectedSlug || !selectedSkill || selectedPublishGate?.status !== 'passing') {
+      setActiveTab('test');
+      setSuccess('Run Test Lab successfully before publishing this package.');
+      return;
+    }
+    setSaving(true);
+    setError(undefined);
+    setSuccess(undefined);
+    try {
+      const result = await api.updateAdminSkill(selectedSlug, { status: 'PUBLISHED', visibility: 'USER_VISIBLE' });
+      setSkillDraft(getSkillUpdateDraft(result.skill));
+      setSuccess(`${result.skill.name} published to Skill Assist users.`);
+      await loadAdminData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not publish skill package');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function unpublishSkillPackage() {
+    if (!selectedSlug || !selectedSkill) return;
+    setSaving(true);
+    setError(undefined);
+    setSuccess(undefined);
+    try {
+      const result = await api.updateAdminSkill(selectedSlug, { status: 'STAGED', visibility: 'ADMIN_ONLY' });
+      setSkillDraft(getSkillUpdateDraft(result.skill));
+      setSuccess(`${result.skill.name} moved back to staged/admin-only.`);
+      await loadAdminData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not unpublish skill package');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function saveSkillRoute(event: FormEvent) {
     event.preventDefault();
     if (!selectedSlug || !routeDraft) return;
@@ -327,6 +365,7 @@ export default function AdminSkillsPage() {
   const selectedInstructions = getSkillInstructionsFile(selectedFiles);
   const selectedExamples = exampleDrafts;
   const selectedPublishGate = selectedSkill ? getSkillPublishGateView(selectedSkill) : null;
+  const selectedSkillIsPublic = selectedSkill?.status === 'PUBLISHED' && selectedSkill.visibility === 'USER_VISIBLE';
   const publishBlocked = selectedSkill && skillDraft ? isPublishBlockedByGate(selectedSkill, skillDraft) : false;
   const testExampleOptions = selectedExamples.filter((example) => example.prompt.trim());
   const panelCopy = panelMode ? getAdminSkillPanelCopy(panelMode) : null;
@@ -602,6 +641,28 @@ export default function AdminSkillsPage() {
                         </div>
                       ) : null}
                       {publishBlocked ? <p className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">Publishing is blocked until this package has a current successful admin test in Test Lab.</p> : null}
+                      <div className="rounded-2xl border border-line bg-ink/50 p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Publish action</p>
+                            <h3 className="mt-1 font-semibold text-white">{selectedSkillIsPublic ? 'Package is live in Skill Assist' : selectedPublishGate?.status === 'passing' ? 'Ready to publish' : 'Test before publishing'}</h3>
+                            <p className="mt-1 text-xs text-slate-400">
+                              {selectedSkillIsPublic
+                                ? 'Unpublish moves this package back to staged/admin-only without deleting examples or test history.'
+                                : selectedPublishGate?.status === 'passing'
+                                  ? 'The latest admin test is current. Publish makes the package user-visible in Skill Assist.'
+                                  : 'Run Test Lab first; this button will take you there instead of attempting a blocked publish.'}
+                            </p>
+                          </div>
+                          {selectedSkillIsPublic ? (
+                            <button type="button" onClick={() => void unpublishSkillPackage()} disabled={saving} className="rounded-xl border border-yellow-500/40 bg-yellow-500/10 px-4 py-2 text-sm font-semibold text-yellow-100 hover:border-yellow-300 disabled:opacity-50">Unpublish package</button>
+                          ) : selectedPublishGate?.status === 'passing' ? (
+                            <button type="button" onClick={() => void publishSkillPackage()} disabled={saving} className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50">Publish package</button>
+                          ) : (
+                            <button type="button" onClick={() => void publishSkillPackage()} className="rounded-xl border border-accent/40 bg-accent/10 px-4 py-2 text-sm font-semibold text-accent hover:border-accent">Go to Test Lab</button>
+                          )}
+                        </div>
+                      </div>
                       <div className="grid gap-3 sm:grid-cols-2">
                         <label className="block text-sm text-slate-400">Status
                           <select value={skillDraft.status} onChange={(e) => setSkillDraft({ ...skillDraft, status: e.target.value as SkillStatus })} className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2 text-white outline-none focus:border-accent">
