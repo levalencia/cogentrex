@@ -187,7 +187,7 @@ export async function createApp(env: AppEnv, deps: AppDependencies = {}) {
   app.use('/api/skills', skillRoutes(authService, skillService, providerService, env, skillRunRepository));
   app.use('/api/runs', runRoutes(authService, skillRunRepository));
   app.use('/api/capabilities', capabilityRoutes(authService, capabilityService));
-  app.use('/api/admin/skills', adminSkillRoutes(authService, skillService));
+  app.use('/api/admin/skills', adminSkillRoutes(authService, skillService, providerService, llm, skillRunRepository));
   app.use('/api/admin/qa', adminQaFixtureRoutes(authService, qaFixtureService, env));
   app.use('/api/admin', adminRoutes(authService, providerService, adminAnalyticsService));
   app.use('/api/chat', chatRoutes(authService, chatService, researchService, metricsRepository, artifactService, logger.child({ component: 'ChatRoutes' })));

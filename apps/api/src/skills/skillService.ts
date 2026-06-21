@@ -291,6 +291,12 @@ export class SkillService {
     return this.repository.listAll();
   }
 
+  async getAdmin(slug: string) {
+    const skill = await this.repository.findBySlug(slug);
+    if (!skill) throw notFound('Skill not found');
+    return skill;
+  }
+
   async listFiles(slug: string) {
     const files = await this.repository.listFilesBySkillSlug(slug);
     if (!files) throw notFound('Skill not found');

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createSkillSchema, importSkillKitSchema, updateSkillRouteSchema, updateSkillSchema } from '@cogentrex/shared';
+import { adminSkillTestSchema, createSkillSchema, importSkillKitSchema, updateSkillRouteSchema, updateSkillSchema } from '@cogentrex/shared';
 import { currentUser, requireAuth, requireAdmin } from '../auth/authMiddleware.js';
 import type { AuthService } from '../auth/authService.js';
 import type { AppEnv } from '../config/env.js';
@@ -8,6 +8,39 @@ import type { SkillService } from './skillService.js';
 import { buildSkillReadiness } from './skillReadiness.js';
 
 import type { SkillRunRepository } from './skillRunRepository.js';
+import type { LanguageModelClient, ModelMessage } from '../chat/languageModel.js';
+
+
+function buildAdminTestMessages(input: {
+  skillName: string;
+  skillDescription: string;
+  skillInstructions: string;
+  prompt: string;
+}): ModelMessage[] {
+  const instructions = input.skillInstructions.trim() || 'No SKILL.md instructions were found. Use the skill name and description as the operating context.';
+  return [
+    {
+      role: 'system',
+      content: [
+        'You are running an admin QA test for a Cogentrex governed skill package.',
+        'Follow the skill instructions exactly enough for the admin to judge whether this package is safe to publish.',
+        'Return the actual assistant output only. Do not mention that this is a test unless the user prompt asks for it.',
+        '',
+        `Skill: ${input.skillName}`,
+        `Description: ${input.skillDescription}`,
+        '',
+        'SKILL.md / package instructions:',
+        instructions,
+      ].join('\n'),
+    },
+    { role: 'user', content: input.prompt },
+  ];
+}
+
+function selectSkillInstructions(files: Awaited<ReturnType<SkillService['listFiles']>>): string {
+  const skillFile = files.find((file) => file.kind === 'skill' || file.path.toLowerCase().endsWith('skill.md'));
+  return skillFile?.content ?? '';
+}
 
 export function skillRoutes(auth: AuthService, skills: SkillService, providers: ProviderService, env: AppEnv, skillRuns: SkillRunRepository): Router {
   const router = Router();
@@ -115,7 +148,7 @@ export function runRoutes(auth: AuthService, skillRuns: SkillRunRepository): Rou
   return router;
 }
 
-export function adminSkillRoutes(auth: AuthService, skills: SkillService): Router {
+export function adminSkillRoutes(auth: AuthService, skills: SkillService, providers: ProviderService, llm: LanguageModelClient, skillRuns: SkillRunRepository): Router {
   const router = Router();
   router.use(requireAuth(auth));
   router.use(requireAdmin());
@@ -161,6 +194,83 @@ export function adminSkillRoutes(auth: AuthService, skills: SkillService): Route
     try {
       const input = updateSkillSchema.parse(req.body);
       res.json({ skill: await skills.updateSkill(req.params.slug, input) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+
+  router.post('/:slug/test', async (req, res, next) => {
+    try {
+      const admin = currentUser(req);
+      const input = adminSkillTestSchema.parse(req.body);
+      const skill = await skills.getAdmin(req.params.slug);
+      if (!skill.route) {
+        res.status(400).json({ error: { message: 'Skill route must be configured before running an admin test' } });
+        return;
+      }
+      const skillFiles = await skills.listFiles(skill.slug);
+      const providerId = input.providerId ?? skill.route.defaultProviderId ?? undefined;
+      const provider = await providers.resolveForMode(admin.id, skill.route.mode, providerId);
+      const started = performance.now();
+      const observabilityBase = {
+        isAdminTest: true,
+        testPrompt: input.prompt,
+        exampleId: input.exampleId ?? null,
+        routeMode: skill.route.mode,
+        promptLength: input.prompt.length,
+      };
+      const run = await skillRuns.create({
+        userId: admin.id,
+        skillId: skill.id,
+        skillSlug: skill.slug,
+        skillName: skill.name,
+        mode: skill.route.mode,
+        providerId: provider.id,
+        observability: observabilityBase,
+      });
+      await skillRuns.safeAppendEvent(run.id, admin.id, {
+        eventType: 'admin_test_prompt_ready',
+        label: 'Admin test prompt prepared',
+        message: input.prompt.slice(0, 500),
+        metadata: observabilityBase,
+      });
+      try {
+        const output = await llm.complete(provider, buildAdminTestMessages({
+          skillName: skill.name,
+          skillDescription: skill.description,
+          skillInstructions: selectSkillInstructions(skillFiles),
+          prompt: input.prompt,
+        }));
+        const durationMs = Math.round(performance.now() - started);
+        const observability = {
+          ...observabilityBase,
+          durationMs,
+          outputLength: output.length,
+          providerName: provider.name,
+          model: provider.model,
+        };
+        await skillRuns.safeAppendEvent(run.id, admin.id, {
+          eventType: 'admin_test_output_received',
+          label: 'Admin test output received',
+          message: output.slice(0, 500),
+          metadata: observability,
+        });
+        await skillRuns.complete(run.id, { status: 'completed', observability });
+        const completedRun = await skillRuns.getForUser(admin.id, run.id);
+        res.json({
+          run: completedRun ?? run,
+          output,
+          prompt: input.prompt,
+          skill: { slug: skill.slug, name: skill.name },
+          provider: { id: provider.id, name: provider.name, model: provider.model },
+          durationMs,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Admin test failed';
+        await skillRuns.safeComplete(run.id, { status: 'failed', errorMessage: message, observability: { ...observabilityBase, errorMessage: message } });
+        throw error;
+      }
     } catch (error) {
       next(error);
     }
