@@ -20,6 +20,8 @@ import {
   getSkillIconGlyph,
   getSkillRouteDraft,
   getSkillSupportedModes,
+  getSkillPublishGateView,
+  isPublishBlockedByGate,
 } from './skills';
 
 function skill(overrides: Partial<SkillSummary> = {}): SkillSummary {
@@ -159,6 +161,51 @@ describe('admin skill helpers', () => {
       category: null,
       icon: '🧠',
     });
+  });
+
+  it('summarizes publish gate state and blocks first publish until a current admin test exists', () => {
+    const imported = skill({
+      kind: 'IMPORTED',
+      status: 'STAGED',
+      visibility: 'ADMIN_ONLY',
+      route: {
+        id: 'route-1',
+        skillId: 'skill-1',
+        mode: 'CHAT',
+        defaultProviderId: null,
+        searchProfile: null,
+        maxBudgetCents: null,
+        config: {
+          adminTestGate: {
+            runId: 'run-1',
+            completedAt: '2026-05-22T01:00:00.000Z',
+            testedRouteUpdatedAt: '2026-05-22T01:00:00.000Z',
+            model: 'qa-model',
+          },
+        },
+        createdAt: '2026-05-22T00:00:00.000Z',
+        updatedAt: '2026-05-22T01:00:00.000Z',
+      },
+      publishGate: {
+        status: 'passing',
+        lastChangedAt: '2026-05-22T01:00:00.000Z',
+        lastSuccessfulTest: {
+          runId: 'run-1',
+          completedAt: '2026-05-22T01:00:00.000Z',
+          testedRouteUpdatedAt: '2026-05-22T01:00:00.000Z',
+          model: 'qa-model',
+        },
+        message: 'Last successful admin test is current for this route and examples.',
+      },
+    });
+
+    expect(getSkillPublishGateView(imported)).toMatchObject({
+      status: 'passing',
+      label: 'Publish gate passed',
+      runHref: '/runs?run=run-1',
+    });
+    expect(isPublishBlockedByGate(imported, { status: 'PUBLISHED', visibility: 'USER_VISIBLE', category: '', icon: '' })).toBe(false);
+    expect(isPublishBlockedByGate({ ...imported, publishGate: { ...imported.publishGate!, status: 'stale' } }, { status: 'PUBLISHED', visibility: 'USER_VISIBLE', category: '', icon: '' })).toBe(true);
   });
 
   it('builds route payloads with trimmed strings, nullable blanks, numeric budget, and parsed JSON config', () => {

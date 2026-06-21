@@ -1,4 +1,4 @@
-import type { AdminAnalyticsSummary, AppMode, CapabilityStatus, ImportSkillKitInput, PromptTemplate, SkillFileSummary, SkillReadiness, SkillStatus, SkillSummary, SkillVisibility, UpdateSkillInput, UpdateSkillRouteInput } from '@cogentrex/shared';
+import type { AdminAnalyticsSummary, AppMode, CapabilityStatus, ImportSkillKitInput, PromptTemplate, SkillFileSummary, SkillPublishGate, SkillReadiness, SkillStatus, SkillSummary, SkillVisibility, UpdateSkillInput, UpdateSkillRouteInput } from '@cogentrex/shared';
 
 export interface SkillBadge {
   label: string;
@@ -83,6 +83,15 @@ export interface SkillExampleView {
 
 export interface SkillExampleDraft extends SkillExampleView {}
 
+export interface AdminSkillPublishGateView {
+  status: SkillPublishGate['status'];
+  label: string;
+  description: string;
+  tone: 'ready' | 'warning' | 'danger';
+  lastTestLabel: string;
+  runHref: string | null;
+}
+
 const statusBadges: Record<SkillStatus, SkillBadge> = {
   DRAFT: { label: 'Draft', className: 'border-slate-500/30 bg-slate-500/10 text-slate-300' },
   STAGED: { label: 'Staged', className: 'border-yellow-500/30 bg-yellow-500/10 text-yellow-200' },
@@ -152,6 +161,44 @@ export function getSkillBadges(skill: SkillSummary): SkillBadge[] {
   }
 
   return badges;
+}
+
+export function getSkillPublishGateView(skill: SkillSummary): AdminSkillPublishGateView {
+  const gate = skill.publishGate;
+  if (!gate || gate.status === 'untested') {
+    return {
+      status: 'untested',
+      label: 'Test required before publish',
+      description: gate?.message ?? 'Run a successful admin test before publishing this skill package to users.',
+      tone: 'danger',
+      lastTestLabel: 'No successful admin test yet',
+      runHref: null,
+    };
+  }
+  const lastTest = gate.lastSuccessfulTest;
+  const lastTestLabel = lastTest
+    ? `${formatRelativeDate(lastTest.completedAt)}${lastTest.model ? ` · ${lastTest.model}` : ''}`
+    : 'No successful admin test yet';
+  return {
+    status: gate.status,
+    label: gate.status === 'passing' ? 'Publish gate passed' : 'Re-test required before publish',
+    description: gate.message,
+    tone: gate.status === 'passing' ? 'ready' : 'warning',
+    lastTestLabel,
+    runHref: lastTest ? `/runs?run=${lastTest.runId}` : null,
+  };
+}
+
+export function isPublishBlockedByGate(skill: SkillSummary, draft: SkillUpdateDraft): boolean {
+  const wantsPublic = draft.status === 'PUBLISHED' && draft.visibility === 'USER_VISIBLE';
+  const alreadyPublic = skill.status === 'PUBLISHED' && skill.visibility === 'USER_VISIBLE';
+  return skill.kind === 'IMPORTED' && wantsPublic && !alreadyPublic && skill.publishGate?.status !== 'passing';
+}
+
+function formatRelativeDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Last test recorded';
+  return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date);
 }
 
 export function getSkillSupportedModes(skill: SkillSummary): AppMode[] {

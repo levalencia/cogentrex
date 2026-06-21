@@ -48,8 +48,25 @@ export interface PromptTemplate {
   visibleToUsers?: boolean | undefined;
 }
 
+export interface SkillPublishGateLastTest {
+  runId: string;
+  completedAt: string;
+  testedRouteUpdatedAt: string;
+  providerId?: string | null | undefined;
+  model?: string | undefined;
+  durationMs?: number | null | undefined;
+}
+
+export interface SkillPublishGate {
+  status: 'passing' | 'stale' | 'untested';
+  lastChangedAt: string | null;
+  lastSuccessfulTest: SkillPublishGateLastTest | null;
+  message: string;
+}
+
 export interface SkillProviderRouteConfig extends Record<string, unknown> {
   promptTemplates?: PromptTemplate[] | undefined;
+  adminTestGate?: SkillPublishGateLastTest | undefined;
 }
 
 export interface SkillProviderRoute {
@@ -75,6 +92,7 @@ export interface SkillSummary {
   category: string | null;
   icon: string | null;
   route: SkillProviderRoute | null;
+  publishGate?: SkillPublishGate | undefined;
   createdAt: string;
   updatedAt: string;
 }

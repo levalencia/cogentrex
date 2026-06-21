@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { adminSkillTestSchema, createSkillSchema, importSkillKitSchema, updateSkillRouteSchema, updateSkillSchema } from '@cogentrex/shared';
+import type { SkillPublishGate, SkillProviderRouteConfig, SkillSummary, UpdateSkillInput } from '@cogentrex/shared';
 import { currentUser, requireAuth, requireAdmin } from '../auth/authMiddleware.js';
 import type { AuthService } from '../auth/authService.js';
 import type { AppEnv } from '../config/env.js';
@@ -40,6 +41,46 @@ function buildAdminTestMessages(input: {
 function selectSkillInstructions(files: Awaited<ReturnType<SkillService['listFiles']>>): string {
   const skillFile = files.find((file) => file.kind === 'skill' || file.path.toLowerCase().endsWith('skill.md'));
   return skillFile?.content ?? '';
+}
+
+function parseAdminTestGate(skill: SkillSummary): SkillProviderRouteConfig['adminTestGate'] | null {
+  const gate = skill.route?.config?.adminTestGate;
+  if (!gate || typeof gate !== 'object') return null;
+  if (!gate.runId || !gate.completedAt || !gate.testedRouteUpdatedAt) return null;
+  return gate;
+}
+
+function buildPublishGate(skill: SkillSummary): SkillPublishGate {
+  const lastChangedAt = skill.route?.updatedAt ?? skill.updatedAt ?? null;
+  const gate = parseAdminTestGate(skill);
+  if (!gate) {
+    return {
+      status: 'untested',
+      lastChangedAt,
+      lastSuccessfulTest: null,
+      message: 'Run a successful admin test before publishing this skill package to users.',
+    };
+  }
+  const stale = Boolean(skill.route && new Date(skill.route.updatedAt).getTime() > new Date(gate.testedRouteUpdatedAt).getTime());
+  return {
+    status: stale ? 'stale' : 'passing',
+    lastChangedAt,
+    lastSuccessfulTest: gate,
+    message: stale
+      ? 'Route, examples, or package config changed after the last successful admin test. Re-run Test Lab before publishing.'
+      : 'Last successful admin test is current for this route and examples.',
+  };
+}
+
+function attachPublishGates(skills: SkillSummary[]): SkillSummary[] {
+  return skills.map((skill) => skill.kind === 'IMPORTED' ? { ...skill, publishGate: buildPublishGate(skill) } : skill);
+}
+
+function isPublicPublishTransition(current: SkillSummary, input: UpdateSkillInput): boolean {
+  const nextStatus = input.status ?? current.status;
+  const nextVisibility = input.visibility ?? current.visibility;
+  const wasPublic = current.status === 'PUBLISHED' && current.visibility === 'USER_VISIBLE';
+  return current.kind === 'IMPORTED' && !wasPublic && nextStatus === 'PUBLISHED' && nextVisibility === 'USER_VISIBLE';
 }
 
 export function skillRoutes(auth: AuthService, skills: SkillService, providers: ProviderService, env: AppEnv, skillRuns: SkillRunRepository): Router {
@@ -156,7 +197,7 @@ export function adminSkillRoutes(auth: AuthService, skills: SkillService, provid
   router.get('/', async (req, res, next) => {
     try {
       const admin = currentUser(req);
-      res.json({ skills: await skills.listAll(), admin });
+      res.json({ skills: attachPublishGates(await skills.listAll()), admin });
     } catch (error) {
       next(error);
     }
@@ -193,7 +234,16 @@ export function adminSkillRoutes(auth: AuthService, skills: SkillService, provid
   router.patch('/:slug', async (req, res, next) => {
     try {
       const input = updateSkillSchema.parse(req.body);
-      res.json({ skill: await skills.updateSkill(req.params.slug, input) });
+      const currentSkill = await skills.getAdmin(req.params.slug);
+      if (isPublicPublishTransition(currentSkill, input)) {
+        const gate = buildPublishGate(currentSkill);
+        if (gate.status !== 'passing') {
+          res.status(400).json({ error: { message: gate.message } });
+          return;
+        }
+      }
+      const skill = await skills.updateSkill(req.params.slug, input);
+      res.json({ skill: skill.kind === 'IMPORTED' ? { ...skill, publishGate: buildPublishGate(skill) } : skill });
     } catch (error) {
       next(error);
     }
@@ -258,6 +308,14 @@ export function adminSkillRoutes(auth: AuthService, skills: SkillService, provid
         });
         await skillRuns.complete(run.id, { status: 'completed', observability });
         const completedRun = await skillRuns.getForUser(admin.id, run.id);
+        const completedAt = completedRun?.completedAt ?? new Date().toISOString();
+        await skills.recordAdminTestGate(skill.slug, {
+          runId: run.id,
+          completedAt,
+          providerId: provider.id,
+          model: provider.model,
+          durationMs,
+        });
         res.json({
           run: completedRun ?? run,
           output,
