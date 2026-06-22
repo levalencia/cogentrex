@@ -2,7 +2,7 @@ import type { SkillSeed } from './skillRepository.js';
 import { SkillRepository } from './skillRepository.js';
 import { HttpError, notFound, conflict } from '../http/errors.js';
 import { importSkillKitFromGitHub, importSkillKitFromManualFiles } from './skillKitImporter.js';
-import type { CreateSkillInput, ImportManualSkillKitInput, ImportSkillKitInput, UpdateSkillFileInput, UpdateSkillInput, UpdateSkillInstructionsInput, UpdateSkillRouteInput } from '@cogentrex/shared';
+import type { CreateSkillInput, ImportManualSkillKitInput, ImportSkillKitInput, SkillDetail, SkillFileSummary, SkillProviderRouteConfig, UpdateSkillFileInput, UpdateSkillInput, UpdateSkillInstructionsInput, UpdateSkillRouteInput } from '@cogentrex/shared';
 import type { AppLogger } from '../observability/logger.js';
 
 function promptInput(label = 'Prompt', helpText = 'Describe what this skill should do.'): Record<string, unknown> {
@@ -15,6 +15,58 @@ function outputContract(artifacts: string[], savesToLibrary = true): Record<stri
 
 function promptTemplate(id: string, label: string, prompt: string, description?: string): Record<string, unknown> {
   return { id, label, prompt, ...(description ? { description } : {}) };
+}
+
+
+function truncateFileContent(content: string, maxLength: number): string {
+  return content.length > maxLength ? `${content.slice(0, maxLength)}…` : content;
+}
+
+function packageAssistInstructions(skill: SkillDetail, files: SkillFileSummary[]): string[] {
+  if (skill.kind !== 'IMPORTED') return [];
+  const skillFile = files.find((file) => file.kind === 'skill' || file.path === 'SKILL.md');
+  if (!skillFile) return [];
+  const supportingFiles = files.filter((file) => file.kind === 'reference' || file.kind === 'template').slice(0, 8);
+  return [
+    [
+      'Use this governed imported skill package as operating context.',
+      'Canonical SKILL.md instructions:',
+      truncateFileContent(skillFile.content.trim(), 8000),
+      supportingFiles.length ? 'Supporting package files:' : null,
+      ...supportingFiles.map((file) => [
+        `--- ${file.path}`,
+        truncateFileContent(file.content.trim(), 3000),
+      ].join('\n')),
+    ].filter((line): line is string => Boolean(line)).join('\n\n'),
+  ];
+}
+
+function mergeSkillAssistConfig(skill: SkillDetail, files: SkillFileSummary[]): SkillDetail {
+  const instructions = packageAssistInstructions(skill, files);
+  if (!instructions.length || !skill.route) return skill;
+  const config = (skill.route.config ?? {}) as SkillProviderRouteConfig;
+  const existingAssist = config.skillAssist && typeof config.skillAssist === 'object' && !Array.isArray(config.skillAssist)
+    ? config.skillAssist as { keywords?: unknown; instructions?: unknown }
+    : null;
+  const existingKeywords = Array.isArray(existingAssist?.keywords)
+    ? existingAssist.keywords.filter((keyword): keyword is string => typeof keyword === 'string' && keyword.trim().length > 0)
+    : [];
+  const existingInstructions = Array.isArray(existingAssist?.instructions)
+    ? existingAssist.instructions.filter((instruction): instruction is string => typeof instruction === 'string' && instruction.trim().length > 0)
+    : [];
+  return {
+    ...skill,
+    route: {
+      ...skill.route,
+      config: {
+        ...config,
+        skillAssist: {
+          keywords: Array.from(new Set([skill.slug, skill.name, skill.description, ...(skill.category ? [skill.category] : []), ...existingKeywords])),
+          instructions: [...instructions, ...existingInstructions],
+        },
+      },
+    },
+  };
 }
 
 const promptTemplateSeeds: Record<string, Record<string, unknown>[]> = {
@@ -279,6 +331,15 @@ export class SkillService {
 
   listVisibleDetails() {
     return this.repository.listVisibleDetails();
+  }
+
+  async listVisibleDetailsForAssist() {
+    const skills = await this.repository.listVisibleDetails();
+    return Promise.all(skills.map(async (skill) => {
+      if (skill.kind !== 'IMPORTED') return skill;
+      const files = await this.repository.listFilesBySkillSlug(skill.slug);
+      return files ? mergeSkillAssistConfig(skill, files) : skill;
+    }));
   }
 
   async getVisible(slug: string) {

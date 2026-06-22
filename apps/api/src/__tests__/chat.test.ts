@@ -143,6 +143,100 @@ describe('chat streaming API', () => {
     database.close();
   });
 
+  it('runs the imported skill package governance loop and injects SKILL.md into Chat Skill Assist', async () => {
+    class CapturingLanguageModelClient implements LanguageModelClient {
+      streamCalls: ModelMessage[][] = [];
+      completeCalls: ModelMessage[][] = [];
+
+      async *streamChat(_provider: ProviderRuntimeConfig, messages: ModelMessage[]): AsyncIterable<string> {
+        this.streamCalls.push(messages);
+        yield 'Founder update draft shaped by Brand Voice.';
+      }
+
+      async complete(_provider: ProviderRuntimeConfig, messages: ModelMessage[]): Promise<string> {
+        this.completeCalls.push(messages);
+        return 'Admin Test Output';
+      }
+    }
+
+    const llm = new CapturingLanguageModelClient();
+    const { agent, database } = await makeTestApp({}, { llm });
+    const user = await registerAndLogin(agent);
+    await database.adapter.prepare('UPDATE users SET role = ? WHERE id = ?').run('ADMIN', user.id);
+    const provider = await createProvider(agent);
+
+    const imported = await agent.post('/api/admin/skills/import-manual-kit').send({
+      sourceLabel: 'founder-update-package',
+      files: [
+        {
+          path: 'SKILL.md',
+          content: '---\nname: Founder Update Voice\ndescription: Draft credible founder updates.\n---\n\nWrite concrete founder updates with no hype. Include what changed, who it helps, and what feedback is needed.',
+        },
+        { path: 'references/tone.md', content: '# Tone\n\nHumble, specific, builder-to-builder.' },
+      ],
+    }).expect(201);
+
+    await agent.put('/api/admin/skills/founder-update-voice/route').send({
+      mode: 'CHAT',
+      defaultProviderId: provider.id,
+      config: {
+        promptTemplates: [{ id: 'launch-note', label: 'Launch note', prompt: 'Draft a founder update for: ', visibleToUsers: true }],
+      },
+    }).expect(200);
+
+    await agent.patch('/api/admin/skills/founder-update-voice').send({
+      status: 'PUBLISHED',
+      visibility: 'USER_VISIBLE',
+    }).expect(400);
+
+    const testResult = await agent.post('/api/admin/skills/founder-update-voice/test').send({
+      prompt: 'Draft an update for the Skill Governance Test Lab.',
+      providerId: provider.id,
+    }).expect(200);
+    expect(testResult.body.run.skillSlug).toBe('founder-update-voice');
+    expect(llm.completeCalls[0]?.[0]?.content).toContain('SKILL.md / package instructions:');
+
+    await agent.patch('/api/admin/skills/founder-update-voice').send({
+      status: 'PUBLISHED',
+      visibility: 'USER_VISIBLE',
+    }).expect(200);
+
+    const visible = await agent.get('/api/skills').expect(200);
+    expect(visible.body.skills).toContainEqual(expect.objectContaining({ slug: 'founder-update-voice' }));
+
+    await agent.post('/api/chat/stream').send({
+      content: 'Draft a founder update for shipping governed skills into Chat.',
+      mode: 'CHAT',
+      useSkills: true,
+      skillAssistMode: 'manual',
+      selectedSkillSlugs: ['founder-update-voice'],
+    }).expect(200);
+
+    expect(llm.streamCalls).toHaveLength(1);
+    const systemPrompt = llm.streamCalls[0]?.[0]?.content;
+    expect(systemPrompt).toContain('--- Skill: founder-update-voice');
+    expect(systemPrompt).toContain('Canonical SKILL.md instructions:');
+    expect(systemPrompt).toContain('Write concrete founder updates with no hype');
+    expect(systemPrompt).toContain('--- references/tone.md');
+    expect(systemPrompt).toContain('Humble, specific, builder-to-builder');
+
+    const runs = await agent.get('/api/skills/runs').expect(200);
+    expect(runs.body.runs).toContainEqual(expect.objectContaining({
+      skillSlug: 'chat',
+      mode: 'CHAT',
+      status: 'completed',
+      observability: expect.objectContaining({
+        skillAssistEnabled: true,
+        skillAssistMode: 'manual',
+        skillAssistSlugs: ['founder-update-voice'],
+        skillAssistAudit: [expect.objectContaining({ slug: 'founder-update-voice', status: 'used', injected: true })],
+      }),
+    }));
+    expect(imported.body.files.map((file: { path: string }) => file.path)).toEqual(['SKILL.md', 'references/tone.md']);
+
+    database.close();
+  });
+
   it('passes multiple Skill Assist selections into the provider prompt and records run observability', async () => {
     class CapturingLanguageModelClient implements LanguageModelClient {
       calls: ModelMessage[][] = [];

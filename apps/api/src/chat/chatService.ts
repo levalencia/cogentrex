@@ -118,7 +118,7 @@ export class ChatService {
     const history = await this.conversations.listMessages(conversation.id);
     const baseModelMessages = toModelMessages(history);
     const registrySkills = input.useSkills && this.skills
-      ? await this.skills.listVisibleDetails().catch((error) => {
+      ? await this.skills.listVisibleDetailsForAssist().catch((error) => {
           const message = error instanceof Error ? error.message : 'Skill registry lookup failed';
           this.logger.warn({ conversationId: conversation.id, errorMessage: message }, 'skill_assist_registry_lookup_failed');
           return undefined;
