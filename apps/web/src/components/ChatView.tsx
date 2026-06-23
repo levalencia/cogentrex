@@ -378,7 +378,7 @@ function TaskLauncher({
         <p className="text-[10px] uppercase tracking-[0.22em] text-accent">Task</p>
         {selectedTask ? <p className="text-[11px] text-slate-500">{selectedTask.description}</p> : null}
       </div>
-      <div className="flex w-full gap-1.5 overflow-x-auto pb-0.5">
+      <div className="flex w-full flex-wrap gap-1.5 overflow-visible pb-0.5 md:flex-nowrap md:overflow-x-auto">
         {tasks.map((task) => {
           const active = selectedLauncherId === task.id || (selectedLauncherId === '' && mode === task.mode);
           return (
@@ -386,7 +386,7 @@ function TaskLauncher({
               key={task.id}
               type="button"
               onClick={() => onSelect(task)}
-              className={`flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-left text-xs transition ${getLauncherToneClasses(task.tone, active)}`}
+              className={`flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-left text-xs transition md:shrink-0 ${getLauncherToneClasses(task.tone, active)}`}
             >
               <span className="font-semibold">{task.label}</span>
               {task.readiness ? (
