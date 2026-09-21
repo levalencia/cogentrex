@@ -65,9 +65,9 @@ async function mockLibrary(page: Page) {
   });
 }
 
-test('published Present artifacts open as an interactive English deck and diagram', async ({ page }) => {
+test('published Media artifacts open as an interactive English deck and diagram', async ({ page }) => {
   await mockLibrary(page);
-  await page.goto('/learn?view=present');
+  await page.goto('/learn?view=media');
   await expect(page.getByRole('heading', { name: 'One Request, Many Trust Boundaries' })).toBeVisible();
   await page.getByRole('button', { name: 'Teach this slide' }).click();
   await expect(page.getByText('Presenter script')).toBeVisible();
@@ -94,35 +94,37 @@ test('published Present artifacts open as an interactive English deck and diagra
 
 test('published Study artifacts support mind map, flashcard, quiz, and guide interactions', async ({ page }) => {
   await mockLibrary(page);
-  await page.goto('/learn?view=study');
+  await page.goto('/learn?view=media');
   await expect(page.getByText('Cogentrex Request Lifecycle', { exact: true }).first()).toBeVisible();
   await page.getByRole('button', { name: 'Bounded runtime' }).click();
   await expect(page.getByText('Budgets', { exact: true }).first()).toBeVisible();
-  await page.getByRole('button', { name: /Request Lifecycle Flashcards/ }).click();
+  await page.getByRole('heading', { name: 'Request Lifecycle Flashcards' }).scrollIntoViewIfNeeded();
+  await page.getByRole('heading', { name: 'Request Lifecycle Flashcards' }).click();
   await page.getByRole('button', { name: 'Reveal answer' }).click();
   await expect(page.getByText('The runtime.', { exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: /Tools And Schemas/i })).toHaveAttribute('href', /github\.com/);
-  await page.getByRole('button', { name: /Request Lifecycle Scenario Quiz/ }).click();
+  await page.getByRole('button', { name: 'Close detail' }).click();
+  await page.getByRole('heading', { name: 'Request Lifecycle Scenario Quiz' }).click();
   await page.getByText('Wait for approval', { exact: true }).click();
   await page.getByRole('button', { name: 'Check answer' }).click();
   await expect(page.getByRole('alert')).toContainText('Correct');
-  await page.getByRole('button', { name: /Request Lifecycle Study Guide/ }).click();
+  await page.getByRole('button', { name: 'Close detail' }).click();
+  await page.getByRole('heading', { name: 'Request Lifecycle Study Guide' }).click();
   await expect(page.getByRole('heading', { name: 'Mental model' })).toBeVisible();
 });
 
-test('learner can switch between published learning packs', async ({ page }) => {
+test('learner can interact with multiple packs from the card grid', async ({ page }) => {
   await mockLibrary(page);
-  await page.goto('/learn?view=present');
-  await page.getByRole('button', { name: 'Cogentrex — System Overview', exact: true }).click();
-  await expect(page.getByRole('button', { name: /Cogentrex — System Overview — Presentation/ })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Cogentrex — System Overview — Presentation' })).toBeVisible();
+  await page.goto('/learn?view=media');
+  // Deck card from request-lifecycle pack should be visible directly (in the grid)
+  await expect(page.getByRole('heading', { name: 'Cogentrex — System Overview' })).toBeVisible();
 });
 
-test('Present view opens a code-first video with timed transcript and source link', async ({ page }) => {
+test('Media view opens a code-first video with timed transcript and source link', async ({ page }) => {
   await mockLibrary(page);
-  await page.goto('/learn?view=present');
-  await page.getByRole('button', { name: 'Cogentrex From the Code', exact: true }).click();
-  await expect(page.getByRole('button', { name: /Video 2 — Building the FastAPI Application/ })).toBeVisible();
+  await page.goto('/learn?view=media');
+  await expect(page.getByText('Cogentrex From the Code')).toBeVisible();
+  await page.getByRole('heading', { name: 'Video 2 — Building the FastAPI Application' }).click();
   await expect(page.getByLabel('Video lesson player')).toBeVisible();
   await page.getByText('Accessible transcript').click();
   await expect(page.getByRole('heading', { name: 'Factory pattern' })).toBeVisible();
@@ -130,11 +132,11 @@ test('Present view opens a code-first video with timed transcript and source lin
   await expect(page.getByRole('link', { name: 'Main' })).toHaveAttribute('href', /main\.py#L391-L401/);
 });
 
-
-test('published Listen view exposes English audio and transcript', async ({ page }) => {
+test('published Audio artifacts expose English audio and transcript', async ({ page }) => {
   await mockLibrary(page);
-  await page.goto('/learn?view=listen');
-  await expect(page.getByRole('heading', { name: 'Review Cogentrex through English audio' })).toBeVisible();
+  await page.goto('/learn?view=media');
+  await expect(page.getByText('Cogentrex Request Lifecycle')).toBeVisible();
+  await page.getByRole('heading', { name: 'Request Lifecycle Audio Lesson' }).click();
   await expect(page.getByLabel('Audio lesson player')).toContainText('The mental model');
   await expect(page.getByText('English audio lesson')).toBeVisible();
 });
