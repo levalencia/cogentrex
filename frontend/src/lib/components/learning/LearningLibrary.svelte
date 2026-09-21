@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { page } from '$app/state';
-  import { Download, ExternalLink, RefreshCw } from 'lucide-svelte';
+  import { Download, ExternalLink, RefreshCw, Play, Headphones, Eye, Brain, FileQuestion, BookOpen, Layout, BarChart3, Puzzle, FileText } from 'lucide-svelte';
   import {
     getLearningArtifact,
     getMediaAccess,
@@ -20,131 +20,406 @@
   import StudyGuideViewer from './StudyGuideViewer.svelte';
   import VideoLessonPlayer from './VideoLessonPlayer.svelte';
 
-  type MediaMode = 'media';
-  let { mode = 'media' }: { mode?: MediaMode } = $props();
-  const types = {
-    media: ['deck', 'diagram', 'infographic', 'video', 'audio', 'podcast', 'mind-map', 'flashcards', 'quiz', 'study-guide'],
-  } as const;
-  const copy = {
-    media: ['Media', 'Review Cogentrex through video, audio, and study tools', 'Browse all learning packs — each pack contains videos, audio lessons, decks, diagrams, mind maps, flashcards, quizzes, and study guides.'],
-  } as const;
-
-  const typeLabels: Record<string, string> = {
-    deck: '🎭 Deck',
-    diagram: '📊 Diagram',
-    infographic: '📋 Infographic',
-    video: '🎬 Video',
-    audio: '🎧 Audio',
-    podcast: '🎙️ Podcast',
-    'mind-map': '🧠 Mind map',
-    flashcards: '🃏 Flashcards',
-    quiz: '❓ Quiz',
-    'study-guide': '📖 Study guide',
+  const typeConfig: Record<string, { label: string; icon: typeof Play; color: string }> = {
+    video: { label: 'Video', icon: Play, color: '--cogentrex-orange-glow' },
+    audio: { label: 'Audio', icon: Headphones, color: '--cogentrex-orange-glow' },
+    podcast: { label: 'Podcast', icon: Headphones, color: '--cogentrex-orange-glow' },
+    deck: { label: 'Deck', icon: Layout, color: '--accent' },
+    diagram: { label: 'Diagram', icon: BarChart3, color: '--accent' },
+    infographic: { label: 'Infographic', icon: Eye, color: '--accent' },
+    'mind-map': { label: 'Mind map', icon: Brain, color: '--accent' },
+    flashcards: { label: 'Flashcards', icon: Puzzle, color: '--accent' },
+    quiz: { label: 'Quiz', icon: FileQuestion, color: '--accent' },
+    'study-guide': { label: 'Study guide', icon: BookOpen, color: '--accent' },
   };
 
-  const requestedTime = Number(page.url.searchParams.get('t'));
+  const packColors = [
+    'rgba(255,107,53,.08)', 'rgba(53,162,255,.08)',
+    'rgba(76,201,122,.08)', 'rgba(255,198,53,.08)',
+    'rgba(168,85,247,.08)', 'rgba(236,72,153,.08)',
+  ];
+
   let catalog = $state<LearningLibraryCatalog | null>(null);
-  let selectedPack = $state(page.url.searchParams.get('pack') || 'request-lifecycle');
-  let selectedId = $state(page.url.searchParams.get('artifact') || '');
-  let playbackSeconds = $state<number | undefined>(
-    Number.isFinite(requestedTime) && requestedTime >= 0 ? requestedTime : undefined,
-  );
+  let selectedArtifact = $state<{ packTitle: string; summary: LearningArtifactSummary } | null>(null);
   let detail = $state<LearningArtifactDetail | null>(null);
   let mediaUrl = $state('');
+  let playbackSeconds = $state<number | undefined>();
   let loading = $state(true);
   let error = $state('');
-  let visibleArtifacts = $derived(
-    catalog?.packs.find(pack => pack.id === selectedPack)?.artifacts.filter(item => (types[mode] as readonly string[]).includes(item.type)) ?? [],
-  );
-  let selected = $derived(visibleArtifacts.find(item => item.id === selectedId) ?? visibleArtifacts[0]);
 
-  async function loadArtifact(artifact: LearningArtifactSummary | undefined) {
-    if (!artifact) { detail = null; mediaUrl = ''; return; }
-    selectedId = artifact.id; detail = null; mediaUrl = ''; error = '';
+  async function openArtifact(
+    packTitle: string,
+    summary: LearningArtifactSummary,
+  ) {
+    selectedArtifact = { packTitle, summary };
+    detail = null;
+    mediaUrl = '';
+    error = '';
+    playbackSeconds = Number.isFinite(Number(page.url.searchParams.get('t')))
+      ? Math.max(0, Number(page.url.searchParams.get('t')))
+      : undefined;
     try {
-      detail = await getLearningArtifact(artifact.id);
-      if (['audio', 'podcast', 'video'].includes(artifact.type)) {
-        mediaUrl = (await getMediaAccess(artifact.id)).url;
+      detail = await getLearningArtifact(summary.id);
+      if (['audio', 'podcast', 'video'].includes(summary.type)) {
+        mediaUrl = (await getMediaAccess(summary.id)).url;
       }
       const params = new URLSearchParams(page.url.searchParams);
       params.set('view', 'media');
-      params.set('pack', selectedPack);
-      params.set('artifact', artifact.id);
+      params.set('artifact', summary.id);
       history.replaceState({}, '', `/learn?${params.toString()}`);
     } catch (cause) {
       error = cause instanceof Error ? cause.message : 'Unable to load learning artifact';
     }
   }
 
-  async function selectPack(packId: string) {
-    selectedPack = packId;
-    const first = catalog?.packs.find(pack => pack.id === packId)?.artifacts.find(item => (types[mode] as readonly string[]).includes(item.type));
-    await loadArtifact(first);
+  function closeDetail() {
+    selectedArtifact = null;
+    detail = null;
+    mediaUrl = '';
+    error = '';
   }
 
   async function openPrimary() {
-    if (!selected) return;
-    const access = await getMediaAccess(selected.id);
+    if (!selectedArtifact) return;
+    const access = await getMediaAccess(selectedArtifact.summary.id);
     window.open(access.url, '_blank', 'noopener');
   }
 
   onMount(async () => {
     try {
       catalog = await loadLearningLibrary();
-      if (!catalog.packs.some(pack => pack.id === selectedPack)) selectedPack = 'request-lifecycle';
-      const available = catalog.packs.find(pack => pack.id === selectedPack)?.artifacts.filter(item => (types[mode] as readonly string[]).includes(item.type)) ?? [];
-      await loadArtifact(available.find(item => item.id === selectedId) ?? available[0]);
     } catch (cause) {
       error = cause instanceof Error ? cause.message : 'Learning library unavailable';
     } finally {
       loading = false;
     }
   });
-
-  $effect(() => {
-    mode;
-    if (!catalog) return;
-    const first = visibleArtifacts[0];
-    if (first && !visibleArtifacts.some(item => item.id === selectedId)) void loadArtifact(first);
-  });
-
 </script>
 
-<section aria-labelledby="library-heading">
-  <div class="view-intro"><span class="eyebrow">{copy[mode][0]}</span><h2 id="library-heading">{copy[mode][1]}</h2><p>{copy[mode][2]}</p></div>
-  {#if loading}<div class="state" aria-busy="true">Loading the published learning library…</div>
-  {:else if error && !catalog}<div class="state warning" role="status"><strong>Learning media is not published in this runtime.</strong><span>{error}</span><span>The evidence-grounded generation recipes remain available in the repository.</span></div>
+<section aria-labelledby="media-heading">
+  <div class="view-intro"><span class="eyebrow">Media</span><h2 id="media-heading">Review Cogentrex through video, audio, and study tools</h2><p>Every artifact across all learning packs in one view. Click any card to open it.</p></div>
+
+  {#if loading}
+    <div class="empty-state" aria-busy="true">Loading the published learning library…</div>
+  {:else if error && !catalog}
+    <div class="empty-state empty-state--error" role="status">
+      <strong>Learning media is not published in this runtime.</strong>
+      <span>{error}</span>
+      <span>The evidence-grounded generation recipes remain available in the repository.</span>
+    </div>
   {:else if catalog}
-    <nav class="pack-tabs" aria-label="Learning packs">
-      {#each catalog.packs as pack}
-        <button onclick={() => selectPack(pack.id)} aria-pressed={selectedPack === pack.id}>{pack.title}</button>
-      {/each}
-    </nav>
-    <div class="layout">
-      <aside aria-label="Published learning artifacts"><div class="pack"><span class="eyebrow">Learning pack</span><strong>{catalog.packs.find(pack=>pack.id===selectedPack)?.title}</strong></div>{#each visibleArtifacts as artifact}<button onclick={()=>loadArtifact(artifact)} aria-pressed={selected?.id===artifact.id}><span>{typeLabels[artifact.type] ?? artifact.type.replaceAll('-', ' ')}</span><strong>{artifact.title.replace('Cogentrex Request Lifecycle — ', '')}</strong><small>{artifact.status} · English</small></button>{/each}</aside>
-      <div class="viewer">
-        {#if error}<div class="state warning" role="alert">{error}</div>{/if}
-        {#if selected}<header class="artifact-head"><div><span class="eyebrow">{typeLabels[selected.type] ?? selected.type.replaceAll('-', ' ')}</span><h3>{selected.title}</h3><p>{selected.status === 'stale' ? 'Published artifact — source changes detected.' : selected.status === 'review-ready' ? 'Generated and technically verified — Luis review pending.' : 'Published and checksum-verified.'}</p></div><button onclick={openPrimary} aria-label="Open or download primary artifact"><Download size={15}/> {['deck','diagram','infographic','audio','video'].includes(selected.type) ? 'Open file' : 'Download data'}</button></header>{/if}
+    {#if selectedArtifact}
+      <!-- Detail view -->
+      <div class="detail-view">
+        <header class="detail-head">
+          <div>
+            <span class="eyebrow" style="color: var({typeConfig[selectedArtifact.summary.type]?.color ?? '--accent'})">
+              {typeConfig[selectedArtifact.summary.type]?.label ?? selectedArtifact.summary.type}
+            </span>
+            <h3>{selectedArtifact.summary.title}</h3>
+            <p class="detail-pack">{selectedArtifact.packTitle}</p>
+            {#if selectedArtifact.summary.status === 'stale'}
+              <p class="detail-status detail-status--stale">Published artifact — source changes detected.</p>
+            {:else if selectedArtifact.summary.status === 'review-ready'}
+              <p class="detail-status detail-status--review">Generated and technically verified — Luis review pending.</p>
+            {:else}
+              <p class="detail-status">Published and checksum-verified.</p>
+            {/if}
+          </div>
+          <div class="detail-actions">
+            <button onclick={closeDetail} class="btn btn--ghost" aria-label="Close">✕</button>
+            <button onclick={openPrimary} class="btn btn--icon" aria-label="Open or download primary artifact">
+              <Download size={15}/> Open file
+            </button>
+          </div>
+        </header>
+
+        {#if error}
+          <div class="empty-state empty-state--error" role="alert">{error}</div>
+        {/if}
+
         {#if detail?.content}
           {@const content = detail.content as any}
-          {#if selected?.type === 'deck'}<PresentationPlayer {content} sourceCommit={selected.source_commit}/>
-          {:else if selected?.type === 'diagram'}<DiagramViewer {content} sourceCommit={selected.source_commit}/>
-          {:else if selected?.type === 'infographic'}<InfographicViewer {content} sourceCommit={selected.source_commit}/>
-          {:else if selected?.type === 'audio' || selected?.type === 'podcast'}{#if mediaUrl}<AudioLessonPlayer title={selected.title} {mediaUrl} {content} limitations={selected.limitations} sourceCommit={selected.source_commit}/>{/if}
-          {:else if selected?.type === 'mind-map'}<MindMapViewer root={content.root} sourceCommit={selected.source_commit}/>
-          {:else if selected?.type === 'flashcards'}<FlashcardPlayer cards={content.cards} sourceCommit={selected.source_commit}/>
-          {:else if selected?.type === 'quiz'}<QuizPlayer questions={content.questions} sourceCommit={selected.source_commit}/>
-          {:else if selected?.type === 'study-guide'}<StudyGuideViewer sections={content.sections} sourceCommit={selected.source_commit}/>
-          {:else if selected?.type === 'video'}{#if mediaUrl}<VideoLessonPlayer title={selected.title} {mediaUrl} {content} limitations={selected.limitations} sourceCommit={selected.source_commit} durationSeconds={selected.duration_seconds} initialTime={playbackSeconds} onTimeChange={(seconds) => playbackSeconds = seconds}/>{/if}
-          {:else}<div class="state">This accepted artifact can be opened as a file.</div>{/if}
-        {:else if selected}<div class="state"><RefreshCw size={18}/> Loading {selected.title}…</div>
-        {:else}<div class="state">No accepted {mode} artifacts are available for this pack.</div>{/if}
-        {#if selected}<details class="provenance"><summary>Provenance and limitations</summary><p>Source commit <code>{selected.source_commit.slice(0,12)}</code> · SHA-256 <code>{selected.sha256.slice(0,16)}…</code></p><ul>{#each selected.limitations as item}<li>{item}</li>{/each}</ul></details>{/if}
+          {#if selectedArtifact.summary.type === 'deck'}
+            <PresentationPlayer {content} sourceCommit={selectedArtifact.summary.source_commit}/>
+          {:else if selectedArtifact.summary.type === 'diagram'}
+            <DiagramViewer {content} sourceCommit={selectedArtifact.summary.source_commit}/>
+          {:else if selectedArtifact.summary.type === 'infographic'}
+            <InfographicViewer {content} sourceCommit={selectedArtifact.summary.source_commit}/>
+          {:else if selectedArtifact.summary.type === 'audio' || selectedArtifact.summary.type === 'podcast'}
+            {#if mediaUrl}
+              <AudioLessonPlayer title={selectedArtifact.summary.title} {mediaUrl} {content} limitations={selectedArtifact.summary.limitations} sourceCommit={selectedArtifact.summary.source_commit}/>
+            {/if}
+          {:else if selectedArtifact.summary.type === 'mind-map'}
+            <MindMapViewer root={content.root} sourceCommit={selectedArtifact.summary.source_commit}/>
+          {:else if selectedArtifact.summary.type === 'flashcards'}
+            <FlashcardPlayer cards={content.cards} sourceCommit={selectedArtifact.summary.source_commit}/>
+          {:else if selectedArtifact.summary.type === 'quiz'}
+            <QuizPlayer questions={content.questions} sourceCommit={selectedArtifact.summary.source_commit}/>
+          {:else if selectedArtifact.summary.type === 'study-guide'}
+            <StudyGuideViewer sections={content.sections} sourceCommit={selectedArtifact.summary.source_commit}/>
+          {:else if selectedArtifact.summary.type === 'video'}
+            {#if mediaUrl}
+              <VideoLessonPlayer title={selectedArtifact.summary.title} {mediaUrl} {content} limitations={selectedArtifact.summary.limitations} sourceCommit={selectedArtifact.summary.source_commit} durationSeconds={selectedArtifact.summary.duration_seconds} initialTime={playbackSeconds} onTimeChange={(seconds) => playbackSeconds = seconds}/>
+            {/if}
+          {:else}
+            <div class="empty-state">This accepted artifact can be opened as a file.</div>
+          {/if}
+        {:else if selectedArtifact}
+          <div class="empty-state"><RefreshCw size={18}/> Loading {selectedArtifact.summary.title}…</div>
+        {/if}
+
+        <details class="provenance">
+          <summary>Provenance and limitations</summary>
+          <p>Source commit <code>{selectedArtifact.summary.source_commit.slice(0,12)}</code> · SHA-256 <code>{selectedArtifact.summary.sha256.slice(0,16)}…</code></p>
+          <ul>{#each selectedArtifact.summary.limitations as item}<li>{item}</li>{/each}</ul>
+        </details>
       </div>
-    </div>
+    {:else}
+      <!-- Grid view: artifacts grouped by pack -->
+      <div class="pack-sections">
+        {#each catalog.packs as pack, pIdx}
+          <section class="pack-section">
+            <h3 class="pack-heading" style="--pack-color: {packColors[pIdx % packColors.length]}">{pack.title}</h3>
+            <div class="card-grid">
+              {#each pack.artifacts as artifact}
+                {@const config = typeConfig[artifact.type] ?? { label: artifact.type, icon: FileText, color: '--accent' }}
+                <button
+                  onclick={() => openArtifact(pack.title, artifact)}
+                  class="card"
+                >
+                  <div class="card-icon" style="background: {packColors[pIdx % packColors.length]};">
+                    {#if config.icon === Play}<Play size={22} style="color: var({config.color})"/>
+                    {:else if config.icon === Headphones}<Headphones size={22} style="color: var({config.color})"/>
+                    {:else if config.icon === Layout}<Layout size={22} style="color: var({config.color})"/>
+                    {:else if config.icon === BarChart3}<BarChart3 size={22} style="color: var({config.color})"/>
+                    {:else if config.icon === Eye}<Eye size={22} style="color: var({config.color})"/>
+                    {:else if config.icon === Brain}<Brain size={22} style="color: var({config.color})"/>
+                    {:else if config.icon === Puzzle}<Puzzle size={22} style="color: var({config.color})"/>
+                    {:else if config.icon === FileQuestion}<FileQuestion size={22} style="color: var({config.color})"/>
+                    {:else if config.icon === BookOpen}<BookOpen size={22} style="color: var({config.color})"/>
+                    {:else}<FileText size={22} style="color: var({config.color})"/>
+                    {/if}
+                  </div>
+                  <div class="card-body">
+                    <span class="card-type">{config.label}</span>
+                    <strong class="card-title">{artifact.title}</strong>
+                  </div>
+                  <div class="card-badge {artifact.status}">{artifact.status === 'published' ? '✓' : artifact.status === 'review-ready' ? 'R' : '!'}</div>
+                </button>
+              {/each}
+            </div>
+          </section>
+        {/each}
+      </div>
+
+      {#if catalog.packs.every(p => p.artifacts.length === 0)}
+        <div class="empty-state">No artifacts are available. Run the media generation pipeline first.</div>
+      {/if}
+    {/if}
   {/if}
 </section>
 
 <style>
-.pack-tabs{display:flex;gap:.5rem;overflow-x:auto;margin:0 0 1rem;padding:.25rem}.pack-tabs button{flex:0 0 auto;min-height:42px;border:1px solid var(--border);border-radius:.7rem;background:var(--panel);color:var(--secondary);padding:.65rem .85rem}.pack-tabs button[aria-pressed="true"]{border-color:var(--accent);color:var(--text);box-shadow:0 0 18px var(--cogentrex-orange-glow)}.layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:1rem}.layout>aside{display:flex;flex-direction:column;gap:.55rem}.pack,.layout>aside button,.viewer,.state{border:1px solid var(--border);border-radius:.85rem;background:var(--panel);padding:1rem}.pack strong{display:block;margin-top:.4rem}.layout>aside button{text-align:left;color:var(--text)}.layout>aside button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-glow);box-shadow:0 0 18px var(--cogentrex-orange-glow)}.layout>aside button span{font:700 .6rem var(--font-mono);color:var(--accent);text-transform:uppercase}.layout>aside button strong,.layout>aside button small{display:block;margin-top:.3rem}.layout>aside button small{color:var(--muted)}.viewer{min-width:0}.artifact-head{display:flex;justify-content:space-between;align-items:start;gap:1rem;margin-bottom:1rem}.artifact-head h3{font-size:1.4rem;margin:.35rem 0}.artifact-head p{color:var(--muted);font-size:.75rem}.artifact-head button{display:flex;align-items:center;gap:.4rem;min-height:42px;border:1px solid var(--border);border-radius:.6rem;background:var(--bg);color:var(--text);padding:.6rem}.state{display:flex;align-items:center;gap:.5rem;color:var(--muted);min-height:100px}.state.warning{flex-direction:column;align-items:flex-start;border-color:rgba(240,189,98,.4);background:rgba(240,189,98,.06);color:var(--warning)}.provenance{margin-top:1rem;border-top:1px solid var(--border);padding-top:1rem;color:var(--muted);font-size:.75rem}.provenance code{font-size:.68rem}@media(max-width:850px){.layout{grid-template-columns:1fr}.layout>aside{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){.layout>aside{grid-template-columns:1fr}.artifact-head{display:block}.artifact-head button{margin-top:.75rem;width:100%;justify-content:center}}
+  .empty-state {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    min-height: 120px;
+    border: 1px solid var(--border);
+    border-radius: .85rem;
+    background: var(--panel);
+    padding: 1.5rem;
+    color: var(--muted);
+  }
+  .empty-state--error {
+    flex-direction: column;
+    align-items: flex-start;
+    border-color: rgba(240,189,98,.4);
+    background: rgba(240,189,98,.06);
+    color: var(--warning);
+  }
+
+  /* Card grid */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: .85rem;
+  }
+
+  .card {
+    display: flex;
+    align-items: flex-start;
+    gap: .85rem;
+    min-height: 88px;
+    border: 1px solid var(--border);
+    border-radius: .85rem;
+    background: var(--panel);
+    padding: .85rem;
+    text-align: left;
+    color: var(--text);
+    cursor: pointer;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 18px var(--cogentrex-orange-glow);
+  }
+
+  .card-icon {
+    flex: 0 0 46px;
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    border-radius: .65rem;
+  }
+
+  .card-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+  }
+  .card-type {
+    font: 700 .6rem var(--font-mono);
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+  .card-title {
+    font-size: .8rem;
+    line-height: 1.3;
+    line-clamp: 2;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .card-pack {
+    font-size: .65rem;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .card-badge {
+    flex: 0 0 22px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: .6rem;
+    font-weight: 700;
+    background: rgba(76,201,122,.15);
+    color: rgb(76,201,122);
+  }
+  .card-badge.review-ready {
+    background: rgba(240,189,98,.15);
+    color: rgb(240,189,98);
+  }
+  .card-badge.stale {
+    background: rgba(255,107,114,.15);
+    color: rgb(255,107,114);
+  }
+
+  /* Pack sections */
+  .pack-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  .pack-section {
+    display: flex;
+    flex-direction: column;
+    gap: .65rem;
+  }
+  .pack-heading {
+    font-size: .8rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    color: var(--secondary);
+    margin: 0;
+    padding: 0 0 .25rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Detail view */
+  .detail-view {
+    border: 1px solid var(--border);
+    border-radius: .85rem;
+    background: var(--panel);
+    padding: 1.25rem;
+  }
+
+  .detail-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+  .detail-head h3 {
+    font-size: 1.35rem;
+    margin: .35rem 0 .15rem;
+    line-height: 1.2;
+  }
+  .detail-pack {
+    font-size: .72rem;
+    color: var(--muted);
+    margin: .2rem 0;
+  }
+  .detail-status {
+    font-size: .72rem;
+    color: rgb(76,201,122);
+    margin: .2rem 0;
+  }
+  .detail-status--stale { color: rgb(255,107,114); }
+  .detail-status--review { color: rgb(240,189,98); }
+
+  .detail-actions {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    min-height: 38px;
+    border: 1px solid var(--border);
+    border-radius: .6rem;
+    background: var(--bg);
+    color: var(--text);
+    padding: .5rem .75rem;
+    font-size: .8rem;
+    cursor: pointer;
+  }
+  .btn--ghost {
+    border: none;
+    background: transparent;
+    padding: .5rem;
+    color: var(--muted);
+  }
+  .btn--ghost:hover { color: var(--text); }
+  .btn--icon { min-width: 38px; justify-content: center; }
+
+  .provenance {
+    margin-top: 1.25rem;
+    border-top: 1px solid var(--border);
+    padding-top: 1rem;
+    color: var(--muted);
+    font-size: .75rem;
+  }
+  .provenance code { font-size: .68rem; }
+
+  @media (max-width: 640px) {
+    .card-grid {
+      grid-template-columns: 1fr;
+    }
+  }
 </style>
