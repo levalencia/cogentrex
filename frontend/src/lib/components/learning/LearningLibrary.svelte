@@ -20,18 +20,27 @@
   import StudyGuideViewer from './StudyGuideViewer.svelte';
   import VideoLessonPlayer from './VideoLessonPlayer.svelte';
 
-  type MediaMode = 'present' | 'listen' | 'study';
-  let { mode }: { mode: MediaMode } = $props();
+  type MediaMode = 'media';
+  let { mode = 'media' }: { mode?: MediaMode } = $props();
   const types = {
-    present: ['deck', 'diagram', 'infographic', 'video'],
-    listen: ['audio', 'podcast'],
-    study: ['mind-map', 'flashcards', 'quiz', 'study-guide'],
+    media: ['deck', 'diagram', 'infographic', 'video', 'audio', 'podcast', 'mind-map', 'flashcards', 'quiz', 'study-guide'],
   } as const;
   const copy = {
-    present: ['Present', 'Explain Cogentrex visually', 'Open an evidence-grounded deck, diagram, infographic, or explainer.'],
-    listen: ['Listen', 'Review Cogentrex through English audio', 'Use narrated lessons and transcripts without leaving the learning studio.'],
-    study: ['Study', 'Practice retrieval and comprehension', 'Explore a focused mind map, flashcards, scenarios, and a study guide.'],
+    media: ['Media', 'Review Cogentrex through video, audio, and study tools', 'Browse all learning packs — each pack contains videos, audio lessons, decks, diagrams, mind maps, flashcards, quizzes, and study guides.'],
   } as const;
+
+  const typeLabels: Record<string, string> = {
+    deck: '🎭 Deck',
+    diagram: '📊 Diagram',
+    infographic: '📋 Infographic',
+    video: '🎬 Video',
+    audio: '🎧 Audio',
+    podcast: '🎙️ Podcast',
+    'mind-map': '🧠 Mind map',
+    flashcards: '🃏 Flashcards',
+    quiz: '❓ Quiz',
+    'study-guide': '📖 Study guide',
+  };
 
   const requestedTime = Number(page.url.searchParams.get('t'));
   let catalog = $state<LearningLibraryCatalog | null>(null);
@@ -58,7 +67,7 @@
         mediaUrl = (await getMediaAccess(artifact.id)).url;
       }
       const params = new URLSearchParams(page.url.searchParams);
-      params.set('view', mode);
+      params.set('view', 'media');
       params.set('pack', selectedPack);
       params.set('artifact', artifact.id);
       history.replaceState({}, '', `/learn?${params.toString()}`);
@@ -112,10 +121,10 @@
       {/each}
     </nav>
     <div class="layout">
-      <aside aria-label="Published learning artifacts"><div class="pack"><span class="eyebrow">Learning pack</span><strong>{catalog.packs.find(pack=>pack.id===selectedPack)?.title}</strong></div>{#each visibleArtifacts as artifact}<button onclick={()=>loadArtifact(artifact)} aria-pressed={selected?.id===artifact.id}><span>{artifact.type.replaceAll('-', ' ')}</span><strong>{artifact.title.replace('Cogentrex Request Lifecycle — ', '')}</strong><small>{artifact.status} · English</small></button>{/each}</aside>
+      <aside aria-label="Published learning artifacts"><div class="pack"><span class="eyebrow">Learning pack</span><strong>{catalog.packs.find(pack=>pack.id===selectedPack)?.title}</strong></div>{#each visibleArtifacts as artifact}<button onclick={()=>loadArtifact(artifact)} aria-pressed={selected?.id===artifact.id}><span>{typeLabels[artifact.type] ?? artifact.type.replaceAll('-', ' ')}</span><strong>{artifact.title.replace('Cogentrex Request Lifecycle — ', '')}</strong><small>{artifact.status} · English</small></button>{/each}</aside>
       <div class="viewer">
         {#if error}<div class="state warning" role="alert">{error}</div>{/if}
-        {#if selected}<header class="artifact-head"><div><span class="eyebrow">{selected.type.replaceAll('-', ' ')}</span><h3>{selected.title}</h3><p>{selected.status === 'stale' ? 'Published artifact — source changes detected.' : selected.status === 'review-ready' ? 'Generated and technically verified — Luis review pending.' : 'Published and checksum-verified.'}</p></div><button onclick={openPrimary} aria-label="Open or download primary artifact"><Download size={15}/> {['deck','diagram','infographic','audio','video'].includes(selected.type) ? 'Open file' : 'Download data'}</button></header>{/if}
+        {#if selected}<header class="artifact-head"><div><span class="eyebrow">{typeLabels[selected.type] ?? selected.type.replaceAll('-', ' ')}</span><h3>{selected.title}</h3><p>{selected.status === 'stale' ? 'Published artifact — source changes detected.' : selected.status === 'review-ready' ? 'Generated and technically verified — Luis review pending.' : 'Published and checksum-verified.'}</p></div><button onclick={openPrimary} aria-label="Open or download primary artifact"><Download size={15}/> {['deck','diagram','infographic','audio','video'].includes(selected.type) ? 'Open file' : 'Download data'}</button></header>{/if}
         {#if detail?.content}
           {@const content = detail.content as any}
           {#if selected?.type === 'deck'}<PresentationPlayer {content} sourceCommit={selected.source_commit}/>

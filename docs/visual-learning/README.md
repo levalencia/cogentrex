@@ -14,21 +14,17 @@ The legacy `/learn/map` route redirects to the structured Stories view.
 
 ## Views
 
-| View | Question it answers | Interaction model |
-|---|---|---|
-| Roadmap | What should I learn next? | Six fixed phases with expandable modules |
-| Stories | What happens during a workflow? | One labeled directional relationship per step |
-| Architecture | How is the system structured? | Five stable layers with typed relations |
-| Evidence | What is actually implemented and proven? | Searchable status/proof matrix |
-| Present | How do I explain Cogentrex visually? | Published HTML decks, diagrams, infographics, and videos |
-| Listen | How can I review through audio? | Published English audio lessons and transcripts |
-| Study | How can I test comprehension? | Interactive mind maps, flashcards, quizzes, and study guides |
+| View | Question it answers | Contains |
+|------|---------------------|----------|
+| Learn | What should I learn next? | Roadmap + Workflow Stories |
+| Reference | How is the system structured? | Architecture layers + Evidence matrix + Glossary |
+| Media | How do I review through video, audio, and study tools? | All media types in unified pack view |
 
-The rejected force-directed overview is intentionally removed. The Studio never displays the full concept catalog as an unlabeled physics graph.
+The Studio never displays the full concept catalog as an unlabeled physics graph.
 
 ## Source-grounded video series
 
-The **Cogentrex From the Code** series appears in the Studio at `/learn?view=present` when learning media is enabled and the configured external library contains the `code-first-series` pack.
+The **Cogentrex From the Code** series appears in the Studio at `/learn?view=media` when learning media is enabled and the configured external library contains the `code-first-series` pack.
 
 Each video package contains:
 

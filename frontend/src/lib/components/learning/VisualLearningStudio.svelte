@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { page } from '$app/state';
-  import { BookOpen, GitBranch, Headphones, Languages, Layers, Map, Presentation, TableProperties } from 'lucide-svelte';
+  import { BookOpen, Compass, Layers, Library, Map, TableProperties } from 'lucide-svelte';
   import ArchitectureView from './ArchitectureView.svelte';
   import EvidenceView from './EvidenceView.svelte';
   import LearningLibrary from './LearningLibrary.svelte';
@@ -10,16 +10,11 @@
   import VocabularyView from './VocabularyView.svelte';
   import { loadVisualLearningStudio, type VisualLearningStudio } from '$lib/visual-learning';
 
-  type StudioView = 'roadmap' | 'stories' | 'architecture' | 'evidence' | 'glossary' | 'present' | 'listen' | 'study';
+  type StudioView = 'learn' | 'reference' | 'media';
   const views: Array<{ id: StudioView; label: string; question: string; icon: typeof Map }> = [
-    { id: 'roadmap', label: 'Roadmap', question: 'What should I learn next?', icon: Map },
-    { id: 'stories', label: 'Stories', question: 'What happens during a workflow?', icon: GitBranch },
-    { id: 'architecture', label: 'Architecture', question: 'How is the system structured?', icon: Layers },
-    { id: 'evidence', label: 'Evidence', question: 'What is actually proven?', icon: TableProperties },
-    { id: 'glossary', label: 'Glossary', question: 'What does this term mean?', icon: Languages },
-    { id: 'present', label: 'Present', question: 'How do I explain it visually?', icon: Presentation },
-    { id: 'listen', label: 'Listen', question: 'How can I review through audio?', icon: Headphones },
-    { id: 'study', label: 'Study', question: 'How can I test comprehension?', icon: BookOpen },
+    { id: 'learn', label: 'Learn', question: 'What should I learn next?', icon: Compass },
+    { id: 'reference', label: 'Reference', question: 'How is the system built and proven?', icon: Library },
+    { id: 'media', label: 'Media', question: 'How do I review through video, audio, and study tools?', icon: BookOpen },
   ];
 
   let studio = $state<VisualLearningStudio | null>(null);
@@ -27,7 +22,7 @@
   let error = $state('');
   function parseView(value: string | null): StudioView {
     const requested = value as StudioView | null;
-    return requested && views.some(view => view.id === requested) ? requested : 'roadmap';
+    return requested && views.some(view => view.id === requested) ? requested : 'learn';
   }
 
   let activeView = $derived(parseView(page.url.searchParams.get('view')));
@@ -62,14 +57,17 @@
     {#if loading}<div class="grid min-h-[55vh] place-items-center rounded-2xl border border-[var(--border)] bg-[var(--panel)] text-sm text-[var(--muted)]">Loading structured learning views…</div>
     {:else if error}<div role="alert" class="rounded-xl border border-[rgba(255,107,114,.4)] bg-[rgba(255,107,114,.08)] p-4 text-sm text-[var(--danger)]">{error}</div>
     {:else if studio}
-      {#if activeView === 'roadmap'}<RoadmapView {studio}/>
-      {:else if activeView === 'stories'}<StoriesView {studio}/>
-      {:else if activeView === 'architecture'}<ArchitectureView {studio}/>
-      {:else if activeView === 'evidence'}<EvidenceView {studio}/>
-      {:else if activeView === 'glossary'}<VocabularyView {studio}/>
-      {:else if activeView === 'present'}<LearningLibrary mode="present"/>
-      {:else if activeView === 'listen'}<LearningLibrary mode="listen"/>
-      {:else}<LearningLibrary mode="study"/>
+      {#if activeView === 'learn'}
+        <div class="view-intro"><span class="eyebrow">Learn</span><h2>Guided learning path</h2><p>Start with the roadmap to understand what to learn next, then follow a workflow story to see how components interact.</p></div>
+        <RoadmapView {studio}/>
+        <StoriesView {studio}/>
+      {:else if activeView === 'reference'}
+        <div class="view-intro"><span class="eyebrow">Reference</span><h2>Architecture, evidence, and glossary</h2><p>Understand how the system is structured, what is actually implemented and proven, and look up any term.</p></div>
+        <ArchitectureView {studio}/>
+        <EvidenceView {studio}/>
+        <VocabularyView {studio}/>
+      {:else}
+        <LearningLibrary/>
       {/if}
     {/if}
   </main>
