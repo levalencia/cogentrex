@@ -77,10 +77,10 @@ test('glossary exposes searchable beginner definitions and Cogentrex links', asy
   await expect(page.getByLabel('Selected vocabulary details')).toContainText('runtime');
 });
 
-test('Media view shows unpublished-library state when no media is published', async ({ page }) => {
+test('Media view shows the learning library when published artifacts exist', async ({ page }) => {
   await openStudio(page, 'media');
   await expect(page.getByRole('heading', { name: 'Review Cogentrex through video, audio, and study tools' })).toBeVisible();
-  await expect(page.getByText('No artifacts are available')).toBeVisible();
+  await expect(page.getByText(/Cogentrex — /)).toBeVisible();
 });
 
 test('browser history restores the previous studio mode', async ({ page }) => {

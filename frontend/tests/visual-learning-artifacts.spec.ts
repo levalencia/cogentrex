@@ -65,9 +65,9 @@ async function mockLibrary(page: Page) {
   });
 }
 
-/** Click a card in the grid by its title heading (the card button text) */
+/** Click a card in the grid by its title text */
 async function clickCard(page: Page, title: string) {
-  await page.getByRole('heading', { name: title }).click();
+  await page.locator('button').filter({ hasText: title }).first().click();
 }
 
 test('published Media artifacts: click a deck card to open presentation', async ({ page }) => {
