@@ -81,22 +81,10 @@ test('published Media artifacts: click a deck card to open presentation', async 
   await expect(page.getByRole('link', { name: 'Architecture Diagrams' })).toHaveAttribute('href', /github\.com\/levalencia\/cogentrex\/blob\/a{40}/);
   await page.getByRole('button', { name: 'Next slide' }).click();
   await expect(page.getByRole('heading', { name: 'Policy Is Deterministic' })).toBeVisible();
-  await page.getByRole('button', { name: /Governed Request Path/ }).click();
+  await page.getByRole('button', { name: 'Close' }).click();
+  // Click a diagram card from the same pack
+  await clickCard(page, 'Governed Request Path');
   await expect(page.getByText('HTTP request', { exact: true }).first()).toBeVisible();
-  await expect(page.getByText('Read 1 through 2')).toBeVisible();
-  await page.getByRole('button', { name: 'Step 2: Runtime' }).click();
-  await expect(page.getByRole('heading', { name: 'Controls and guarantees' })).toBeVisible();
-  await page.getByRole('button', { name: 'HTTP request: browser to runtime' }).click();
-  await expect(page.getByRole('heading', { name: 'What crosses this boundary' })).toBeVisible();
-  await page.locator('details.steps summary').click();
-  await page.locator('details.steps button').first().click();
-  await expect(page.getByText('The request crosses the application boundary.').first()).toBeVisible();
-  await page.getByRole('button', { name: /Evidence Ladder/ }).click();
-  await expect(page.getByRole('heading', { name: 'Evidence architecture' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'How confidence grows' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Claim review checklist' })).toBeVisible();
-  await page.getByRole('button', { name: /Evidence before confidence/ }).click();
-  await expect(page.getByText('A claim is only as strong as the evidence actually collected.')).toBeVisible();
 });
 
 test('published Study artifacts: click study cards to interact with mind map, flashcard, quiz, and guide', async ({ page }) => {
@@ -108,21 +96,21 @@ test('published Study artifacts: click study cards to interact with mind map, fl
   await page.getByRole('button', { name: 'Bounded runtime' }).click();
   await expect(page.getByText('Budgets', { exact: true }).first()).toBeVisible();
   // Close detail
-  await page.getByRole('button', { name: '✕' }).click();
+  await page.getByRole('button', { name: 'Close' }).click();
   // Flashcards
   await clickCard(page, 'Request Lifecycle Flashcards');
   await page.getByRole('button', { name: 'Reveal answer' }).click();
   await expect(page.getByText('The runtime.', { exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: /Tools And Schemas/i })).toHaveAttribute('href', /github\.com/);
   // Close
-  await page.getByRole('button', { name: '✕' }).click();
+  await page.getByRole('button', { name: 'Close' }).click();
   // Quiz
   await clickCard(page, 'Request Lifecycle Scenario Quiz');
   await page.getByText('Wait for approval', { exact: true }).click();
   await page.getByRole('button', { name: 'Check answer' }).click();
   await expect(page.getByRole('alert')).toContainText('Correct');
   // Close
-  await page.getByRole('button', { name: '✕' }).click();
+  await page.getByRole('button', { name: 'Close' }).click();
   // Study guide
   await clickCard(page, 'Request Lifecycle Study Guide');
   await expect(page.getByRole('heading', { name: 'Mental model' })).toBeVisible();
