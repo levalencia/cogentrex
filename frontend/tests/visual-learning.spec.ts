@@ -52,7 +52,7 @@ test('evidence view preserves status and proof boundaries', async ({ page }) => 
   await page.getByRole('combobox', { name: 'Evidence status' }).selectOption('implemented');
   await page.getByRole('searchbox', { name: 'Search evidence' }).fill('embedding');
   await expect(page.getByText('7 of 67 capabilities')).toBeVisible();
-  await page.getByRole('button', { name: /Embeddings/ }).click();
+  await page.getByRole('button', { name: 'Embeddings' }).first().click();
   await expect(details).toContainText(/Azure Foundry text-embedding-3-small is live-proven/i);
 
   await page.getByRole('searchbox', { name: 'Search evidence' }).fill('');
