@@ -4,7 +4,7 @@
 
 <svelte:head>
   <title>Visual Learning Studio · Cogentrex</title>
-  <meta name="description" content="Learn Cogentrex through stable roadmaps, guided stories, layered architecture, evidence, and Hermes-authored English learning media." />
+  <meta name="description" content="Learn Cogentrex through a guided learning path, architecture reference, evidence matrix, glossary, and all learning media types in one unified view." />
 </svelte:head>
 
 <VisualLearningStudio />

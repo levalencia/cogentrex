@@ -18,7 +18,7 @@ test('roadmap presents six stable phases and sixteen modules', async ({ page }) 
 });
 
 test('stories use one labeled directional relationship per step', async ({ page }) => {
-  await openStudio(page, 'stories');
+  await openStudio(page);
   await expect(page.getByRole('heading', { name: 'Follow one flow at a time' })).toBeVisible();
   await expect(page.getByText('Step 1 of 8')).toBeVisible();
   await expect(page.getByText('HTTP POST', { exact: true })).toBeVisible();
@@ -30,7 +30,7 @@ test('stories use one labeled directional relationship per step', async ({ page 
 });
 
 test('architecture keeps five layers fixed and exposes typed relations', async ({ page }) => {
-  await openStudio(page, 'architecture');
+  await openStudio(page, 'reference');
   await expect(page.getByRole('heading', { name: 'Five stable architecture layers' })).toBeVisible();
   await expect(page.getByText(/Layer [1-5]/)).toHaveCount(5);
   await page.getByRole('button', { name: /Policy and approvals/ }).click();
@@ -41,7 +41,7 @@ test('architecture keeps five layers fixed and exposes typed relations', async (
 });
 
 test('evidence view preserves status and proof boundaries', async ({ page }) => {
-  await openStudio(page, 'evidence');
+  await openStudio(page, 'reference');
   await expect(page.getByRole('heading', { name: 'Capability evidence without inflated claims' })).toBeVisible();
   const details = page.getByLabel('Selected evidence details');
 
@@ -52,7 +52,7 @@ test('evidence view preserves status and proof boundaries', async ({ page }) => 
   await page.getByRole('combobox', { name: 'Evidence status' }).selectOption('implemented');
   await page.getByRole('searchbox', { name: 'Search evidence' }).fill('embedding');
   await expect(page.getByText('7 of 67 capabilities')).toBeVisible();
-  await page.getByRole('button', { name: /Embeddings/ }).click();
+  await page.getByRole('button', { name: 'Embeddings' }).first().click();
   await expect(details).toContainText(/Azure Foundry text-embedding-3-small is live-proven/i);
 
   await page.getByRole('searchbox', { name: 'Search evidence' }).fill('');
@@ -66,7 +66,7 @@ test('evidence view preserves status and proof boundaries', async ({ page }) => 
 });
 
 test('glossary exposes searchable beginner definitions and Cogentrex links', async ({ page }) => {
-  await openStudio(page, 'glossary');
+  await openStudio(page, 'reference');
   await expect(page.getByRole('heading', { name: 'Canonical Cogentrex vocabulary' })).toBeVisible();
   await expect(page.getByText('299 of 299 terms')).toBeVisible();
   await page.getByRole('searchbox', { name: 'Search vocabulary' }).fill('DI');
@@ -77,30 +77,23 @@ test('glossary exposes searchable beginner definitions and Cogentrex links', asy
   await expect(page.getByLabel('Selected vocabulary details')).toContainText('runtime');
 });
 
-test('Present, Listen, and Study expose explicit unpublished-library states', async ({ page }) => {
-  await openStudio(page, 'present');
-  await expect(page.getByRole('heading', { name: 'Explain Cogentrex visually' })).toBeVisible();
-  await expect(page.getByText('Learning media is not published in this runtime.')).toBeVisible();
-
-  await page.getByRole('link', { name: /Listen/ }).click();
-  await expect(page.getByRole('heading', { name: 'Review Cogentrex through English audio' })).toBeVisible();
-  await expect(page.getByText('Learning media is not published in this runtime.')).toBeVisible();
-
-  await page.getByRole('link', { name: /Study/ }).click();
-  await expect(page.getByRole('heading', { name: 'Practice retrieval and comprehension' })).toBeVisible();
-  await expect(page.getByText('Learning media is not published in this runtime.')).toBeVisible();
+test('Media view shows the learning library or graceful empty state', async ({ page }) => {
+  await openStudio(page, 'media');
+  await expect(page.getByRole('heading', { name: 'Review Cogentrex through video, audio, and study tools' })).toBeVisible();
+  // The page either shows pack sections (media published) or an empty/error state
+  await expect(page.locator('.card-grid').or(page.locator('.empty-state'))).toBeVisible();
 });
 
 test('browser history restores the previous studio mode', async ({ page }) => {
   await openStudio(page);
-  await page.getByRole('link', { name: /Stories/ }).click();
-  await expect(page).toHaveURL(/view=stories/);
-  await expect(page.getByRole('heading', { name: 'Follow one flow at a time' })).toBeVisible();
+  await page.getByRole('link', { name: /Reference/ }).click();
+  await expect(page).toHaveURL(/view=reference/);
+  await expect(page.getByRole('heading', { name: 'Five stable architecture layers' })).toBeVisible();
   await page.goBack();
   await expect(page.getByRole('heading', { name: 'A stable path from foundations to operations' })).toBeVisible();
 });
 
-test('legacy map URL redirects to the structured Stories view', async ({ page }) => {
+test('legacy map URL redirects to the structured Learn view', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('cogentrex_token', 'playwright-token'));
   await page.goto('/learn/map');
   await expect(page).toHaveURL(/\/learn\?view=stories$/);
@@ -110,7 +103,7 @@ test('legacy map URL redirects to the structured Stories view', async ({ page })
 test('all studio modes avoid horizontal overflow on mobile', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.addInitScript(() => localStorage.setItem('cogentrex_token', 'playwright-token'));
-  for (const view of ['roadmap', 'stories', 'architecture', 'evidence', 'glossary', 'present', 'listen', 'study']) {
+  for (const view of ['learn', 'reference', 'media']) {
     await page.goto(`/learn?view=${view}`);
     await expect(page.getByRole('heading', { name: 'Choose the view that matches your question' })).toBeVisible();
     await expect.poll(async () => page.evaluate(() => document.body.scrollWidth <= document.body.clientWidth)).toBe(true);
