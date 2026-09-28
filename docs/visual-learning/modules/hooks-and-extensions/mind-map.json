@@ -1,0 +1,67 @@
+{
+  "schema": "cogentrex.learning.mind-map",
+  "version": 1,
+  "artifact_id": "mindmap-hooks-and-extensions",
+  "pack_id": "harness-hooks",
+  "title": "Mind Map: Hooks and Extensions",
+  "language": "en",
+  "source_commit": "f89a1e1c93348cb13ffa9f076494a7c127b84c32",
+  "limitations": [
+    "Generated from concept pages; not yet reviewed.",
+    "Verify against current main."
+  ],
+  "sources": [
+    "docs/course/concepts/hooks-and-extensions.md"
+  ],
+  "root": {
+    "id": "root",
+    "label": "Hooks & Extensions",
+    "summary": "User-registrable lifecycle hooks on agent events",
+    "details": "HookRegistry wraps EventSink with before/after dispatch",
+    "sources": [
+      "docs/course/concepts/hooks-and-extensions.md"
+    ],
+    "children": [
+      {
+        "id": "before",
+        "label": "Before-Hooks",
+        "summary": "Fire before inner sink",
+        "details": "Can CONTINUE, BLOCK, or MODIFY event data",
+        "sources": [
+          "backend/app/runtime/hooks.py"
+        ],
+        "children": []
+      },
+      {
+        "id": "after",
+        "label": "After-Hooks",
+        "summary": "Fire after inner sink",
+        "details": "Always run, even when blocked. For audit/logging.",
+        "sources": [
+          "backend/app/runtime/hooks.py"
+        ],
+        "children": []
+      },
+      {
+        "id": "builtins",
+        "label": "Built-in Patterns",
+        "summary": "5 ready-to-use hooks",
+        "details": "Protected paths, commands, stop verification, output sanitization, signal injection",
+        "sources": [
+          "backend/app/runtime/builtin_hooks.py"
+        ],
+        "children": []
+      },
+      {
+        "id": "trust",
+        "label": "Trust Boundary",
+        "summary": "All-or-nothing",
+        "details": "Untrusted workspaces disable all hooks",
+        "sources": [
+          "docs/course/concepts/hooks-and-extensions.md"
+        ],
+        "children": []
+      }
+    ]
+  }
+}

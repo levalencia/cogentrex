@@ -1,0 +1,60 @@
+{
+  "schema": "cogentrex.learning.study-guide",
+  "version": 1,
+  "artifact_id": "guide-delegation-patterns",
+  "pack_id": "harness-delegation",
+  "title": "Study Guide: Delegation Patterns",
+  "language": "en",
+  "source_commit": "f89a1e1c93348cb13ffa9f076494a7c127b84c32",
+  "limitations": [
+    "Generated from concept pages; not yet reviewed.",
+    "Verify against current main."
+  ],
+  "sources": [
+    "docs/course/concepts/delegation-patterns.md"
+  ],
+  "sections": [
+    {
+      "heading": "Prerequisites",
+      "body": "Before studying delegation patterns, ensure you understand the agent runtime (Module 02-03), tool contracts (Module 04), and the event system (AgentEventKind).",
+      "sources": [
+        "docs/course/concepts/delegation-patterns.md"
+      ]
+    },
+    {
+      "heading": "Key concepts",
+      "body": "Read the concept page: docs/course/concepts/delegation-patterns.md. Focus on the architecture diagram, the frontier comparison table, and the limitations section.",
+      "sources": [
+        "docs/course/concepts/delegation-patterns.md"
+      ]
+    },
+    {
+      "heading": "Code trace",
+      "body": "Open the source files listed in the concept page. Trace one complete flow from input to output. Note which data structures are used and why.",
+      "sources": [
+        "docs/course/concepts/delegation-patterns.md"
+      ]
+    },
+    {
+      "heading": "Run the tests",
+      "body": "Run the related tests with `uv run pytest tests/unit/test_delegation_patterns.py -v`. Read each test to understand what behavior is being verified.",
+      "sources": [
+        "docs/course/concepts/delegation-patterns.md"
+      ]
+    },
+    {
+      "heading": "Self-check",
+      "body": "Answer the 7 self-check questions from the concept page without looking at the answers. If you can't answer one, re-read the relevant section.",
+      "sources": [
+        "docs/course/concepts/delegation-patterns.md"
+      ]
+    },
+    {
+      "heading": "Practice exercise",
+      "body": "Modify one aspect of the implementation (e.g., add a new built-in hook, change a compaction threshold, add a delegation pattern). Run the tests to verify your change.",
+      "sources": [
+        "docs/course/concepts/delegation-patterns.md"
+      ]
+    }
+  ]
+}
