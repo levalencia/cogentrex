@@ -90,9 +90,7 @@ class TestAgentGodModeCatalogProvider:
         assert any(r.name == "test-driven-development" for r in results)
 
     @pytest.mark.asyncio
-    async def test_search_respects_limit(
-        self, provider: AgentGodModeCatalogProvider
-    ) -> None:
+    async def test_search_respects_limit(self, provider: AgentGodModeCatalogProvider) -> None:
         results = await provider.search("development review harness", limit=2)
         assert len(results) <= 2
 
@@ -111,9 +109,7 @@ class TestAgentGodModeCatalogProvider:
         assert len(results) == 0
 
     @pytest.mark.asyncio
-    async def test_health_code_is_available(
-        self, provider: AgentGodModeCatalogProvider
-    ) -> None:
+    async def test_health_code_is_available(self, provider: AgentGodModeCatalogProvider) -> None:
         assert provider.health_code == "available"
 
     @pytest.mark.asyncio

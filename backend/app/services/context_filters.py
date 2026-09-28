@@ -39,9 +39,7 @@ class ContextBudget:
         )
         issues = []
         if allocated > self.total:
-            issues.append(
-                f"Allocated {allocated} exceeds total {self.total}"
-            )
+            issues.append(f"Allocated {allocated} exceeds total {self.total}")
         return issues
 
 
@@ -134,10 +132,7 @@ def metadata_filter(*excluded_keys: str) -> MessageFilter:
     excluded = set(excluded_keys)
 
     def _filter(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        return [
-            {k: v for k, v in m.items() if k not in excluded}
-            for m in messages
-        ]
+        return [{k: v for k, v in m.items() if k not in excluded} for m in messages]
 
     return _filter
 
@@ -191,7 +186,5 @@ class MemoizedContextBuilder:
 
     @staticmethod
     def _compute_key(messages: list[dict[str, Any]]) -> str:
-        content = "".join(
-            f"{m.get('role', '')}:{m.get('content', '')}" for m in messages
-        )
+        content = "".join(f"{m.get('role', '')}:{m.get('content', '')}" for m in messages)
         return hashlib.sha256(content.encode()).hexdigest()[:16]
