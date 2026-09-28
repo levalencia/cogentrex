@@ -327,6 +327,7 @@ Contract, integration, benchmark fixture, and local UI evidence establish one ch
 ## Further reading
 
 - Canonical concepts: [bounded-delegation](../../concepts/bounded-delegation.md), [verifier-child](../../concepts/verifier-child.md), [parent-child-lineage](../../concepts/parent-child-lineage.md), [distributed agent networks (deferred)](../../concepts/distributed-agent-networks.md)
+- Harness patterns: [delegation patterns (Coordinator/Fork/Swarm)](../../concepts/delegation-patterns.md)
 - [Implementation evidence](../../../IMPLEMENTATION-EVIDENCE.md)
 - [Architecture diagrams](../../../ARCHITECTURE-DIAGRAMS.md)
 - [Next step](../12-governed-mcp/README.md)

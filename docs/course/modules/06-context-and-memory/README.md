@@ -135,6 +135,11 @@ The scoped AES-GCM repository is durable and tested locally. The separate Fernet
 
 ## Done criteria
 
-You can draw the request boundary, locate every symbol above, run the tests, explain a ciphertext-swap failure, and identify compaction/key-management production gaps without claiming the model “remembers.”
+You can draw the request boundary, locate every symbol above, run the tests, explain a ciphertext-swap failure, and identify compaction/key-management prod
+
+## Related harness concepts
+
+- [Context compaction](../../concepts/context-compaction.md) — multi-layer pipeline (lossless → distill → lossy), circuit breaker, recovery pointers
+- [Session branching](../../concepts/session-branching.md) — session tree, fork from any point, /resume, /compact, /clear commandsuction gaps without claiming the model “remembers.”
 
 Next: [memory walkthrough](../../code-walkthroughs/memory.md) and [Module 07](../07-run-ledger/README.md).

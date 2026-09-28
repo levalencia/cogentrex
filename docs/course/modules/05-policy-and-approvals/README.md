@@ -97,3 +97,7 @@ Durability and cross-process polling are tested on supported databases and obser
 - Focused tests pass.
 - You can predict default rules and fail-closed cases.
 - You can explain exact binding, atomicity, expiry, and the external idempotency gap.
+
+## Related harness concepts
+
+- [Graduated security model](../../concepts/graduated-security-model.md) — seven permission modes, denial tracking, mode transformation
