@@ -50,7 +50,7 @@ Immediately unblocks AI-agent usage of the repo and connects the vault.
 
 ## Phase 1 — Hook System (Tier 2, biggest leverage)
 
-This unlocks ~25 of the 80 missing mechanisms. Archon already emits 30+ event kinds — we add user-registrable handlers.
+This unlocks ~25 of the 80 missing mechanisms. Cogentrex already emits 30+ event kinds — we add user-registrable handlers.
 
 | # | Task | Mechanisms unlocked | Tests | Est |
 |---|------|---------------------|-------|-----|

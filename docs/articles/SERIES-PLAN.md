@@ -2,7 +2,7 @@
 
 > **Goal:** 32 articles teaching developers how to build every frontier harness mechanism
 > **Platform:** Medium (long-form) + LinkedIn (native posts)
-> **Repo:** github.com/levalencia/archon (Cogentrex)
+> **Repo:** github.com/levalencia/cogentrex
 > **Voice:** Engineering-first, beginner-accessible, evidence-backed
 > **Review:** One article at a time — Luis reviews before publication
 

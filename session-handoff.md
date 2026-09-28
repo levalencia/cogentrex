@@ -6,7 +6,7 @@
 
 | Property | Value |
 |----------|-------|
-| **Repo root** | `/Users/luisvalencia/Documents/archon` |
+| **Repo root** | (local working directory) |
 | **Branch** | `harness-parity/phase-10-final-gaps` |
 | **Startup path** | `./init.sh` |
 | **Verification path** | `make lint && make test` |
