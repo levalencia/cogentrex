@@ -1,0 +1,40 @@
+{
+  "schema": "cogentrex.learning.diagram",
+  "version": 1,
+  "artifact_id": "diagram-session-branching",
+  "pack_id": "harness-branching",
+  "title": "Architecture Diagram: Session Branching",
+  "language": "en",
+  "source_commit": "f89a1e1c93348cb13ffa9f076494a7c127b84c32",
+  "limitations": [
+    "Generated from concept pages; not yet reviewed.",
+    "Verify against current main."
+  ],
+  "sources": [
+    "docs/course/concepts/session-branching.md"
+  ],
+  "elements": [
+    {
+      "id": "e1",
+      "label": "Session Branching \u2014 System View",
+      "kind": "architecture",
+      "summary": "How session branching fits into the Cogentrex architecture",
+      "details": "See the Mermaid diagram in the concept page for the detailed view.",
+      "teaching": "This diagram shows where session branching sits relative to the agent runtime, event system, and tool registry.",
+      "sources": [
+        "docs/course/concepts/session-branching.md"
+      ]
+    },
+    {
+      "id": "e2",
+      "label": "Session Branching \u2014 Data Flow",
+      "kind": "sequence",
+      "summary": "Request flow through session branching",
+      "details": "Trace one operation from trigger to completion.",
+      "teaching": "Follow the numbered steps to understand the execution order and decision points.",
+      "sources": [
+        "docs/course/concepts/session-branching.md"
+      ]
+    }
+  ]
+}

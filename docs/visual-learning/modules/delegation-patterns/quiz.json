@@ -1,0 +1,94 @@
+{
+  "schema": "cogentrex.learning.quiz",
+  "version": 1,
+  "artifact_id": "quiz-delegation-patterns",
+  "pack_id": "harness-delegation",
+  "title": "Quiz: Delegation Patterns",
+  "language": "en",
+  "source_commit": "f89a1e1c93348cb13ffa9f076494a7c127b84c32",
+  "limitations": [
+    "Generated from concept pages; not yet reviewed by Luis.",
+    "Content may drift from source; verify against current main."
+  ],
+  "sources": [
+    "docs/course/concepts/delegation-patterns.md",
+    "backend/app/delegation/patterns.py"
+  ],
+  "questions": [
+    {
+      "id": "q1",
+      "scenario": "In the Coordinator pattern, how much parent context does the worker receive?",
+      "options": [
+        "Full conversation history",
+        "Zero \u2014 only a self-contained spec",
+        "Last 10 messages",
+        "A summary"
+      ],
+      "correct_index": 1,
+      "explanation": "Coordinator synthesizes findings into precise, self-contained specs. Workers start fresh.",
+      "sources": [
+        "backend/app/delegation/patterns.py"
+      ]
+    },
+    {
+      "id": "q2",
+      "scenario": "A forked child tries to create another fork. What happens?",
+      "options": [
+        "It succeeds",
+        "ValueError: recursive fork blocked",
+        "The parent is notified",
+        "A swarm is created"
+      ],
+      "correct_index": 1,
+      "explanation": "Recursive fork guard prevents context explosion by blocking nested forks.",
+      "sources": [
+        "docs/course/concepts/delegation-patterns.md"
+      ]
+    },
+    {
+      "id": "q3",
+      "scenario": "In the Swarm pattern, can peers spawn new peers?",
+      "options": [
+        "Yes, unlimited",
+        "Yes, up to 3",
+        "No \u2014 flat roster, no spawning",
+        "Only the coordinator can"
+      ],
+      "correct_index": 2,
+      "explanation": "Swarm uses a flat roster. Peers claim tasks from the queue but cannot add new peers.",
+      "sources": [
+        "backend/app/delegation/patterns.py"
+      ]
+    },
+    {
+      "id": "q4",
+      "scenario": "What tools does a read_only worker get?",
+      "options": [
+        "All tools",
+        "Only read_file, list_directory, calculator, datetime, web_search",
+        "No tools",
+        "Only write_file"
+      ],
+      "correct_index": 1,
+      "explanation": "read_only workers are filtered to a safe set of read-only tools.",
+      "sources": [
+        "backend/app/delegation/patterns.py"
+      ]
+    },
+    {
+      "id": "q5",
+      "scenario": "Where do worker configuration files live?",
+      "options": [
+        "In .env",
+        "In .cogentrex/agents/*.yaml",
+        "In the database",
+        "In environment variables"
+      ],
+      "correct_index": 1,
+      "explanation": "Worker configs are YAML files in the .cogentrex/agents/ directory.",
+      "sources": [
+        "docs/course/concepts/delegation-patterns.md"
+      ]
+    }
+  ]
+}

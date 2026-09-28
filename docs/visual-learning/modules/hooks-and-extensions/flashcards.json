@@ -1,0 +1,69 @@
+{
+  "schema": "cogentrex.learning.flashcards",
+  "version": 1,
+  "artifact_id": "flashcards-hooks-and-extensions",
+  "pack_id": "harness-hooks",
+  "title": "Flashcards: Hooks and Extensions",
+  "language": "en",
+  "source_commit": "f89a1e1c93348cb13ffa9f076494a7c127b84c32",
+  "limitations": [
+    "Generated from concept pages; not yet reviewed by Luis.",
+    "Content may drift from source; verify against current main."
+  ],
+  "sources": [
+    "docs/course/concepts/hooks-and-extensions.md",
+    "backend/app/runtime/hooks.py"
+  ],
+  "cards": [
+    {
+      "id": "f1",
+      "question": "What is the HookRegistry?",
+      "answer": "A composable EventSink wrapper that dispatches user-registered handlers before and after events.",
+      "explanation": "It implements the EventSink protocol so it can replace any sink in the system.",
+      "misconception": "Hooks modify the runtime engine directly. Actually they wrap the event stream without touching the engine.",
+      "sources": [
+        "backend/app/runtime/hooks.py"
+      ]
+    },
+    {
+      "id": "f2",
+      "question": "What are the three HookAction values?",
+      "answer": "CONTINUE (pass through), BLOCK (prevent forwarding), MODIFY (replace event data).",
+      "explanation": "Only before-hooks can BLOCK or MODIFY. After-hooks are always informational.",
+      "misconception": "After-hooks can block events. They cannot \u2014 only before-hooks have that power.",
+      "sources": [
+        "backend/app/runtime/hooks.py"
+      ]
+    },
+    {
+      "id": "f3",
+      "question": "What is the trust boundary for hooks?",
+      "answer": "In untrusted workspaces, ALL hooks are disabled \u2014 registration raises ValueError and events pass through directly.",
+      "explanation": "This is the all-or-nothing trust model from Claude Code.",
+      "misconception": "Some hooks work in untrusted mode. None do \u2014 it's all or nothing.",
+      "sources": [
+        "docs/course/concepts/hooks-and-extensions.md"
+      ]
+    },
+    {
+      "id": "f4",
+      "question": "Name 3 built-in hook patterns.",
+      "answer": "protected_paths_hook, protected_commands_hook, stop_verification_hook, tool_output_sanitizer_hook, external_signal_hook.",
+      "explanation": "Each is a closure factory \u2014 call it with config to get a handler function.",
+      "misconception": "Built-in hooks are classes. They are factory functions that return handler closures.",
+      "sources": [
+        "backend/app/runtime/builtin_hooks.py"
+      ]
+    },
+    {
+      "id": "f5",
+      "question": "What happens if a hook handler times out?",
+      "answer": "The timeout is caught, a warning is logged, and the event is still forwarded normally.",
+      "explanation": "Error isolation ensures a slow hook never blocks the agent pipeline.",
+      "misconception": "A timed-out hook blocks the entire pipeline. It does not \u2014 the event continues.",
+      "sources": [
+        "backend/app/runtime/hooks.py"
+      ]
+    }
+  ]
+}

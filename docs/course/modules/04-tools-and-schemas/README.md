@@ -84,3 +84,8 @@ The validator supports object roots, required/properties, six primitive/containe
 - The focused tests pass.
 - Your draft schema is within the supported subset.
 - You can narrate gate order and limitations.
+
+## Related harness concepts
+
+- [Hooks and extensions](../../concepts/hooks-and-extensions.md) — user-registrable lifecycle hooks on tool events
+- [Tool concurrency](../../concepts/tool-contracts.md) — per-call concurrency classification, parallel/serial execution

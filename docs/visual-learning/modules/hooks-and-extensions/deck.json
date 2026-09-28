@@ -1,0 +1,90 @@
+{
+  "schema": "cogentrex.learning.deck",
+  "version": 1,
+  "artifact_id": "deck-hooks-and-extensions",
+  "pack_id": "harness-hooks",
+  "title": "Deck: Hooks and Extensions",
+  "language": "en",
+  "source_commit": "f89a1e1c93348cb13ffa9f076494a7c127b84c32",
+  "limitations": [
+    "Generated from concept pages; not yet reviewed.",
+    "Content may drift from source; verify against current main."
+  ],
+  "sources": [
+    "docs/course/concepts/hooks-and-extensions.md"
+  ],
+  "slides": [
+    {
+      "id": "s1",
+      "title": "The Problem",
+      "message": "Agent events fire but users can't inject custom logic",
+      "visual": "mermaid: flowchart showing events passing through without interception",
+      "notes": "23 event kinds exist but only SSE/ledger consume them",
+      "presenter_script": "Before hooks, the event stream was a one-way pipe. Users could observe but never intervene.",
+      "key_terms": [
+        "EventSink",
+        "AgentEventKind",
+        "lifecycle event"
+      ],
+      "common_misconception": "You need to modify the runtime engine to add custom behavior",
+      "transition": "Let's see how hooks solve this",
+      "sources": [
+        "docs/course/concepts/hooks-and-extensions.md"
+      ]
+    },
+    {
+      "id": "s2",
+      "title": "HookRegistry Design",
+      "message": "Composable wrapper: Before-hooks \u2192 Inner Sink \u2192 After-hooks",
+      "visual": "mermaid: sequenceDiagram showing event flow through before-hooks, inner sink, after-hooks",
+      "notes": "HookRegistry implements EventSink protocol \u2014 it IS an EventSink",
+      "presenter_script": "The HookRegistry wraps any EventSink. Before-hooks can block or modify. After-hooks always run for audit.",
+      "key_terms": [
+        "HookPhase",
+        "HookAction",
+        "composable"
+      ],
+      "common_misconception": "After-hooks can block events",
+      "transition": "What can hooks actually do?",
+      "sources": [
+        "backend/app/runtime/hooks.py"
+      ]
+    },
+    {
+      "id": "s3",
+      "title": "Five Built-in Patterns",
+      "message": "Protected paths, commands, stop verification, output sanitization, signal injection",
+      "visual": "table: 5 rows mapping pattern name to what it blocks/modifies",
+      "notes": "Each is a closure factory \u2014 config in, handler out",
+      "presenter_script": "Five ready-to-use patterns cover the most common frontier harness mechanisms. Register via REST API.",
+      "key_terms": [
+        "protected_paths_hook",
+        "stop_verification_hook",
+        "external_signal_hook"
+      ],
+      "common_misconception": "Custom hooks require modifying Python code",
+      "transition": "How do we keep this safe?",
+      "sources": [
+        "backend/app/runtime/builtin_hooks.py"
+      ]
+    },
+    {
+      "id": "s4",
+      "title": "Trust and Error Isolation",
+      "message": "Untrusted = no hooks. Exceptions = caught and logged, event continues.",
+      "visual": "two-panel: trusted workspace (hooks active) vs untrusted (bypass)",
+      "notes": "All-or-nothing trust from Claude Code; timeout enforcement per hook",
+      "presenter_script": "The trust boundary is absolute: untrusted workspaces get zero hooks. And a broken hook never crashes the pipeline.",
+      "key_terms": [
+        "trusted",
+        "all-or-nothing",
+        "error isolation"
+      ],
+      "common_misconception": "Some hooks work in untrusted mode",
+      "transition": "Summary",
+      "sources": [
+        "docs/course/concepts/hooks-and-extensions.md"
+      ]
+    }
+  ]
+}

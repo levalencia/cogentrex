@@ -1,0 +1,69 @@
+{
+  "schema": "cogentrex.learning.flashcards",
+  "version": 1,
+  "artifact_id": "flashcards-context-compaction",
+  "pack_id": "harness-compaction",
+  "title": "Flashcards: Context Compaction",
+  "language": "en",
+  "source_commit": "f89a1e1c93348cb13ffa9f076494a7c127b84c32",
+  "limitations": [
+    "Generated from concept pages; not yet reviewed by Luis.",
+    "Content may drift from source; verify against current main."
+  ],
+  "sources": [
+    "docs/course/concepts/context-compaction.md",
+    "backend/app/services/multi_layer_compact.py"
+  ],
+  "cards": [
+    {
+      "id": "f1",
+      "question": "What is the first layer of multi-layer compaction?",
+      "answer": "Lossless pruning",
+      "explanation": "Lossless pruning runs first \u2014 remove duplicates and empty messages without any information loss.",
+      "misconception": "Common wrong answer: Message filtering",
+      "sources": [
+        "backend/app/services/multi_layer_compact.py"
+      ]
+    },
+    {
+      "id": "f2",
+      "question": "The compaction circuit breaker trips. What does this mean?",
+      "answer": "Compaction has cycled max_compaction_cycles times without reaching threshold",
+      "explanation": "The circuit breaker prevents excessive compaction cycles.",
+      "misconception": "Common wrong answer: The LLM provider is down",
+      "sources": [
+        "docs/course/concepts/context-compaction.md"
+      ]
+    },
+    {
+      "id": "f3",
+      "question": "What does the /compact command do?",
+      "answer": "Forces multi-layer compaction regardless of threshold",
+      "explanation": "/compact forces compaction by setting threshold to 0.",
+      "misconception": "Common wrong answer: Resumes a session",
+      "sources": [
+        "backend/app/services/chat_commands.py"
+      ]
+    },
+    {
+      "id": "f4",
+      "question": "What are recovery pointers used for?",
+      "answer": "Allowing retrieval of original content after truncation or summarization",
+      "explanation": "Recovery pointers are content hashes that allow retrieving the full original content.",
+      "misconception": "Common wrong answer: Linking to external databases",
+      "sources": [
+        "backend/app/services/multi_layer_compact.py"
+      ]
+    },
+    {
+      "id": "f5",
+      "question": "What does MemoizedContextBuilder cache?",
+      "answer": "Expensive context assembly by content hash",
+      "explanation": "It caches the result of context building, invalidating when input messages change.",
+      "misconception": "Common wrong answer: User preferences",
+      "sources": [
+        "backend/app/services/context_filters.py"
+      ]
+    }
+  ]
+}

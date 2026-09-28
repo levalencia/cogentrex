@@ -60,6 +60,17 @@ Use the 15-minute route, then add these evidence stops:
 - **What would production require?** Direct evidence for deployment, SLOs, capacity, backup cadence, restore drills, secret rotation, provider parity, incident response, and external traffic.
 - **Why are the six gaps omissions rather than failures?** They require different trust, infrastructure, data-governance, or operating models. Deferring them keeps the demonstrated local policy/evidence boundary reproducible and prevents artifacts from being presented as runtime proof; cite the [gap register](../../REMAINING-DEFERRED-GAPS.md).
 
+## Harness engineering questions
+
+These questions test knowledge of the frontier harness mechanisms implemented in Phases 0–5:
+
+- **Hooks:** "How would you let a user block specific tool calls without modifying the runtime engine?" → HookRegistry wraps EventSink; before-hooks on TOOL_CALL_REQUESTED can return BLOCK. See [hooks concept](../concepts/hooks-and-extensions.md).
+- **Compaction:** "What happens when context exceeds the token budget mid-conversation?" → Multi-layer compaction: lossless prune → structured distill → lossy LLM summarize with circuit breaker. See [compaction concept](../concepts/context-compaction.md).
+- **Security modes:** "How do you graduate from 'allow everything' to 'deny everything'?" → Seven PermissionMode levels; stateful evaluator auto-downgrades after repeated denials. See [security concept](../concepts/graduated-security-model.md).
+- **Delegation:** "What patterns exist for multi-agent coordination?" → Coordinator (zero inheritance), Fork (full copy, single-level), Swarm (shared queue). See [delegation concept](../concepts/delegation-patterns.md).
+- **Worktrees:** "How do parallel agents avoid file collisions?" → Git worktree isolation; each task gets its own branch and working directory. See [worktree concept](../concepts/worktree-isolation.md).
+- **Bootstrap:** "How does the system decide which tools to load?" → Four-stage bootstrap: minimal → read-only → trust boundary → full tools. Untrusted sessions stay read-only.
+
 ## Practice contract
 
 For each duration, record yourself, stay within ±10%, cite at least three exact symbols and two behavior tests, state one trade-off and two unverified boundaries, and correct uncertainty rather than inventing evidence. Use the [capstone rubric](../workshops/capstone-rubric.md) for scoring.

@@ -191,6 +191,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         app.state.skill_repository, app.state.instruction_repository
     )
     app.state.context_snapshots = ContextSnapshotRepository(repository.session_factory)
+
+    # Hook system — wraps NullEventSink as the default inner sink.
+    # The orchestration layer replaces the inner sink with SSE/recording sinks per request.
+    from app.runtime.events import NullEventSink
+    from app.runtime.hooks import HookRegistry
+
+    app.state.hook_registry = HookRegistry(NullEventSink())
+
     app.state.skill_installer = SkillInstallationService(
         app.state.skill_repository,
         SkillSourcePolicy(
@@ -474,6 +482,10 @@ def create_app(
     app.include_router(runs_router)
     app.include_router(shares_router)
     app.include_router(evaluations_router)
+
+    from app.routes.hooks import router as hooks_router
+
+    app.include_router(hooks_router)
 
     @app.get("/metrics")
     async def prometheus_metrics():

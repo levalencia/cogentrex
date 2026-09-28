@@ -1,0 +1,66 @@
+{
+  "schema": "cogentrex.learning.video-storyboard",
+  "version": 1,
+  "artifact_id": "video-graduated-security",
+  "pack_id": "harness-security",
+  "title": "Code-First Video: Graduated Security Model",
+  "language": "en",
+  "source_commit": "f89a1e1c93348cb13ffa9f076494a7c127b84c32",
+  "limitations": [
+    "Generated from concept pages; not yet reviewed.",
+    "Verify against current main."
+  ],
+  "sources": [
+    "docs/course/concepts/graduated-security-model.md"
+  ],
+  "width": 1920,
+  "height": 1080,
+  "fps": 30,
+  "scenes": [
+    {
+      "id": "s1",
+      "duration_seconds": 15,
+      "narration": "Welcome to the Graduated Security Model lesson. Let's look at what problem this solves and how Cogentrex implements it.",
+      "visual": "Title card: Graduated Security Model with dark background and orange accents",
+      "sources": [
+        "docs/course/concepts/graduated-security-model.md"
+      ]
+    },
+    {
+      "id": "s2",
+      "duration_seconds": 30,
+      "narration": "The core source file is highlighted here. Let's trace through the main entry point and understand the data flow.",
+      "visual": "Code editor showing the primary source file with line highlighting",
+      "sources": [
+        "docs/course/concepts/graduated-security-model.md"
+      ]
+    },
+    {
+      "id": "s3",
+      "duration_seconds": 25,
+      "narration": "Here's the Mermaid architecture diagram from the concept page. Notice how graduated security model integrates with the existing runtime.",
+      "visual": "Mermaid diagram rendered with animated transitions between components",
+      "sources": [
+        "docs/course/concepts/graduated-security-model.md"
+      ]
+    },
+    {
+      "id": "s4",
+      "duration_seconds": 20,
+      "narration": "Let's run the tests and see this in action. Every assertion proves a specific behavior.",
+      "visual": "Terminal showing pytest output with highlighted passing tests",
+      "sources": [
+        "docs/course/concepts/graduated-security-model.md"
+      ]
+    },
+    {
+      "id": "s5",
+      "duration_seconds": 15,
+      "narration": "To summarize: Graduated Security Model is one of the frontier harness mechanisms that makes agent sessions more reliable. Check the concept page for self-check questions.",
+      "visual": "Summary slide with key takeaways and links to concept page",
+      "sources": [
+        "docs/course/concepts/graduated-security-model.md"
+      ]
+    }
+  ]
+}

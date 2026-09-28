@@ -1,0 +1,91 @@
+{
+  "schema": "cogentrex.learning.deck",
+  "version": 1,
+  "artifact_id": "deck-context-compaction",
+  "pack_id": "harness-compaction",
+  "title": "Deck: Context Compaction",
+  "language": "en",
+  "source_commit": "f89a1e1c93348cb13ffa9f076494a7c127b84c32",
+  "limitations": [
+    "Generated from concept pages; not yet reviewed.",
+    "Content may drift from source; verify against current main."
+  ],
+  "sources": [
+    "docs/course/concepts/context-compaction.md"
+  ],
+  "slides": [
+    {
+      "id": "s1",
+      "title": "Context Anxiety",
+      "message": "Finite windows + long sessions = agents rush or crash",
+      "visual": "bar chart: context usage growing over turns until threshold",
+      "notes": "Claude Code calls this the 'context anxiety' problem",
+      "presenter_script": "Every conversation eats context. Without compaction, agents either crash or rush to finish before running out.",
+      "key_terms": [
+        "context window",
+        "token budget",
+        "context anxiety"
+      ],
+      "common_misconception": "Bigger context windows solve this permanently",
+      "transition": "How do we compact without losing information?",
+      "sources": [
+        "docs/course/concepts/context-compaction.md"
+      ]
+    },
+    {
+      "id": "s2",
+      "title": "Three-Layer Pipeline",
+      "message": "Lossless prune \u2192 Structured distill \u2192 Lossy summarize",
+      "visual": "mermaid: flowchart showing three layers with budget checks between each",
+      "notes": "Each layer checks budget before escalating to the next",
+      "presenter_script": "The key principle: lossless before lossy. Remove duplicates first, truncate second, summarize last.",
+      "key_terms": [
+        "lossless_prune",
+        "structured_distill",
+        "lossy_summarize"
+      ],
+      "common_misconception": "Just summarize everything with the LLM",
+      "transition": "What about runaway compaction?",
+      "sources": [
+        "backend/app/services/multi_layer_compact.py"
+      ]
+    },
+    {
+      "id": "s3",
+      "title": "Circuit Breaker",
+      "message": "Max 3 compaction cycles. If still over budget, stop and warn.",
+      "visual": "state diagram: compact \u2192 check \u2192 compact \u2192 check \u2192 TRIP",
+      "notes": "Prevents burning tokens on infinite summarization loops",
+      "presenter_script": "The circuit breaker prevents compaction from becoming more expensive than the conversation itself.",
+      "key_terms": [
+        "circuit_breaker_tripped",
+        "max_compaction_cycles",
+        "recovery_pointers"
+      ],
+      "common_misconception": "Compaction always succeeds in reducing to target",
+      "transition": "How do users control this?",
+      "sources": [
+        "backend/app/services/multi_layer_compact.py"
+      ]
+    },
+    {
+      "id": "s4",
+      "title": "Chat Commands",
+      "message": "/compact, /clear, /resume \u2014 user controls for context management",
+      "visual": "terminal showing command examples and their effects",
+      "notes": "/compact forces all three layers; /clear keeps only system messages",
+      "presenter_script": "Users aren't helpless. Four slash-commands give direct control over context, sessions, and orientation.",
+      "key_terms": [
+        "/compact",
+        "/clear",
+        "/resume",
+        "/init"
+      ],
+      "common_misconception": "Context management is fully automatic",
+      "transition": "Summary",
+      "sources": [
+        "backend/app/services/chat_commands.py"
+      ]
+    }
+  ]
+}

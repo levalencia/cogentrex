@@ -1,0 +1,60 @@
+{
+  "schema": "cogentrex.learning.audio-script",
+  "version": 1,
+  "artifact_id": "audio-hooks-and-extensions",
+  "pack_id": "harness-hooks",
+  "title": "Audio Lesson: Hooks and Extensions",
+  "language": "en",
+  "source_commit": "f89a1e1c93348cb13ffa9f076494a7c127b84c32",
+  "limitations": [
+    "Generated from concept pages; not yet reviewed.",
+    "Content may drift from source; verify against current main."
+  ],
+  "sources": [
+    "docs/course/concepts/hooks-and-extensions.md",
+    "backend/app/runtime/hooks.py"
+  ],
+  "format": "narration",
+  "segments": [
+    {
+      "speaker": "narrator",
+      "text": "In this lesson, we explore hooks and extensions \u2014 the mechanism that lets users attach custom logic to every agent lifecycle event. Think of it like middleware for your agent's event stream.",
+      "chapter": "Introduction",
+      "sources": [
+        "docs/course/concepts/hooks-and-extensions.md"
+      ]
+    },
+    {
+      "speaker": "narrator",
+      "text": "The HookRegistry wraps any EventSink. When the runtime emits an event \u2014 say, a tool call request \u2014 before-hooks fire first. They can continue, block, or modify the event data. After the inner sink processes it, after-hooks run for audit purposes.",
+      "chapter": "How hooks work",
+      "sources": [
+        "backend/app/runtime/hooks.py"
+      ]
+    },
+    {
+      "speaker": "narrator",
+      "text": "Five built-in hook patterns cover common needs: protected paths block access to sensitive files like dot-env. Protected commands block dangerous shell operations like rm-rf. Stop verification prevents the agent from claiming victory without evidence. Output sanitization redacts API keys from tool output. And external signal injection lets CI pipelines or webhooks push data into agent context.",
+      "chapter": "Built-in patterns",
+      "sources": [
+        "backend/app/runtime/builtin_hooks.py"
+      ]
+    },
+    {
+      "speaker": "narrator",
+      "text": "The trust boundary is all-or-nothing. In untrusted workspaces, every hook is disabled \u2014 registration raises an error, and events pass straight through. This prevents malicious workspace code from intercepting agent operations.",
+      "chapter": "Trust boundary",
+      "sources": [
+        "docs/course/concepts/hooks-and-extensions.md"
+      ]
+    },
+    {
+      "speaker": "narrator",
+      "text": "Error isolation is critical. A hook that raises an exception or times out never crashes the pipeline. The exception is caught, logged, and the event continues normally. This makes hooks safe to experiment with.",
+      "chapter": "Error isolation",
+      "sources": [
+        "backend/app/runtime/hooks.py"
+      ]
+    }
+  ]
+}

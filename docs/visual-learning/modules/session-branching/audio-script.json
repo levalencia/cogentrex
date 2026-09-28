@@ -1,0 +1,52 @@
+{
+  "schema": "cogentrex.learning.audio-script",
+  "version": 1,
+  "artifact_id": "audio-session-branching",
+  "pack_id": "harness-branching",
+  "title": "Audio Lesson: Session Branching",
+  "language": "en",
+  "source_commit": "f89a1e1c93348cb13ffa9f076494a7c127b84c32",
+  "limitations": [
+    "Generated from concept pages; not yet reviewed.",
+    "Content may drift from source; verify against current main."
+  ],
+  "sources": [
+    "docs/course/concepts/session-branching.md",
+    "backend/app/services/session_tree.py"
+  ],
+  "format": "narration",
+  "segments": [
+    {
+      "speaker": "narrator",
+      "text": "Imagine you're 20 messages into a conversation and the agent takes a wrong turn. Without branching, you'd lose everything and start over. Session branching lets you fork from any message and explore an alternative path.",
+      "chapter": "The problem",
+      "sources": [
+        "docs/course/concepts/session-branching.md"
+      ]
+    },
+    {
+      "speaker": "narrator",
+      "text": "The SessionTree stores conversations as a tree of nodes. The root is your original conversation. When you branch, a new node is created that deep-copies messages up to the fork point. The original stays intact.",
+      "chapter": "How it works",
+      "sources": [
+        "backend/app/services/session_tree.py"
+      ]
+    },
+    {
+      "speaker": "narrator",
+      "text": "Deep copying is essential. If branches shared references, modifying one would corrupt the other. Each branch is fully isolated \u2014 you can experiment freely without risk.",
+      "chapter": "Isolation",
+      "sources": [
+        "backend/app/services/session_tree.py"
+      ]
+    },
+    {
+      "speaker": "narrator",
+      "text": "The slash-resume command creates a branch at the end of a previous session, effectively continuing where it left off. This is how you pick up work across agent restarts.",
+      "chapter": "Resume",
+      "sources": [
+        "backend/app/services/chat_commands.py"
+      ]
+    }
+  ]
+}

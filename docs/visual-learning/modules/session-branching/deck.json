@@ -1,0 +1,87 @@
+{
+  "schema": "cogentrex.learning.deck",
+  "version": 1,
+  "artifact_id": "deck-session-branching",
+  "pack_id": "harness-branching",
+  "title": "Deck: Session Branching",
+  "language": "en",
+  "source_commit": "f89a1e1c93348cb13ffa9f076494a7c127b84c32",
+  "limitations": [
+    "Generated from concept pages; not yet reviewed.",
+    "Content may drift from source; verify against current main."
+  ],
+  "sources": [
+    "docs/course/concepts/session-branching.md"
+  ],
+  "slides": [
+    {
+      "id": "s1",
+      "title": "What is Session Branching?",
+      "message": "Overview of session branching and why it matters for agent harnesses",
+      "visual": "architecture diagram of session branching",
+      "notes": "Core concept from the frontier harness analysis",
+      "presenter_script": "Let's explore session branching \u2014 what it is, why frontier products implement it, and how Cogentrex does it.",
+      "key_terms": [
+        "session-branching"
+      ],
+      "common_misconception": "Session Branching is optional for production agents",
+      "transition": "How does it work?",
+      "sources": [
+        "docs/course/concepts/session-branching.md"
+      ]
+    },
+    {
+      "id": "s2",
+      "title": "How It Works",
+      "message": "The implementation details of session branching in Cogentrex",
+      "visual": "mermaid: sequence diagram of session branching flow",
+      "notes": "See the code walkthrough for exact symbols",
+      "presenter_script": "Here's how Cogentrex implements session branching \u2014 the data structures, algorithms, and safety properties.",
+      "key_terms": [
+        "implementation",
+        "safety"
+      ],
+      "common_misconception": "A simple version is sufficient for production",
+      "transition": "Frontier comparison",
+      "sources": [
+        "docs/course/concepts/session-branching.md"
+      ]
+    },
+    {
+      "id": "s3",
+      "title": "Frontier Comparison",
+      "message": "How Session Branching compares across Claude Code, Codex, Pi, DeepSeek",
+      "visual": "comparison table: product \u00d7 mechanism",
+      "notes": "Each product takes a different approach",
+      "presenter_script": "Let's see how Claude Code, Codex, Pi, and DeepSeek each handle session branching.",
+      "key_terms": [
+        "Claude Code",
+        "Codex",
+        "Pi",
+        "DeepSeek"
+      ],
+      "common_misconception": "All products implement this the same way",
+      "transition": "Key takeaway",
+      "sources": [
+        "docs/course/concepts/session-branching.md"
+      ]
+    },
+    {
+      "id": "s4",
+      "title": "Key Takeaway",
+      "message": "When to use session branching and its current limitations",
+      "visual": "decision tree: when to apply this pattern",
+      "notes": "Check the concept page for self-check questions",
+      "presenter_script": "The key insight: session branching is essential when your agent harness grows beyond a single session or a single agent.",
+      "key_terms": [
+        "limitations",
+        "when to use"
+      ],
+      "common_misconception": "This pattern is only for large-scale systems",
+      "transition": "End",
+      "sources": [
+        "docs/course/concepts/session-branching.md"
+      ]
+    }
+  ]
+}

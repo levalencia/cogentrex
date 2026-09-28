@@ -1,0 +1,52 @@
+{
+  "schema": "cogentrex.learning.audio-script",
+  "version": 1,
+  "artifact_id": "audio-graduated-security",
+  "pack_id": "harness-security",
+  "title": "Audio Lesson: Graduated Security Model",
+  "language": "en",
+  "source_commit": "f89a1e1c93348cb13ffa9f076494a7c127b84c32",
+  "limitations": [
+    "Generated from concept pages; not yet reviewed.",
+    "Content may drift from source; verify against current main."
+  ],
+  "sources": [
+    "docs/course/concepts/graduated-security-model.md",
+    "backend/app/security/graduated_permissions.py"
+  ],
+  "format": "narration",
+  "segments": [
+    {
+      "speaker": "narrator",
+      "text": "Binary allow-or-deny security forces a bad choice: either the agent can do everything, which is dangerous, or nothing, which is useless. Graduated security gives you seven modes ranging from allow-all to deny-all, with nuanced options in between.",
+      "chapter": "The problem",
+      "sources": [
+        "docs/course/concepts/graduated-security-model.md"
+      ]
+    },
+    {
+      "speaker": "narrator",
+      "text": "The seven modes are: allow-all for development, auto-approve-safe for normal work, ask-unknown as the default, ask-all for sensitive tasks, auto-deny-unsafe for high-security, deny-all for lockdown, and plan-only where the agent plans but needs approval to execute.",
+      "chapter": "Seven modes",
+      "sources": [
+        "backend/app/security/graduated_permissions.py"
+      ]
+    },
+    {
+      "speaker": "narrator",
+      "text": "Bypass-immune protections are always enforced, even in allow-all mode. The dot-env file, SSH keys, slash-etc-passwd \u2014 these are never accessible regardless of the permission setting. Similarly, dangerous commands like rm-rf and drop-table always require confirmation.",
+      "chapter": "Bypass-immune",
+      "sources": [
+        "backend/app/security/graduated_permissions.py"
+      ]
+    },
+    {
+      "speaker": "narrator",
+      "text": "The evaluator is stateful. It tracks denial history. When too many operations get denied within five minutes, the mode automatically downgrades \u2014 auto-approve becomes ask-unknown, then ask-all. The system gets more restrictive when it detects repeated risky behavior.",
+      "chapter": "Mode transformation",
+      "sources": [
+        "docs/course/concepts/graduated-security-model.md"
+      ]
+    }
+  ]
+}
