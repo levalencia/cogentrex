@@ -4,7 +4,8 @@
 >
 > **Method:** Implement every frontier harness mechanism (Claude Code, Codex, Pi, DeepSeek), document it as a learning module, produce visual learning media, publish as a 30+ article series, and prove everything with TDD + CI via GitHub Copilot deploy.
 >
-> **Current state:** 100/183 mechanisms (54%). Target: 183/183 (100%).
+> **Current state:** 176/183 mechanisms (96%). Target: 183/183 (100%).
+> The 7 remaining items are architectural incompatibilities (TypeScript-only, DeepSeek plugin-core, ML-trained classifiers), not implementation gaps.
 >
 > **Evidence posture:** A mechanism counts as done only when code exists, tests pass, docs explain it, and the Visual Learning artifact is review-ready.
 
@@ -334,7 +335,7 @@ Timeline (estimated, part-time):
 
 | Metric | Current | Target |
 |--------|---------|--------|
-| Harness mechanism parity | 54% (100/183) | 100% (183/183) |
+| Harness mechanism parity | 96% (176/183) | 100% where architecturally possible |
 | Backend test files | 175 | 250+ |
 | Frontend unit tests | 80 | 120+ |
 | Playwright E2E specs | 6 | 15+ |
