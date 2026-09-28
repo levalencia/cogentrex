@@ -1,0 +1,94 @@
+{
+  "schema": "cogentrex.learning.quiz",
+  "version": 1,
+  "artifact_id": "quiz-worktree-isolation",
+  "pack_id": "harness-worktree",
+  "title": "Quiz: Worktree Isolation",
+  "language": "en",
+  "source_commit": "f89a1e1c93348cb13ffa9f076494a7c127b84c32",
+  "limitations": [
+    "Generated from concept pages; not yet reviewed by Luis.",
+    "Content may drift from source; verify against current main."
+  ],
+  "sources": [
+    "docs/course/concepts/worktree-isolation.md",
+    "backend/app/services/environment.py"
+  ],
+  "questions": [
+    {
+      "id": "q1",
+      "scenario": "What does create_worktree() create for each task?",
+      "options": [
+        "A Docker container",
+        "A git branch and isolated working directory",
+        "A database schema",
+        "A virtual environment"
+      ],
+      "correct_index": 1,
+      "explanation": "Each task gets a git worktree with its own branch (task/{task_id}) and working directory.",
+      "sources": [
+        "backend/app/services/environment.py"
+      ]
+    },
+    {
+      "id": "q2",
+      "scenario": "What does compute_delta() return when nothing changed?",
+      "options": [
+        "The full snapshot",
+        "An error",
+        "A delta with has_changes=False",
+        "None"
+      ],
+      "correct_index": 2,
+      "explanation": "When no fields differ between snapshots, the delta has empty changed_fields and has_changes=False.",
+      "sources": [
+        "backend/app/services/environment.py"
+      ]
+    },
+    {
+      "id": "q3",
+      "scenario": "Why send environment deltas instead of full snapshots?",
+      "options": [
+        "Deltas are more accurate",
+        "Deltas save context tokens and prevent information overload",
+        "Full snapshots are not supported",
+        "Deltas are required by the API"
+      ],
+      "correct_index": 1,
+      "explanation": "Deltas send only changed fields, saving context token budget.",
+      "sources": [
+        "docs/course/concepts/worktree-isolation.md"
+      ]
+    },
+    {
+      "id": "q4",
+      "scenario": "What does generate_system_md() auto-detect?",
+      "options": [
+        "Only Python version",
+        "cwd, git state, Python, Node, OS, architecture",
+        "Only git branch",
+        "Nothing \u2014 it reads a config file"
+      ],
+      "correct_index": 1,
+      "explanation": "SYSTEM.md captures the full runtime environment for agent orientation.",
+      "sources": [
+        "backend/app/services/environment.py"
+      ]
+    },
+    {
+      "id": "q5",
+      "scenario": "What happens if create_worktree() is called on a non-git directory?",
+      "options": [
+        "It creates a regular directory",
+        "ValueError is raised",
+        "It initializes git automatically",
+        "Nothing happens"
+      ],
+      "correct_index": 1,
+      "explanation": "The function validates that .git exists before attempting to create a worktree.",
+      "sources": [
+        "backend/app/services/environment.py"
+      ]
+    }
+  ]
+}

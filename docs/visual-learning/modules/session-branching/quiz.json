@@ -1,0 +1,94 @@
+{
+  "schema": "cogentrex.learning.quiz",
+  "version": 1,
+  "artifact_id": "quiz-session-branching",
+  "pack_id": "harness-branching",
+  "title": "Quiz: Session Branching",
+  "language": "en",
+  "source_commit": "f89a1e1c93348cb13ffa9f076494a7c127b84c32",
+  "limitations": [
+    "Generated from concept pages; not yet reviewed by Luis.",
+    "Content may drift from source; verify against current main."
+  ],
+  "sources": [
+    "docs/course/concepts/session-branching.md",
+    "backend/app/services/session_tree.py"
+  ],
+  "questions": [
+    {
+      "id": "q1",
+      "scenario": "What happens when you branch at message_index=5?",
+      "options": [
+        "Messages 5+ are deleted",
+        "A new node copies messages 0-4",
+        "The original conversation is modified",
+        "All messages are copied"
+      ],
+      "correct_index": 1,
+      "explanation": "branch() deep-copies messages up to the specified index into a new node.",
+      "sources": [
+        "backend/app/services/session_tree.py"
+      ]
+    },
+    {
+      "id": "q2",
+      "scenario": "Why does SessionTree deep-copy messages when branching?",
+      "options": [
+        "To save memory",
+        "To prevent modifications in one branch from affecting others",
+        "Because Python requires it",
+        "For performance"
+      ],
+      "correct_index": 1,
+      "explanation": "Deep copy ensures branch isolation \u2014 changes in one branch never affect the parent or siblings.",
+      "sources": [
+        "docs/course/concepts/session-branching.md"
+      ]
+    },
+    {
+      "id": "q3",
+      "scenario": "What does /resume do?",
+      "options": [
+        "Restarts the server",
+        "Creates a branch at the end of a node, continuing where it left off",
+        "Clears the conversation",
+        "Compacts the context"
+      ],
+      "correct_index": 1,
+      "explanation": "/resume branches from the current end of a node, effectively continuing a previous session.",
+      "sources": [
+        "backend/app/services/chat_commands.py"
+      ]
+    },
+    {
+      "id": "q4",
+      "scenario": "What does get_ancestry() return?",
+      "options": [
+        "Only the root node",
+        "The full path from root to the given node",
+        "All leaf nodes",
+        "The deepest branch"
+      ],
+      "correct_index": 1,
+      "explanation": "get_ancestry() traces parent_id links from the node back to the root.",
+      "sources": [
+        "backend/app/services/session_tree.py"
+      ]
+    },
+    {
+      "id": "q5",
+      "scenario": "What format does export_node() produce?",
+      "options": [
+        "HTML",
+        "CSV",
+        "JSON with messages, metadata, and ancestry",
+        "Plain text"
+      ],
+      "correct_index": 2,
+      "explanation": "export_node() returns a serializable dict with full conversation and metadata.",
+      "sources": [
+        "backend/app/services/session_tree.py"
+      ]
+    }
+  ]
+}

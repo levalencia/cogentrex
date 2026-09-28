@@ -1,0 +1,94 @@
+{
+  "schema": "cogentrex.learning.quiz",
+  "version": 1,
+  "artifact_id": "quiz-context-compaction",
+  "pack_id": "harness-compaction",
+  "title": "Quiz: Context Compaction",
+  "language": "en",
+  "source_commit": "f89a1e1c93348cb13ffa9f076494a7c127b84c32",
+  "limitations": [
+    "Generated from concept pages; not yet reviewed by Luis.",
+    "Content may drift from source; verify against current main."
+  ],
+  "sources": [
+    "docs/course/concepts/context-compaction.md",
+    "backend/app/services/multi_layer_compact.py"
+  ],
+  "questions": [
+    {
+      "id": "q1",
+      "scenario": "What is the first layer of multi-layer compaction?",
+      "options": [
+        "LLM summarization",
+        "Structured distillation",
+        "Lossless pruning",
+        "Message filtering"
+      ],
+      "correct_index": 2,
+      "explanation": "Lossless pruning runs first \u2014 remove duplicates and empty messages without any information loss.",
+      "sources": [
+        "backend/app/services/multi_layer_compact.py"
+      ]
+    },
+    {
+      "id": "q2",
+      "scenario": "The compaction circuit breaker trips. What does this mean?",
+      "options": [
+        "The system crashes",
+        "Compaction has cycled max_compaction_cycles times without reaching threshold",
+        "The LLM provider is down",
+        "Context is cleared"
+      ],
+      "correct_index": 1,
+      "explanation": "The circuit breaker prevents excessive compaction cycles.",
+      "sources": [
+        "docs/course/concepts/context-compaction.md"
+      ]
+    },
+    {
+      "id": "q3",
+      "scenario": "What does the /compact command do?",
+      "options": [
+        "Clears all messages",
+        "Forces multi-layer compaction regardless of threshold",
+        "Resumes a session",
+        "Initializes the environment"
+      ],
+      "correct_index": 1,
+      "explanation": "/compact forces compaction by setting threshold to 0.",
+      "sources": [
+        "backend/app/services/chat_commands.py"
+      ]
+    },
+    {
+      "id": "q4",
+      "scenario": "What are recovery pointers used for?",
+      "options": [
+        "Pointing to the next message",
+        "Allowing retrieval of original content after truncation or summarization",
+        "Linking to external databases",
+        "Tracking user sessions"
+      ],
+      "correct_index": 1,
+      "explanation": "Recovery pointers are content hashes that allow retrieving the full original content.",
+      "sources": [
+        "backend/app/services/multi_layer_compact.py"
+      ]
+    },
+    {
+      "id": "q5",
+      "scenario": "What does MemoizedContextBuilder cache?",
+      "options": [
+        "LLM responses",
+        "Tool results",
+        "Expensive context assembly by content hash",
+        "User preferences"
+      ],
+      "correct_index": 2,
+      "explanation": "It caches the result of context building, invalidating when input messages change.",
+      "sources": [
+        "backend/app/services/context_filters.py"
+      ]
+    }
+  ]
+}
