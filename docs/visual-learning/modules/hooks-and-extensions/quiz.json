@@ -1,0 +1,94 @@
+{
+  "schema": "cogentrex.learning.quiz",
+  "version": 1,
+  "artifact_id": "quiz-hooks-and-extensions",
+  "pack_id": "harness-hooks",
+  "title": "Quiz: Hooks and Extensions",
+  "language": "en",
+  "source_commit": "f89a1e1c93348cb13ffa9f076494a7c127b84c32",
+  "limitations": [
+    "Generated from concept pages; not yet reviewed by Luis.",
+    "Content may drift from source; verify against current main."
+  ],
+  "sources": [
+    "docs/course/concepts/hooks-and-extensions.md",
+    "backend/app/runtime/hooks.py"
+  ],
+  "questions": [
+    {
+      "id": "q1",
+      "scenario": "A before-hook returns HookAction.BLOCK on a TOOL_CALL_REQUESTED event. What happens?",
+      "options": [
+        "The tool executes normally",
+        "The event is not forwarded to the inner EventSink",
+        "The after-hooks are skipped",
+        "The runtime crashes"
+      ],
+      "correct_index": 1,
+      "explanation": "BLOCK prevents the event from reaching the inner sink, but after-hooks still run.",
+      "sources": [
+        "docs/course/concepts/hooks-and-extensions.md"
+      ]
+    },
+    {
+      "id": "q2",
+      "scenario": "A hook handler raises an exception. What happens to the event pipeline?",
+      "options": [
+        "The pipeline crashes",
+        "The event is blocked",
+        "The exception is caught and logged; the event is forwarded",
+        "All hooks are disabled"
+      ],
+      "correct_index": 2,
+      "explanation": "Error isolation ensures broken hooks never crash the pipeline.",
+      "sources": [
+        "backend/app/runtime/hooks.py"
+      ]
+    },
+    {
+      "id": "q3",
+      "scenario": "You set trusted=False on HookRegistry. What happens when you try to register a hook?",
+      "options": [
+        "The hook is registered normally",
+        "ValueError is raised",
+        "The hook is registered but never fires",
+        "The registry is destroyed"
+      ],
+      "correct_index": 1,
+      "explanation": "Untrusted workspaces disable all hook registration (all-or-nothing trust).",
+      "sources": [
+        "docs/course/concepts/hooks-and-extensions.md"
+      ]
+    },
+    {
+      "id": "q4",
+      "scenario": "Which built-in hook blocks tool calls targeting .env files?",
+      "options": [
+        "stop_verification_hook",
+        "protected_paths_hook",
+        "tool_output_sanitizer_hook",
+        "external_signal_hook"
+      ],
+      "correct_index": 1,
+      "explanation": "protected_paths_hook checks path arguments against a pattern list.",
+      "sources": [
+        "backend/app/runtime/builtin_hooks.py"
+      ]
+    },
+    {
+      "id": "q5",
+      "scenario": "What protocol does HookRegistry implement?",
+      "options": [
+        "ToolRegistry",
+        "EventSink",
+        "ModelProvider",
+        "PolicyEngine"
+      ],
+      "correct_index": 1,
+      "explanation": "HookRegistry wraps any EventSink, making it composable with the existing event infrastructure.",
+      "sources": [
+        "backend/app/runtime/hooks.py"
+      ]
+    }
+  ]
+}

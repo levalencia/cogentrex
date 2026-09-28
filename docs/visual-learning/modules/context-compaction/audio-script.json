@@ -1,0 +1,60 @@
+{
+  "schema": "cogentrex.learning.audio-script",
+  "version": 1,
+  "artifact_id": "audio-context-compaction",
+  "pack_id": "harness-compaction",
+  "title": "Audio Lesson: Context Compaction",
+  "language": "en",
+  "source_commit": "f89a1e1c93348cb13ffa9f076494a7c127b84c32",
+  "limitations": [
+    "Generated from concept pages; not yet reviewed.",
+    "Content may drift from source; verify against current main."
+  ],
+  "sources": [
+    "docs/course/concepts/context-compaction.md",
+    "backend/app/services/multi_layer_compact.py"
+  ],
+  "format": "narration",
+  "segments": [
+    {
+      "speaker": "narrator",
+      "text": "Context windows are finite. When a long agent session accumulates thousands of tokens, something has to give. Context compaction is the answer \u2014 a multi-layer pipeline that reduces context size without losing critical information.",
+      "chapter": "The problem",
+      "sources": [
+        "docs/course/concepts/context-compaction.md"
+      ]
+    },
+    {
+      "speaker": "narrator",
+      "text": "Layer one is lossless pruning. It removes duplicates and empty messages with zero information loss. If the same tool returned the same result twice, the second copy is replaced with a pointer to the first. No LLM call needed.",
+      "chapter": "Layer 1: Lossless",
+      "sources": [
+        "backend/app/services/multi_layer_compact.py"
+      ]
+    },
+    {
+      "speaker": "narrator",
+      "text": "Layer two is structured distillation. It truncates very long messages, keeping the first and last portions with an ellipsis in the middle. A recovery pointer lets you retrieve the full original later.",
+      "chapter": "Layer 2: Structured",
+      "sources": [
+        "backend/app/services/multi_layer_compact.py"
+      ]
+    },
+    {
+      "speaker": "narrator",
+      "text": "Layer three is lossy LLM summarization. Older messages are summarized while recent ones are kept intact. A circuit breaker limits how many times this runs \u2014 if context is still too large after three cycles, the breaker trips rather than burning tokens endlessly.",
+      "chapter": "Layer 3: Lossy",
+      "sources": [
+        "backend/app/services/multi_layer_compact.py"
+      ]
+    },
+    {
+      "speaker": "narrator",
+      "text": "Users control this with chat commands. Slash-compact forces compaction. Slash-clear removes everything except system messages. Slash-resume creates a branch from a previous session point and continues from there.",
+      "chapter": "Commands",
+      "sources": [
+        "backend/app/services/chat_commands.py"
+      ]
+    }
+  ]
+}

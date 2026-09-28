@@ -1,0 +1,40 @@
+{
+  "schema": "cogentrex.learning.diagram",
+  "version": 1,
+  "artifact_id": "diagram-hooks-and-extensions",
+  "pack_id": "harness-hooks",
+  "title": "Architecture Diagram: Hooks and Extensions",
+  "language": "en",
+  "source_commit": "f89a1e1c93348cb13ffa9f076494a7c127b84c32",
+  "limitations": [
+    "Generated from concept pages; not yet reviewed.",
+    "Verify against current main."
+  ],
+  "sources": [
+    "docs/course/concepts/hooks-and-extensions.md"
+  ],
+  "elements": [
+    {
+      "id": "e1",
+      "label": "Hooks and Extensions \u2014 System View",
+      "kind": "architecture",
+      "summary": "How hooks and extensions fits into the Cogentrex architecture",
+      "details": "See the Mermaid diagram in the concept page for the detailed view.",
+      "teaching": "This diagram shows where hooks and extensions sits relative to the agent runtime, event system, and tool registry.",
+      "sources": [
+        "docs/course/concepts/hooks-and-extensions.md"
+      ]
+    },
+    {
+      "id": "e2",
+      "label": "Hooks and Extensions \u2014 Data Flow",
+      "kind": "sequence",
+      "summary": "Request flow through hooks and extensions",
+      "details": "Trace one operation from trigger to completion.",
+      "teaching": "Follow the numbered steps to understand the execution order and decision points.",
+      "sources": [
+        "docs/course/concepts/hooks-and-extensions.md"
+      ]
+    }
+  ]
+}

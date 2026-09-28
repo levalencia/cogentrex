@@ -1,0 +1,57 @@
+{
+  "schema": "cogentrex.learning.mind-map",
+  "version": 1,
+  "artifact_id": "mindmap-graduated-security",
+  "pack_id": "harness-security",
+  "title": "Mind Map: Graduated Security Model",
+  "language": "en",
+  "source_commit": "f89a1e1c93348cb13ffa9f076494a7c127b84c32",
+  "limitations": [
+    "Generated from concept pages; not yet reviewed.",
+    "Verify against current main."
+  ],
+  "sources": [
+    "docs/course/concepts/graduated-security-model.md"
+  ],
+  "root": {
+    "id": "root",
+    "label": "Graduated Security Model",
+    "summary": "Overview of graduated security model",
+    "details": "Frontier harness mechanism implemented in Cogentrex",
+    "sources": [
+      "docs/course/concepts/graduated-security-model.md"
+    ],
+    "children": [
+      {
+        "id": "what",
+        "label": "What",
+        "summary": "What graduated security model is",
+        "details": "Core concept and purpose",
+        "sources": [
+          "docs/course/concepts/graduated-security-model.md"
+        ],
+        "children": []
+      },
+      {
+        "id": "how",
+        "label": "How",
+        "summary": "Implementation approach",
+        "details": "Data structures and algorithms",
+        "sources": [
+          "docs/course/concepts/graduated-security-model.md"
+        ],
+        "children": []
+      },
+      {
+        "id": "frontier",
+        "label": "Frontier",
+        "summary": "Comparison with Claude Code, Codex, Pi, DeepSeek",
+        "details": "How each product implements this pattern",
+        "sources": [
+          "docs/course/concepts/graduated-security-model.md"
+        ],
+        "children": []
+      }
+    ]
+  }
+}

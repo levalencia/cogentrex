@@ -43,6 +43,19 @@ After stages 1–4, explain one request using only boxes and arrows. After stage
 - Record revision, command, environment, result, and limitation.
 - Do not call local Compose “production,” JSON embeddings “pgvector,” or one verifier child a “swarm.”
 
+## Harness engineering extensions
+
+These concepts extend the core modules with frontier harness mechanisms from Claude Code, Codex, Pi, and DeepSeek:
+
+| Concept | After module | What you learn |
+|---------|-------------|---------------|
+| [Hooks and extensions](../concepts/hooks-and-extensions.md) | 04 — Tools | Register custom logic on agent lifecycle events |
+| [Graduated security model](../concepts/graduated-security-model.md) | 05 — Policy | Seven permission modes, denial tracking, mode transformation |
+| [Context compaction](../concepts/context-compaction.md) | 06 — Memory | Multi-layer compaction pipeline, circuit breaker, /compact command |
+| [Session branching](../concepts/session-branching.md) | 06 — Memory | Session tree, fork from any point, /resume |
+| [Delegation patterns](../concepts/delegation-patterns.md) | 11 — Delegation | Coordinator, Fork, Swarm patterns with tool filtering |
+| [Worktree isolation](../concepts/worktree-isolation.md) | 14 — Operations | Git worktree per task, environment deltas, SYSTEM.md |
+
 ## Next routes
 
 - Present the system: [Interview preparation](interview-preparation.md).

@@ -271,6 +271,7 @@ The local stack and DR drill have revision-scoped observations. Their recovery v
 ## Further reading
 
 - Canonical concepts: [liveness-readiness](../../concepts/liveness-readiness.md), [docker-compose](../../concepts/docker-compose.md), [migrations](../../concepts/migrations.md), [ci](../../concepts/ci.md), [backup-restore](../../concepts/backup-restore.md), [rto-rpo](../../concepts/rto-rpo.md)
+- Harness patterns: [worktree isolation](../../concepts/worktree-isolation.md), [four-stage bootstrap](../../concepts/graduated-security-model.md#trust-gated-bootstrap)
 - [Implementation evidence](../../../IMPLEMENTATION-EVIDENCE.md)
 - [Architecture diagrams](../../../ARCHITECTURE-DIAGRAMS.md)
 - [Next step](../15-capstone/README.md)

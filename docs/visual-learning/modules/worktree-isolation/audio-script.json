@@ -1,0 +1,52 @@
+{
+  "schema": "cogentrex.learning.audio-script",
+  "version": 1,
+  "artifact_id": "audio-worktree-isolation",
+  "pack_id": "harness-worktree",
+  "title": "Audio Lesson: Worktree Isolation",
+  "language": "en",
+  "source_commit": "f89a1e1c93348cb13ffa9f076494a7c127b84c32",
+  "limitations": [
+    "Generated from concept pages; not yet reviewed.",
+    "Content may drift from source; verify against current main."
+  ],
+  "sources": [
+    "docs/course/concepts/worktree-isolation.md",
+    "backend/app/services/environment.py"
+  ],
+  "format": "narration",
+  "segments": [
+    {
+      "speaker": "narrator",
+      "text": "When multiple agents work on the same repository, they fight over files. Agent A edits main-dot-py while Agent B reads it. The result: corruption, merge conflicts, or silent data loss. Worktree isolation gives each agent its own working directory.",
+      "chapter": "The problem",
+      "sources": [
+        "docs/course/concepts/worktree-isolation.md"
+      ]
+    },
+    {
+      "speaker": "narrator",
+      "text": "Git worktrees share the same object store but have independent working directories and index files. Creating a worktree is cheap \u2014 no full clone needed. Each task gets a branch named task-slash-task-id for clean isolation.",
+      "chapter": "How worktrees work",
+      "sources": [
+        "backend/app/services/environment.py"
+      ]
+    },
+    {
+      "speaker": "narrator",
+      "text": "Instead of sending the full environment to the model every turn, Cogentrex computes deltas. Only changed fields \u2014 the branch name changed, a new environment variable appeared \u2014 are sent. This saves precious context tokens.",
+      "chapter": "Environment deltas",
+      "sources": [
+        "backend/app/services/environment.py"
+      ]
+    },
+    {
+      "speaker": "narrator",
+      "text": "SYSTEM-dot-MD is auto-generated to describe the runtime: Python version, Node version, operating system, git state. Any agent entering the repository can read this file and immediately understand the execution environment.",
+      "chapter": "SYSTEM.md",
+      "sources": [
+        "backend/app/services/environment.py"
+      ]
+    }
+  ]
+}

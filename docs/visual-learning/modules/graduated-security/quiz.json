@@ -1,0 +1,94 @@
+{
+  "schema": "cogentrex.learning.quiz",
+  "version": 1,
+  "artifact_id": "quiz-graduated-security",
+  "pack_id": "harness-security",
+  "title": "Quiz: Graduated Security Model",
+  "language": "en",
+  "source_commit": "f89a1e1c93348cb13ffa9f076494a7c127b84c32",
+  "limitations": [
+    "Generated from concept pages; not yet reviewed by Luis.",
+    "Content may drift from source; verify against current main."
+  ],
+  "sources": [
+    "docs/course/concepts/graduated-security-model.md",
+    "backend/app/security/graduated_permissions.py"
+  ],
+  "questions": [
+    {
+      "id": "q1",
+      "scenario": "In ALLOW_ALL mode, a tool tries to read .env. What happens?",
+      "options": [
+        "It is allowed",
+        "It is blocked (protected path)",
+        "It requires approval",
+        "The mode changes"
+      ],
+      "correct_index": 1,
+      "explanation": "Bypass-immune paths are ALWAYS blocked regardless of permission mode.",
+      "sources": [
+        "backend/app/security/graduated_permissions.py"
+      ]
+    },
+    {
+      "id": "q2",
+      "scenario": "What triggers automatic mode transformation?",
+      "options": [
+        "A timer expires",
+        "Too many denials within a time window",
+        "The user requests it",
+        "A tool call succeeds"
+      ],
+      "correct_index": 1,
+      "explanation": "When denial_threshold denials occur within downgrade_window_seconds, the mode auto-downgrades.",
+      "sources": [
+        "docs/course/concepts/graduated-security-model.md"
+      ]
+    },
+    {
+      "id": "q3",
+      "scenario": "In PLAN_ONLY mode, what happens to a tool call?",
+      "options": [
+        "It executes normally",
+        "It is auto-denied",
+        "It requires approval before execution",
+        "It is logged but skipped"
+      ],
+      "correct_index": 2,
+      "explanation": "PLAN_ONLY mode generates plans but requires explicit approval for any execution.",
+      "sources": [
+        "backend/app/security/graduated_permissions.py"
+      ]
+    },
+    {
+      "id": "q4",
+      "scenario": "What is the difference between ASK_ALL and AUTO_DENY_UNSAFE for a HIGH-risk tool?",
+      "options": [
+        "Same behavior",
+        "ASK_ALL offers approval; AUTO_DENY_UNSAFE auto-denies without offering approval",
+        "ASK_ALL denies; AUTO_DENY_UNSAFE allows",
+        "No difference for high risk"
+      ],
+      "correct_index": 1,
+      "explanation": "ASK_ALL always offers human approval. AUTO_DENY_UNSAFE auto-denies high-risk without asking.",
+      "sources": [
+        "docs/course/concepts/graduated-security-model.md"
+      ]
+    },
+    {
+      "id": "q5",
+      "scenario": "How many permission modes does Cogentrex implement?",
+      "options": [
+        "3",
+        "5",
+        "7",
+        "10"
+      ],
+      "correct_index": 2,
+      "explanation": "Seven modes: ALLOW_ALL, AUTO_APPROVE_SAFE, ASK_UNKNOWN, ASK_ALL, AUTO_DENY_UNSAFE, DENY_ALL, PLAN_ONLY.",
+      "sources": [
+        "backend/app/security/graduated_permissions.py"
+      ]
+    }
+  ]
+}

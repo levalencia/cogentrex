@@ -1,0 +1,57 @@
+{
+  "schema": "cogentrex.learning.mind-map",
+  "version": 1,
+  "artifact_id": "mindmap-worktree-isolation",
+  "pack_id": "harness-worktree",
+  "title": "Mind Map: Worktree Isolation",
+  "language": "en",
+  "source_commit": "f89a1e1c93348cb13ffa9f076494a7c127b84c32",
+  "limitations": [
+    "Generated from concept pages; not yet reviewed.",
+    "Verify against current main."
+  ],
+  "sources": [
+    "docs/course/concepts/worktree-isolation.md"
+  ],
+  "root": {
+    "id": "root",
+    "label": "Worktree Isolation",
+    "summary": "Overview of worktree isolation",
+    "details": "Frontier harness mechanism implemented in Cogentrex",
+    "sources": [
+      "docs/course/concepts/worktree-isolation.md"
+    ],
+    "children": [
+      {
+        "id": "what",
+        "label": "What",
+        "summary": "What worktree isolation is",
+        "details": "Core concept and purpose",
+        "sources": [
+          "docs/course/concepts/worktree-isolation.md"
+        ],
+        "children": []
+      },
+      {
+        "id": "how",
+        "label": "How",
+        "summary": "Implementation approach",
+        "details": "Data structures and algorithms",
+        "sources": [
+          "docs/course/concepts/worktree-isolation.md"
+        ],
+        "children": []
+      },
+      {
+        "id": "frontier",
+        "label": "Frontier",
+        "summary": "Comparison with Claude Code, Codex, Pi, DeepSeek",
+        "details": "How each product implements this pattern",
+        "sources": [
+          "docs/course/concepts/worktree-isolation.md"
+        ],
+        "children": []
+      }
+    ]
+  }
+}

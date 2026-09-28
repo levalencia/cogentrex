@@ -1,0 +1,60 @@
+{
+  "schema": "cogentrex.learning.audio-script",
+  "version": 1,
+  "artifact_id": "audio-delegation-patterns",
+  "pack_id": "harness-delegation",
+  "title": "Audio Lesson: Delegation Patterns",
+  "language": "en",
+  "source_commit": "f89a1e1c93348cb13ffa9f076494a7c127b84c32",
+  "limitations": [
+    "Generated from concept pages; not yet reviewed.",
+    "Content may drift from source; verify against current main."
+  ],
+  "sources": [
+    "docs/course/concepts/delegation-patterns.md",
+    "backend/app/delegation/patterns.py"
+  ],
+  "format": "narration",
+  "segments": [
+    {
+      "speaker": "narrator",
+      "text": "A single agent working alone hits a ceiling. It can't review its own work objectively, it can't parallelize, and it can't specialize. Multi-agent delegation solves this with three patterns, each with different trade-offs.",
+      "chapter": "The problem",
+      "sources": [
+        "docs/course/concepts/delegation-patterns.md"
+      ]
+    },
+    {
+      "speaker": "narrator",
+      "text": "The Coordinator pattern gives each worker a self-contained specification with zero context inheritance. The coordinator digests findings into precise instructions. This is the safest pattern \u2014 no context leakage between workers \u2014 but the slowest because the coordinator must synthesize everything.",
+      "chapter": "Coordinator",
+      "sources": [
+        "backend/app/delegation/patterns.py"
+      ]
+    },
+    {
+      "speaker": "narrator",
+      "text": "The Fork pattern copies the full parent context into a child. It's fast for quick exploration but restricted to single-level \u2014 a forked child cannot fork again. This recursive fork guard prevents context explosion.",
+      "chapter": "Fork",
+      "sources": [
+        "backend/app/delegation/patterns.py"
+      ]
+    },
+    {
+      "speaker": "narrator",
+      "text": "The Swarm pattern uses a shared task queue. Peers register, claim tasks, and post results. No peer can spawn new peers \u2014 it's a flat roster. This works well for batch processing where many independent tasks need parallel execution.",
+      "chapter": "Swarm",
+      "sources": [
+        "backend/app/delegation/patterns.py"
+      ]
+    },
+    {
+      "speaker": "narrator",
+      "text": "Each worker gets filtered tools. Researchers get read-only access. Implementers get specific write tools. Verifiers get no tools at all \u2014 they analyze, they don't act. This principle of least privilege prevents accidents.",
+      "chapter": "Tool filtering",
+      "sources": [
+        "backend/app/delegation/patterns.py"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "schema": "cogentrex.learning.mind-map",
+  "version": 1,
+  "artifact_id": "mindmap-context-compaction",
+  "pack_id": "harness-compaction",
+  "title": "Mind Map: Context Compaction",
+  "language": "en",
+  "source_commit": "f89a1e1c93348cb13ffa9f076494a7c127b84c32",
+  "limitations": [
+    "Generated from concept pages; not yet reviewed.",
+    "Verify against current main."
+  ],
+  "sources": [
+    "docs/course/concepts/context-compaction.md"
+  ],
+  "root": {
+    "id": "root",
+    "label": "Context Compaction",
+    "summary": "Multi-layer pipeline for token budget management",
+    "details": "Lossless \u2192 Distill \u2192 Lossy with circuit breaker",
+    "sources": [
+      "docs/course/concepts/context-compaction.md"
+    ],
+    "children": [
+      {
+        "id": "l1",
+        "label": "Layer 1: Lossless",
+        "summary": "Zero information loss",
+        "details": "Remove duplicates, empty messages",
+        "sources": [
+          "backend/app/services/multi_layer_compact.py"
+        ],
+        "children": []
+      },
+      {
+        "id": "l2",
+        "label": "Layer 2: Distill",
+        "summary": "Truncate verbose content",
+        "details": "Keep first+last portions with recovery pointer",
+        "sources": [
+          "backend/app/services/multi_layer_compact.py"
+        ],
+        "children": []
+      },
+      {
+        "id": "l3",
+        "label": "Layer 3: Lossy",
+        "summary": "LLM summarization",
+        "details": "Circuit breaker after N cycles",
+        "sources": [
+          "backend/app/services/multi_layer_compact.py"
+        ],
+        "children": []
+      },
+      {
+        "id": "commands",
+        "label": "Chat Commands",
+        "summary": "/compact /clear /resume /init",
+        "details": "User-facing context management",
+        "sources": [
+          "backend/app/services/chat_commands.py"
+        ],
+        "children": []
+      }
+    ]
+  }
+}
