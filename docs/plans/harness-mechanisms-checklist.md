@@ -1,0 +1,227 @@
+# Complete Harness Mechanisms Checklist
+
+Extracted from 4 frontier product breakdowns (Claude Code, Codex, Pi, DeepSeek) and 6 reference patterns (Skill Runtime, Tool Registry, Multi-Agent, Context Engineering, Memory Persistence, Lifecycle Bootstrap).
+
+Source key: **CC**=Claude Code, **CX**=Codex, **PI**=Pi, **DS**=DeepSeek, **SR**=Skill Runtime, **TR**=Tool Registry, **MA**=Multi-Agent, **CE**=Context Engineering, **MP**=Memory Persistence, **LB**=Lifecycle Bootstrap.
+
+---
+
+## 1. INSTRUCTIONS
+
+- [ ] **Layered instruction scopes** — Organization → User → Project → Local override hierarchy (CC, MP)
+- [ ] **Organization-policy-level instructions** — Centrally managed at `/etc/` or org path (CC)
+- [ ] **User-level instruction file** — `~/.claude/CLAUDE.md` or equivalent personal prefs (CC)
+- [ ] **Project-level instruction file** — `./CLAUDE.md` or `./AGENTS.md` shared with repo (CC, CX, PI)
+- [ ] **Local-level instruction file** — `.local.md` variant gitignored per-developer (CC)
+- [ ] **Subdirectory on-demand loading** — Instructions in subdirs loaded only when agent reads files there (CC)
+- [ ] **Auto memory** — Agent proactively writes notes from corrections/preferences, persisted across sessions (CC, MP)
+- [ ] **Auto memory bounded** — Hard cap on auto-memory loaded per session (e.g., 200 lines / 25KB) (CC, MP)
+- [ ] **Instructions as directory page** — Root instruction file kept to ~100 lines, pointing to `docs/` for details (CX)
+- [ ] **Invariants-only instructions** — Instruction files contain only inviolable constraints and verification commands, not implementation details (CX)
+- [ ] **Hierarchical AGENTS.md loading** — Global → parent directories upward → current directory (PI)
+- [ ] **CLAUDE.md compatibility** — Support loading both AGENTS.md and CLAUDE.md formats (PI)
+- [ ] **Replaceable system prompt** — SYSTEM.md can replace or append to default system prompt per project (PI)
+- [ ] **Minimal core system prompt** — Core does not pack long if/then rules; extends via skills/extensions on demand (PI)
+- [ ] **Plugin-injected instructions** — Rules and skills injected as plugins rather than static files (DS)
+- [ ] **`/init` command** — Auto-analyze codebase and generate initial instruction file with build/test/convention info (CC)
+- [ ] **Local-wins priority** — Most-local instruction always takes priority over broader scopes (CC, MP)
+- [ ] **Instruction files are version-controlled** — Instructions live in repo, not in chat history (CC, CX, PI)
+
+## 2. TOOLS
+
+- [ ] **Skills as on-demand capability packages** — Self-contained packages with instructions + tools, loaded on trigger (CC, PI, SR)
+- [ ] **SKILL.md with frontmatter triggers** — Skill entry file has frontmatter explaining when to activate (SR)
+- [ ] **Progressive disclosure for skills** — Skill details enter context only when triggered, not at startup (CC, PI, SR, CE)
+- [ ] **Skills contain references/ subdirectory** — Deeper material loaded only when relevant (SR)
+- [ ] **Skills contain templates/ subdirectory** — Copyable artifacts for target repos (SR)
+- [ ] **Skills contain evals/ subdirectory** — Representative quality checks bundled with skill (SR)
+- [ ] **MCP (JSON-RPC) protocol for external tools** — Standard interface for model to reach external systems (CC)
+- [ ] **Hooks on lifecycle events** — Deterministic scripts on PreToolUse, PostToolUse, Stop events (CC)
+- [ ] **TypeScript extension hooks** — Hooks attached to built-in lifecycle events as programmable surface (PI)
+- [ ] **Four extension types with separation of responsibilities** — Instructions (what), Skills (how), MCP (where), Hooks (when) (CC)
+- [ ] **Fail-closed tool registry** — Tools are non-concurrent and non-read-only unless explicitly marked safe (TR)
+- [ ] **Per-call concurrency classification** — Same tool safe for some inputs, unsafe for others; classified per invocation (TR)
+- [ ] **Concurrent-safe tools run in parallel; unsafe serialize** — Runtime partitions tool batches into parallel/serial segments (TR)
+- [ ] **Tool isReadOnly flag** — Explicit boolean marking tool as read-only (TR)
+- [ ] **Tool isConcurrentSafe flag** — Explicit boolean marking tool as concurrent-safe (TR)
+- [ ] **Custom per-tool permission logic** — Optional `permissionCheck` function per tool (TR)
+- [ ] **Capability seam architecture** — Service Definition → Service Provider → Consumer three-layer abstraction (DS)
+- [ ] **Multiple providers per capability** — E.g., Local FS / E2B FS / Remote FS all behind same tool interface (DS)
+- [ ] **Swappable providers without changing model-facing tools** — Switch environment underneath while tool surface stays the same (DS)
+- [ ] **Everything is a plugin** — Model adapter, tool registry, session log, agent loop itself are all plugins (DS)
+- [ ] **No privileged core** — Extend by mounting a plugin beside others, not by patching core (DS)
+- [ ] **Tool safety review checklist** — Classification, permission requirements, and testing steps before enabling new tools (TR)
+
+## 3. ENVIRONMENT
+
+- [ ] **Git worktree isolation per task** — Every task runs in an independent git worktree (CX)
+- [ ] **Local observability stack per worktree** — Logs, metrics, traces paired with each isolated environment (CX)
+- [ ] **Environment-context deltas only** — `build_environment_update_item` outputs only changed fields (CWD, git branch, FS) per turn, not full context (CX)
+- [ ] **In-project settings** — `settings.json` or equivalent for environment configuration (CC)
+- [ ] **SYSTEM.md for environment self-description** — Users declare runtime environment in instruction files (PI)
+- [ ] **Sandbox/FS/Shell providers are replaceable** — Environment fully pluggable including remote (e.g., E2B) (DS)
+- [ ] **Programmatic usage modes** — Scriptable print/JSON modes, RPC protocol, SDK embedding for CI/CD (PI)
+- [ ] **Interactive + automated entry** — Same harness drivable by human interactively or by CI/CD automatically (PI)
+
+## 4. STATE
+
+- [ ] **Append-oriented session storage** — All history appended to `history.jsonl`, never overwritten (CC, DS)
+- [ ] **Five-layer compaction pipeline** — Lossless pruning → structured distillation → lossy LLM summaries with circuit breakers (CC)
+- [ ] **Lossless before lossy compaction** — Remove redundant tool results before any summarization (CC)
+- [ ] **Circuit breakers on compaction** — Prevent excessive compaction cycles (CC)
+- [ ] **`/resume` session recovery** — Resume previous session from append log (CC)
+- [ ] **Fork branches in session history** — Branch from any point in history (CC)
+- [ ] **`/compact` manual compaction command** — User-triggered context compaction (CC, CX)
+- [ ] **Customizable `compact_prompt`** — User can specify how compaction summarization works (CX)
+- [ ] **Write-Select-Compress-Isolate framework** — Four explicit context operations (CX, CE)
+- [ ] **Write strategy** — Persist conclusions into documentation/files, not just conversation (CX, CE)
+- [ ] **Select strategy** — Pull only necessary tokens JIT; AGENTS.md points the way (CX, CE)
+- [ ] **Compress strategy** — Reactive compaction of older turns mid-session (CX, CE)
+- [ ] **Isolate strategy** — Delegated work must not pollute parent context (CX, CE)
+- [ ] **Programmable compaction strategy** — Compaction strategy is replaceable (topic-based, code-aware, alternate model) (PI)
+- [ ] **Automatic compaction triggers** — Triggered on context overflow or retention threshold breach (PI)
+- [ ] **Compaction split point** — Preserves approximately most recent 20,000 tokens; earlier summarized (PI)
+- [ ] **Incremental chain compaction** — Earlier messages summarized into "context handoff" and compacted incrementally (PI)
+- [ ] **Dynamic context injection** — Extensions inject messages before every reasoning turn (PI, DS)
+- [ ] **Message history filtering** — Extensions can filter message history before it reaches the model (PI)
+- [ ] **Session tree** — Sessions stored as trees; `/tree` returns to any historical node (PI)
+- [ ] **Branch from any node** — Continue from any historical point with all branches in same file (PI)
+- [ ] **Session export** — Branches exportable as HTML or gist for sharing (PI)
+- [ ] **Append-only Session Event Log** — Every event appended, never overwritten; replayable (DS)
+- [ ] **"Model-visible means logged" invariant** — Anything reaching a model request must be reconstructable from the log (DS)
+- [ ] **Runtime invariant enforcement** — Automated assertion that model context matches log (DS)
+- [ ] **PROGRESS.md rolling entries** — Maintains rolling progress tracking across sessions (PI community)
+- [ ] **LESSONS.md extraction** — Collects candidate lessons from sessions (PI community)
+- [ ] **VISION.md / STANDARDS.md persistence** — Goals and standards persisted as Markdown files across sessions (PI community)
+- [ ] **Context budget tracking** — Explicit token budget per category (system prompt, instructions, memory, history, working) (CE)
+- [ ] **Hard caps per context block** — Each variable-length block has enforced token limit (CE)
+- [ ] **Compaction trigger at threshold** — Auto-compact when context usage exceeds threshold (e.g., 80%) (CE)
+- [ ] **Truncation recovery pointers** — After truncation, leave pointer to retrieve full output (CE)
+- [ ] **Memoized context builders** — Expensive context assembly cached, invalidated explicitly at mutation points (CE)
+
+## 5. FEEDBACK
+
+- [ ] **Permission system with ML classifier** — Seven modes combined with ML-based risk classifier for tool calls (CC)
+- [ ] **PostToolUse hooks for mandatory checks** — Force checks after tool execution, write results back into context (CC)
+- [ ] **Stop hooks** — Intervene when agent declares completion to prevent premature victory (CC)
+- [ ] **Verification commands in instruction files** — Explicit test/CI commands listed in AGENTS.md as executable verification paths (CX)
+- [ ] **Approval policies** — High-risk operations require approval before execution (CX)
+- [ ] **Plan mode** — Produce plan and request approval before execution (CX)
+- [ ] **Multi-source permission pipeline** — Policy (org) → User settings → Project rules → Local overrides → Session grants (TR, CC)
+- [ ] **Bypass-immune protected paths** — Certain paths never auto-approved (e.g., `/etc/**`, `.git/**`, `node_modules/**`) (TR)
+- [ ] **Bypass-immune protected commands** — Certain commands always require confirmation (e.g., `rm -rf`, `DROP TABLE`) (TR)
+- [ ] **Stateful permission evaluator** — Tracks denials, transforms modes (auto→ask after denial), updates session state (TR)
+- [ ] **Permission mode transformation** — Auto-approve downgrades to ask-first after denial events (TR)
+- [ ] **tools/pre-execute permission gate** — Permission/guard/policy/hook checks before tool execution (DS)
+- [ ] **tools/post-execute result processing** — Post-execution hooks for result validation (DS)
+- [ ] **Extension-based dangerous command interception** — Hooks intercept dangerous commands as permission gate (PI)
+- [ ] **Protected path enforcement** — Prohibit writes to sensitive files (e.g., `.env`) via hooks (PI)
+- [ ] **Tool output modification** — Hooks modify tool output before passing to model (PI)
+- [ ] **External signal injection** — Hooks inject messages from file watchers/Webhooks/CI to wake agent (PI)
+
+## 6. LIFECYCLE
+
+- [ ] **Core while loop** — Call model → execute tool → observe result → call model again (CC, PI)
+- [ ] **Full event pipeline** — turn/start → claim input → assemble → agent/pre-step → step/start → LLM request → stream → message → tool/call → pre-execute → execute → post-execute → result → step/end → next turn (DS)
+- [ ] **Every loop step is an event point** — Permissions, memory, policies, logs attach as listeners (DS)
+- [ ] **PreToolUse lifecycle event** — Hook point before tool execution (CC, LB)
+- [ ] **PostToolUse lifecycle event** — Hook point after tool execution (CC, LB)
+- [ ] **Stop lifecycle event** — Hook point when agent declares completion (CC)
+- [ ] **agent/pre-step event** — Inject memory/context before each reasoning step (DS, PI)
+- [ ] **agent/request event** — Modify the model request before sending (DS, PI)
+- [ ] **llm/stream event** — Observe streaming LLM output (DS)
+- [ ] **agent/turn-stopping event** — Decide whether reasoning should continue (DS)
+- [ ] **Session start/end hooks** — onSessionStart, onSessionEnd events (LB)
+- [ ] **Pre/post prompt submit hooks** — prePromptSubmit, postPromptSubmit events (LB)
+- [ ] **Hook trust is all-or-nothing** — Untrusted workspace disables ALL hooks, not just suspicious ones (LB)
+- [ ] **Session-scoped hooks are ephemeral** — Cleaned on session end (LB)
+- [ ] **Dependency-ordered bootstrap** — Multiple entry modes (CLI, server, SDK) share same ordered bootstrap path (LB)
+- [ ] **Memoized bootstrap stages** — Re-init is fast; stages not re-run if already complete (LB)
+- [ ] **Trust boundary as explicit bootstrap inflection** — Security-sensitive subsystems don't activate before trust established (LB)
+- [ ] **Four-stage bootstrap** — Minimal context → Load tools (read-only) → Trust boundary → Load sensitive subsystems (LB)
+- [ ] **Safe-mode fallback** — If any bootstrap stage fails, session remains read-only (LB)
+- [ ] **Typed, prefixed work unit IDs** — Long-running tasks get IDs like `extractor-001` (LB)
+- [ ] **Strict task state machine** — running → completed | failed | killed (LB)
+- [ ] **Disk-backed task output** — Long-running work output persisted to disk, not just in-memory (LB)
+- [ ] **Two-phase eviction** — Disk output cleaned eagerly at terminal state; in-memory records cleaned lazily after parent notified (LB)
+- [ ] **Drain-on-shutdown** — Background tasks drained on graceful shutdown (LB)
+
+## 7. SKILLS
+
+- [ ] **Skill = self-contained capability package** — Contains instructions + tools + references (CC, PI, SR)
+- [ ] **SKILL.md as entry point** — Concise entry file with frontmatter triggers (SR)
+- [ ] **Trigger-based activation** — Skills load automatically based on context triggers (CC, SR)
+- [ ] **Progressive disclosure** — Skill body gives shortest reliable workflow; details in references/ (SR, CE)
+- [ ] **Three-tier loading** — Tier 1 metadata (always present) → Tier 2 instructions (on activation) → Tier 3 resources (on demand) (CE)
+- [ ] **Prompt-cache friendly** — On-demand skill loading avoids blowing up prompt cache (PI)
+- [ ] **Agent Skills standard** — Skills follow a published standard format (PI)
+- [ ] **Skill router** — Extension that routes to appropriate skill based on task (PI community)
+- [ ] **skill_view / skills add** — CLI commands to view and install skills (SR)
+- [ ] **Validation checklist for skills** — SKILL.md exists, referenced files exist, templates safe to copy, install tested, no private paths (SR)
+- [ ] **Reusable across projects** — Skills apply across multiple repositories (SR)
+- [ ] **No secrets in skills** — Tokens, credentials, private URLs excluded from skill packages (SR)
+
+## 8. CONNECTORS
+
+- [ ] **MCP (Model Context Protocol)** — JSON-RPC protocol for connecting external systems (CC)
+- [ ] **RPC protocol for programmatic access** — Machine-drivable interface for external orchestration (PI)
+- [ ] **SDK embedding** — Harness embeddable as library in other programs (PI)
+- [ ] **Webhook injection** — External webhooks can inject messages into agent context (PI)
+- [ ] **File watcher injection** — File system changes can wake/trigger agent (PI)
+- [ ] **CI/CD integration** — Same harness drivable by CI/CD pipelines (PI, CX)
+- [ ] **Remote sandbox providers** — E2B or other remote execution environments as swappable providers (DS)
+- [ ] **Multiple FS providers** — Local FS, E2B FS, Remote FS behind unified interface (DS)
+
+## 9. SUB-AGENTS
+
+- [ ] **Subagent context isolation** — Each subagent conversation stored in separate sidechain, does NOT inflate parent context (CC)
+- [ ] **spawn_agent / wait_agent** — Explicit core tools for creating and waiting on subagents (CX)
+- [ ] **Subagents inherit parent instructions** — Child inherits AGENTS.md from parent (CX)
+- [ ] **Subagents run in own context** — Independent session history and tool set (CX)
+- [ ] **Subagent configuration files** — `.codex/agents/*.toml` with different models and instructions per agent type (CX)
+- [ ] **Coordinator pattern (zero inheritance)** — Workers start fresh; coordinator synthesizes findings into precise specs (MA)
+- [ ] **Fork pattern (full inheritance, single-level only)** — Child inherits full parent history; recursive forks blocked (MA)
+- [ ] **Swarm pattern (peer-to-peer, flat roster)** — Persistent team with shared task list; teammates cannot spawn teammates (MA)
+- [ ] **Fire-and-forget registration** — Spawn returns ID immediately; results arrive asynchronously (MA)
+- [ ] **Per-worker tool filtering** — Researcher gets read-only tools; implementer gets write tools (MA)
+- [ ] **Self-contained worker prompts** — Coordinator digests context into self-contained specs, not "based on your findings" (MA)
+- [ ] **Recursive fork guard** — Fork tool in child's pool for cache but blocked at call time (MA)
+- [ ] **Coordinator must synthesize** — Coordinator adds value by digesting results, not just delegating (MA)
+- [ ] **Sidechain file storage** — Subagent history in separate files from main agent (CC)
+
+## 10. OBSERVABILITY
+
+- [ ] **Append-only logs** — history.jsonl with complete append-oriented records (CC, DS)
+- [ ] **`/compact` command** — Manual context state management (CC)
+- [ ] **`/clear` command** — Manual context clearing (CC)
+- [ ] **`/init` command** — Initialize before agent starts task (CC)
+- [ ] **Model-visible means logged** — First-principles constraint: anything in model context is logged (DS)
+- [ ] **Runtime reconstructability invariant** — Model requests must be reconstructable from logs (DS)
+- [ ] **Telemetry extension** — Records token usage, cost, and metrics (PI community)
+- [ ] **Session export as HTML/gist** — Observable, shareable session records (PI)
+- [ ] **Per-worktree observability stack** — Logs + metrics + traces per isolated environment (CX)
+- [ ] **Event subscription for behavior recording** — Subscribe to session events for observability (DS, PI)
+- [ ] **Audit logging for tool permissions** — Track denials and permission evaluations (TR)
+- [ ] **Typed prefixed IDs for work tracking** — Observable work unit tracking with meaningful IDs (LB)
+
+## 11. SECURITY
+
+- [ ] **Seven permission modes** — Graduated permission levels from allow to deny (CC)
+- [ ] **ML-based risk classifier** — Classify tool calls by risk level automatically (CC)
+- [ ] **All-or-nothing hook trust** — Untrusted workspace skips ALL hooks (LB)
+- [ ] **Trust boundary as bootstrap gate** — Security-sensitive subsystems blocked until trust established (LB)
+- [ ] **Protected paths list** — Never auto-approve operations on sensitive paths (TR)
+- [ ] **Protected commands list** — Always require confirmation for destructive commands (TR)
+- [ ] **Policy → User → Project → Local → Session priority** — Strict priority order for permission evaluation (TR, CC)
+- [ ] **Permission denial tracking** — Denials tracked for audit and rate limiting (TR)
+- [ ] **Mode transformation on denial** — Auto-approve downgrades to ask-first after denial (TR)
+- [ ] **Read-only tools loaded before trust** — Only safe tools available until trust boundary crossed (LB)
+- [ ] **Write tools gated on trust** — Edit/shell/exec tools registered only after trust established (LB)
+- [ ] **Consent recorded in session state** — Trust consent is auditable (LB)
+- [ ] **Workspace trust evaluation** — Binary trusted/untrusted workspace classification (LB)
+- [ ] **Path-write protection via hooks** — Prohibit writes to sensitive files like `.env` (PI)
+- [ ] **Code state checkpointing** — Checkpoint code state when switching tasks for safety/rollback (PI)
+
+---
+
+**Total: 153 concrete mechanisms across 11 subsystems.**
