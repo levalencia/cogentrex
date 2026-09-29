@@ -1,6 +1,6 @@
 # Article Series Plan — Harness Engineering from Scratch
 
-> **Goal:** 32 articles teaching developers how to build every frontier harness mechanism
+> **Goal:** 30 articles teaching developers how to build every frontier harness mechanism
 > **Platform:** Medium (long-form) + LinkedIn (native posts)
 > **Repo:** github.com/levalencia/cogentrex
 > **Voice:** Engineering-first, beginner-accessible, evidence-backed
@@ -8,62 +8,69 @@
 
 ## Seasons
 
-### Season 1: Foundations (Articles 1–8)
+### Season 1: Build the Harness (Articles 1–8)
 
-| # | Title | Concept page | Module | Status |
-|---|-------|-------------|--------|--------|
-| 1 | Why Capable Agents Still Fail | agent-anatomy | 00 | planned |
-| 2 | What a Harness Actually Is — Five Subsystems | agent-anatomy | 00 | planned |
-| 3 | The Repository Must Be the Source of Truth | typed-runtime | 02 | planned |
-| 4 | How Cogentrex Governs an Agent Runtime | react | 03 | planned |
-| 5 | Tool Contracts: Schema Validation Before Execution | tool-contracts | 04 | planned |
-| 6 | Hooks and Extensions: Making the Harness Programmable | hooks-and-extensions | 04 | planned |
-| 7 | Policy and Approvals: Deterministic Trust Boundaries | policy-engine | 05 | planned |
-| 8 | Graduated Security: Seven Permission Modes | graduated-security-model | 05 | planned |
+| # | Title | Status |
+|---|-------|--------|
+| 1 | I Built an AI Agent Harness from Scratch — Here's What Frameworks Abstract Away | published |
+| 2 | Building a Typed ReAct Loop Without a Framework | published |
+| 3 | Tool Contracts: The Boundary Between Intent and Execution | draft |
+| 4 | Why Tool Access Is Not Authorization | draft |
+| 5 | State Machines, Stop Reasons, and Bounded Execution | planned |
+| 6 | Context Is Not Memory | planned |
+| 7 | Durable Runs, Replay, and Auditability | planned |
+| 8 | Sandboxing Agent-Generated Code | planned |
 
-### Season 2: Knowledge & State (Articles 9–16)
+### Season 2: Compare and Contrast (Articles 9–12)
 
-| # | Title | Concept page | Module | Status |
-|---|-------|-------------|--------|--------|
-| 9 | Context Engineering: What Information Enters a Run | context-windows | 06 | planned |
-| 10 | Multi-Layer Context Compaction | context-compaction | 06 | planned |
-| 11 | Session Branching: Fork, Resume, and Never Lose Work | session-branching | 06 | planned |
-| 12 | Encrypted Memory: Per-Conversation Key Derivation | encrypted-memory | 06 | planned |
-| 13 | The Run Ledger: Append-Only Evidence You Can Replay | run-ledger | 07 | planned |
-| 14 | RAG Done Right: Retrieval, Grounding, and Citations | rag | 08 | planned |
-| 15 | Faithfulness and Groundedness: When Answers Lie | faithfulness | 08 | planned |
-| 16 | Evaluation Harness: Measuring Agent Quality | evaluation-harness | 09 | planned |
+| # | Title | Status |
+|---|-------|--------|
+| 9 | Custom ReAct Loop vs LangGraph | planned |
+| 10 | Tools vs Skills vs MCP | planned |
+| 11 | AutoGen and CrewAI: When Multi-Agent Abstractions Help | planned |
+| 12 | Pydantic Models as Agent Runtime Contracts | planned |
 
-### Season 3: Reliability & Delegation (Articles 17–22)
+### Season 3: Evaluate and Observe (Articles 13–18)
 
-| # | Title | Concept page | Module | Status |
-|---|-------|-------------|--------|--------|
-| 17 | Resilience Patterns: Retry, Breaker, Fallback, Rate Limit | circuit-breaker | 10 | planned |
-| 18 | Bounded Delegation: Adding a Second Opinion | bounded-delegation | 11 | planned |
-| 19 | Delegation Patterns: Coordinator, Fork, and Swarm | delegation-patterns | 11 | planned |
-| 20 | Governed MCP: External Tools Without Trust Leaks | mcp | 12 | planned |
-| 21 | Skills and Project Instructions: Codified Knowledge | skills-project-instructions | 12 | planned |
-| 22 | The Verifier Child: Claims, Evidence, and Structured Verdicts | verifier-child | 11 | planned |
+| # | Title | Status |
+|---|-------|--------|
+| 13 | Evaluating Agents with Paired Experiments | planned |
+| 14 | Observing an Agent with OpenTelemetry and Logfire | planned |
+| 15 | Token, Time, and Monetary Budgets | planned |
+| 16 | Retries, Circuit Breakers, and Failure Recovery | planned |
+| 17 | Why More Agents Can Produce Worse Results | planned |
+| 18 | Grounding, Citations, and the Limits of Verifiers | planned |
 
-### Season 4: Advanced Harness (Articles 23–28)
+### Season 4: Deploy to Azure (Articles 19–24)
 
-| # | Title | Concept page | Module | Status |
-|---|-------|-------------|--------|--------|
-| 23 | Four-Stage Bootstrap: From Minimal to Full Power | graduated-security-model | 14 | planned |
-| 24 | Worktree Isolation: Parallel Agents Without Collisions | worktree-isolation | 14 | planned |
-| 25 | Tool Concurrency: When to Parallelize, When to Serialize | tool-contracts | 04 | planned |
-| 26 | The Effect Ledger: Exactly-Once External Effects | idempotency | 07 | planned |
-| 27 | Monetary Budgets: Preventing Runaway LLM Costs | cost-usage-budgets | 07 | planned |
-| 28 | Bounded Reflection: One-Pass Self-Critique | generic-self-reflection | 03 | planned |
+| # | Title | Status |
+|---|-------|--------|
+| 19 | Deploying a Custom Agent Harness to Azure (VM + Compose) | planned |
+| 20 | Managed Identity and Key Vault for Agent Systems | planned |
+| 21 | Agent Tracing with Azure Monitor and Application Insights | planned |
+| 22 | PostgreSQL, Redis, and Durable Agent State on Azure | planned |
+| 23 | CI/CD and Safe Rollouts for Agent Systems on Azure | planned |
+| 24 | Secure Networking for Agent Tools and Data | planned |
 
-### Season 5: Operations & Capstone (Articles 29–32)
+### Season 5: Foundry Comparison & Capstone (Articles 25–30)
 
-| # | Title | Concept page | Module | Status |
-|---|-------|-------------|--------|--------|
-| 29 | Observability: Logs, Traces, Metrics, and Events | structured-logging | 13 | planned |
-| 30 | Local Operations: Docker, Migrations, Backup, Recovery | docker-compose | 14 | planned |
-| 31 | The Complete Harness: 183 Mechanisms in One Repository | capstone | 15 | planned |
-| 32 | What I Learned Building Every Frontier Harness Mechanism | capstone | 15 | planned |
+| # | Title | Status |
+|---|-------|--------|
+| 25 | Custom Harness vs Microsoft Foundry Agent Service | planned |
+| 26 | Running the Same Agent as a Foundry Hosted Agent | planned |
+| 27 | Tool and MCP Integration in Microsoft Foundry | planned |
+| 28 | Evaluating Custom and Hosted Agents with the Same Dataset | planned |
+| 29 | Observability and Cost Comparison | planned |
+| 30 | Build vs Buy: Choosing Your Agent Runtime | planned |
+
+## Publication links
+
+| # | Medium | LinkedIn |
+|---|--------|----------|
+| 1 | [Published](https://medium.com/python-in-plain-english/built-an-ai-agent-harness-from-scratch-heres-what-frameworks-abstract-away-6a1174a98f79) | posted |
+| 2 | [Published](https://medium.com/@luisevalencia/building-a-typed-react-loop-without-a-framework-0c7b88c1c981) | posted |
+| 3 | — | — |
+| 4 | — | — |
 
 ## Article contract
 
@@ -78,30 +85,32 @@ Every finished article MUST include:
 8. Fair framework comparison (when relevant)
 9. Bounded reader exercise
 10. "Go deeper" links to the Cogentrex concept page
-11. Link to next article in the series
+11. Series navigation table with back-links and forward teaser
+12. Source map pinned to a specific commit
 
-## Cross-reference matrix
+## Cross-reference contract
 
 Each article maps to:
-- **Understand:** concept page
-- **Follow:** ordered module
-- **See:** Visual Learning artifact (diagram, deck, mind map)
-- **Watch/listen:** audio script / video storyboard
-- **Inspect:** exact source symbols
-- **Verify:** exact tests
+- **Understand:** concept page (GitHub link)
+- **Follow:** ordered module (GitHub link)
+- **Walk through code:** code walkthrough (GitHub link)
+- **See:** Visual Learning artifact (GitHub link)
+- **Inspect:** exact source symbols with line numbers (GitHub link)
+- **Verify:** exact test commands
 - **Continue:** next article
 
 ## Publication workflow
 
 ```
-planned → source-grounded → draft complete → Luis review →
-revision → evidence recheck → ready to publish → published →
-impact recorded in MVP-CONTRIBUTION-LOG.md
+planned → draft → Luis review → revision → published →
+LinkedIn post → impact recorded in MVP-CONTRIBUTION-LOG.md
 ```
 
 ## LinkedIn strategy
 
 - Native posts (no external links in body)
+- No code in LinkedIn posts
+- No Cogentrex mentions in LinkedIn posts
 - 3-5 hashtags max: #AgenticAI #HarnessEngineering #AIEngineering #Python
-- Link to Medium article in Featured section
-- Hook formula: contrarian insight + evidence + one question
+- Medium link in first comment only
+- Hook formula: provocative question + evidence + closing question
